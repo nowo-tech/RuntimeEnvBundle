@@ -26,9 +26,11 @@
 | **Method** | Cursor agent static pass (`src/`, Flex recipe, demo, this doc + `.github/SECURITY.md`) |
 | **Overall risk** | **Medium** |
 | **Grade** | **Pass (conditional)** |
-| **Record** | [`BUNDLES_SECURITY_ANALYSIS.md`](../../BUNDLES_SECURITY_ANALYSIS.md) §4 / §7.2 / Appendix X |
+| **Record** | This document (in-package). Monorepo catalog row: `BUNDLES_SECURITY_ANALYSIS.md` §4 / §7.2 / Appendix X |
 
 No Critical/High findings. Catalog checklist ✅ for REQ-SEC-004 once the package is listed in the inventory matrix.
+
+This subsection is the in-package REQ-SEC-004 record (date, method, grade, residuals).
 
 ## Residual
 
@@ -39,6 +41,17 @@ No Critical/High findings. Catalog checklist ✅ for REQ-SEC-004 once the packag
 - Multi-worker: after save, other workers see updates after their next request reset (no shared in-memory cache by design)
 - Encryptor key material remains an application secret (DoctrineEncryptBundle configuration)
 - Twig `runtime_env('KEY')` returns decrypted strings — do not expose secrets in public HTML
+
+## Reporting a vulnerability
+
+Report security issues **privately**:
+
+1. Do **not** open a public GitHub issue for security-sensitive bugs.
+2. Use [GitHub Security Advisories](https://github.com/nowo-tech/RuntimeEnvBundle/security/advisories) or email **hectorfranco@nowo.tech** / **security@nowo.tech**.
+3. Include steps to reproduce, affected versions, and impact.
+4. We will acknowledge and coordinate disclosure after a fix is available.
+
+See also [`.github/SECURITY.md`](../.github/SECURITY.md) for supported versions and reporting policy.
 
 ## Release security checklist (12.4.1)
 

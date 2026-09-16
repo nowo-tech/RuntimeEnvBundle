@@ -13,6 +13,7 @@ use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormView;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -118,7 +119,7 @@ final class RuntimeEnvManageController extends AbstractController
         ]);
     }
 
-    public function delete(Request $request, int $id): Response
+    public function delete(Request $request, int $id): RedirectResponse
     {
         $variable = $this->repository->find($id);
         if (!$variable instanceof RuntimeEnvVariable) {

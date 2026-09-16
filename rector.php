@@ -10,7 +10,9 @@ declare(strict_types=1);
  *
  * @see https://getrector.com/documentation
  */
+use Rector\CodeQuality\Rector\Concat\DirnameDirConcatStringToDirectStringPathRector;
 use Rector\Config\RectorConfig;
+use Rector\TypeDeclaration\Rector\Class_\TypedPropertyFromCreateMockAssignRector;
 use Rector\ValueObject\PhpVersion;
 
 return RectorConfig::configure()
@@ -28,4 +30,8 @@ return RectorConfig::configure()
     ->withSkip([
         __DIR__ . '/demo',
         __DIR__ . '/vendor',
+        // Keep MockObject&Interface intersection types on test properties
+        TypedPropertyFromCreateMockAssignRector::class,
+        // Keep dirname(__DIR__) . '/Entity' (realpath form matches tests / Doctrine mapping)
+        DirnameDirConcatStringToDirectStringPathRector::class,
     ]);
