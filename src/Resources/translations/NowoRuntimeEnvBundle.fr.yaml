@@ -1,0 +1,24 @@
+runtime_env:
+    index:
+        title: Variables d'environnement runtime
+        subtitle: Les valeurs sont chiffrées au repos (DoctrineEncryptBundle). Les changements s'appliquent à la requête suivante sans redémarrer le worker FrankenPHP.
+        empty: Aucune variable pour le moment.
+        actions: Actions
+    form:
+        name: Nom
+        value: Valeur
+        description: Description
+        enabled: Activée
+        new_title: Nouvelle variable
+        edit_title: Modifier la variable
+    action:
+        new: Nouvelle variable
+        edit: Modifier
+        delete: Supprimer
+        delete_confirm: Supprimer cette variable ?
+        save: Enregistrer
+        back: Retour à la liste
+    flash:
+        created: Variable créée.
+        updated: Variable mise à jour.
+        deleted: Variable supprimée.

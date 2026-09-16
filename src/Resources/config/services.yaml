@@ -1,0 +1,14 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+
+    Nowo\RuntimeEnvBundle\Controller\RuntimeEnvManageController:
+        tags: ['controller.service_arguments']
+
+    Nowo\RuntimeEnvBundle\EventSubscriber\RuntimeEnvAccessSubscriber:
+        tags: ['kernel.event_subscriber']
+
+    Nowo\RuntimeEnvBundle\Form\RuntimeEnvVariableType: ~
+    Nowo\RuntimeEnvBundle\Form\RuntimeEnvDeleteType: ~

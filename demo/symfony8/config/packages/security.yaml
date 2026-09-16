@@ -1,0 +1,29 @@
+security:
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: auto
+
+    providers:
+        users_in_memory:
+            memory: null
+
+    firewalls:
+        dev:
+            pattern: ^/(_profiler|_wdt|css|images|js)/
+            security: false
+        main:
+            lazy: true
+            provider: users_in_memory
+            # Demo: panel uses allow_unauthenticated; host access_control stays open for local demo.
+            security: false
+
+    access_control:
+        - { path: ^/_runtime_env, roles: PUBLIC_ACCESS }
+
+when@test:
+    security:
+        password_hashers:
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: auto
+                cost: 4
+                time_cost: 3
+                memory_cost: 10

@@ -1,0 +1,11 @@
+# Nowo Runtime Env Bundle
+nowo_runtime_env:
+    enabled: true
+    table_prefix: runtime_env
+    panel:
+        enabled: true
+        path_prefix: /_runtime_env
+    security:
+        access_roles: [ROLE_ADMIN]
+        # DEV/DEMO only — never enable in production:
+        allow_unauthenticated: false

@@ -1,0 +1,5 @@
+# Host firewall for Runtime Env manage UI (REQ-UI-002 / REQ-SEC).
+# Adjust the path if you change nowo_runtime_env.panel.path_prefix.
+security:
+    access_control:
+        - { path: ^/_runtime_env, roles: ROLE_ADMIN }

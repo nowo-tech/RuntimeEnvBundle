@@ -1,0 +1,133 @@
+{
+    "name": "nowo-tech/runtime-env-bundle",
+    "description": "Store selected application environment variables in the database (encrypted at rest via DoctrineEncryptBundle) with an admin CRUD UI. FrankenPHP worker-safe.",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "keywords": [
+        "php",
+        "symfony",
+        "symfony-bundle",
+        "frankenphp",
+        "environment",
+        "env",
+        "secrets",
+        "encryption",
+        "doctrine",
+        "crud"
+    ],
+    "homepage": "https://github.com/nowo-tech/RuntimeEnvBundle",
+    "support": {
+        "issues": "https://github.com/nowo-tech/RuntimeEnvBundle/issues",
+        "source": "https://github.com/nowo-tech/RuntimeEnvBundle",
+        "docs": "https://github.com/nowo-tech/RuntimeEnvBundle/tree/main/docs",
+        "changelog": "https://github.com/nowo-tech/RuntimeEnvBundle/blob/main/docs/CHANGELOG.md"
+    },
+    "authors": [
+        {
+            "name": "Héctor Franco Aceituno",
+            "email": "hectorfranco@nowo.tech",
+            "homepage": "https://github.com/HecFranco",
+            "role": "Developer"
+        },
+        {
+            "name": "Nowo.tech",
+            "homepage": "https://nowo.tech"
+        }
+    ],
+    "require": {
+        "php": ">=8.2 <8.6",
+        "doctrine/doctrine-bundle": "^2.10 || ^3.0",
+        "doctrine/orm": "^2.15 || ^3.0",
+        "nowo-tech/doctrine-encrypt-bundle": "^2.2",
+        "nowo-tech/ui-kit-bundle": "^1.4",
+        "symfony/config": "^7.4 || ^8.0",
+        "symfony/dependency-injection": "^7.4 || ^8.0",
+        "symfony/form": "^7.4 || ^8.0",
+        "symfony/framework-bundle": "^7.4 || ^8.0",
+        "symfony/http-foundation": "^7.4 || ^8.0",
+        "symfony/http-kernel": "^7.4 || ^8.0",
+        "symfony/routing": "^7.4 || ^8.0",
+        "symfony/security-bundle": "^7.4 || ^8.0",
+        "symfony/security-core": "^7.4 || ^8.0",
+        "symfony/security-csrf": "^7.4 || ^8.0",
+        "symfony/twig-bundle": "^7.4 || ^8.0",
+        "symfony/validator": "^7.4 || ^8.0",
+        "symfony/yaml": "^7.4 || ^8.0",
+        "twig/extra-bundle": "^3.12",
+        "twig/string-extra": "^3.12",
+        "twig/twig": "^3.12"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "nowo-tech/phpstan-frankenphp": "^1.0",
+        "phpstan/extension-installer": "^1.4",
+        "phpstan/phpstan": "^2.0",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpstan/phpstan-symfony": "^2.0",
+        "phpunit/phpunit": "^10.0",
+        "rector/rector": "^2.0",
+        "vincentlanglet/twig-cs-fixer": "^4.0"
+    },
+    "suggest": {
+        "symfony/flex": "For automatic recipe installation"
+    },
+    "autoload": {
+        "psr-4": {
+            "Nowo\\RuntimeEnvBundle\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Nowo\\RuntimeEnvBundle\\Tests\\": "tests/"
+        }
+    },
+    "archive": {
+        "exclude": [
+            "/demo",
+            "/.cursor"
+        ]
+    },
+    "extra": {
+        "symfony": {
+            "bundle": "Nowo\\RuntimeEnvBundle\\NowoRuntimeEnvBundle"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "root-version": "0.1.0-dev",
+        "allow-plugins": {
+            "phpstan/extension-installer": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "scripts": {
+        "test": "phpunit --colors=always",
+        "test-unit": "phpunit --testsuite=Unit",
+        "test-coverage": "phpunit --colors=always --coverage-html coverage --coverage-clover coverage.xml --coverage-text",
+        "cs-check": "php-cs-fixer fix --dry-run --diff",
+        "cs-fix": "php-cs-fixer fix",
+        "rector": "rector process",
+        "rector-dry": "rector process --dry-run --no-progress-bar",
+        "phpstan": "phpstan analyse --memory-limit=512M",
+        "composer-update": "composer update --no-interaction",
+        "composer-validate": "composer validate --strict",
+        "qa": [
+            "@cs-check",
+            "@test"
+        ]
+    },
+    "scripts-descriptions": {
+        "test": "Run PHPUnit tests",
+        "test-unit": "Run Unit tests only",
+        "test-coverage": "Run PHPUnit tests with code coverage",
+        "cs-check": "Check code style with PHP-CS-Fixer",
+        "cs-fix": "Fix code style with PHP-CS-Fixer",
+        "rector": "Apply Rector refactoring",
+        "rector-dry": "Run Rector in dry-run mode",
+        "phpstan": "Run PHPStan static analysis",
+        "composer-update": "Update composer.lock (composer update)",
+        "composer-validate": "Validate composer.json (composer validate --strict)",
+        "qa": "Run all quality assurance checks"
+    }
+}

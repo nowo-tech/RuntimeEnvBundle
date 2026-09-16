@@ -1,0 +1,3 @@
+nowo_runtime_env:
+    resource: .
+    type: nowo_runtime_env

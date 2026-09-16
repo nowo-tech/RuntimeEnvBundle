@@ -1,0 +1,17 @@
+# Auto detect text files and perform LF normalization
+* text=auto eol=lf
+
+# Exclude from Packagist / composer archive
+/.github export-ignore
+/.githooks export-ignore
+/.cursor export-ignore
+/demo export-ignore
+/specs export-ignore
+/tests export-ignore
+/.php-cs-fixer.dist.php export-ignore
+/phpstan.neon.dist export-ignore
+/phpunit.xml.dist export-ignore
+/rector.php export-ignore
+/Makefile export-ignore
+/docker-compose.yml export-ignore
+/Dockerfile export-ignore

@@ -1,0 +1,17 @@
+# PHPStan configuration for Runtime Env Bundle.
+#
+# Static analysis on src/ (level 8). REQ-CS-006: empty ignoreErrors.
+parameters:
+    level: 8
+    paths:
+        - src
+    excludePaths:
+        - demo/*
+        - vendor/*
+    reportUnmatchedIgnoredErrors: false
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors: []
+
+includes:
+  - vendor/nowo-tech/phpstan-frankenphp/ruleset-classic.neon
+  - vendor/nowo-tech/phpstan-frankenphp/ruleset-worker.neon

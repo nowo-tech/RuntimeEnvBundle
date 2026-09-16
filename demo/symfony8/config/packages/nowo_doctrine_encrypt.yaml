@@ -1,0 +1,7 @@
+# Halite default profile for RuntimeEnvVariable #[Encrypted] column.
+nowo_doctrine_encrypt:
+    default_profile: default
+    profiles:
+        default:
+            encryptor_class: Halite
+            secret_directory_path: '%kernel.project_dir%'

@@ -1,0 +1,7 @@
+controllers:
+    resource: ../src/Controller/
+    type: attribute
+
+nowo_runtime_env:
+    resource: .
+    type: nowo_runtime_env

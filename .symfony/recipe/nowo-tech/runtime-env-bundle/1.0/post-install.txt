@@ -1,0 +1,8 @@
+Nowo Runtime Env Bundle installed.
+
+1. Configure nowo-tech/doctrine-encrypt-bundle (Halite key) — required for #[Encrypted] values.
+2. Run doctrine migrations / schema update for `{table_prefix}_variables` (default: runtime_env_variables).
+3. Protect `/_runtime_env` via security.access_control (recipe example added).
+4. Inject RuntimeEnvBag or use Twig runtime_env('KEY') — do not expect getenv() / $_ENV.
+
+Docs: https://github.com/nowo-tech/RuntimeEnvBundle/tree/main/docs

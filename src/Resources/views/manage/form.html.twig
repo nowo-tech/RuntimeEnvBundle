@@ -1,0 +1,27 @@
+{% extends '@NowoRuntimeEnvBundle/manage/layout.html.twig' %}
+
+{% block title %}{{ (is_edit ? 'runtime_env.form.edit_title' : 'runtime_env.form.new_title')|trans({}, translation_domain) }}{% endblock %}
+
+{% block body %}
+<section class="nowo-ui-page">
+    <header class="nowo-ui-page-header">
+        <h1>{{ (is_edit ? 'runtime_env.form.edit_title' : 'runtime_env.form.new_title')|trans({}, translation_domain) }}</h1>
+        <a href="{{ path('nowo_runtime_env_index') }}">{{ 'runtime_env.action.back'|trans({}, translation_domain) }}</a>
+    </header>
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="nowo-ui-flash nowo-ui-flash-{{ label }}" role="status">{{ message|trans({}, translation_domain) }}</div>
+        {% endfor %}
+    {% endfor %}
+
+    {{ form_start(form) }}
+        {% for child in form %}
+            {% if not child.rendered %}
+                {{ form_row(child) }}
+            {% endif %}
+        {% endfor %}
+        <button type="submit" class="nowo-ui-btn nowo-ui-btn-primary">{{ 'runtime_env.action.save'|trans({}, translation_domain) }}</button>
+    {{ form_end(form) }}
+</section>
+{% endblock %}

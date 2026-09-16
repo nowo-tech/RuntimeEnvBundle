@@ -1,0 +1,13 @@
+# Demo only — allow_unauthenticated for the manage panel. Never copy to production.
+nowo_runtime_env:
+    enabled: true
+    table_prefix: runtime_env
+    panel:
+        enabled: true
+        path_prefix: /_runtime_env
+    security:
+        access_roles: [ROLE_ADMIN]
+        allow_unauthenticated: true
+    web_ui:
+        css_framework: bootstrap5
+        icon_set: bootstrap-icons

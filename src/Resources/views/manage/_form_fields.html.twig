@@ -1,0 +1,6 @@
+{# Render remaining FormType children in declaration order (REQ-TWIG-003). #}
+{% for child in form %}
+    {% if not child.rendered %}
+        {{ form_row(child) }}
+    {% endif %}
+{% endfor %}

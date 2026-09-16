@@ -1,0 +1,24 @@
+runtime_env:
+    index:
+        title: Runtime-omgevingsvariabelen
+        subtitle: Waarden worden in rust versleuteld (DoctrineEncryptBundle). Wijzigingen gelden bij het volgende request zonder de FrankenPHP-worker te herstarten.
+        empty: Nog geen variabelen.
+        actions: Acties
+    form:
+        name: Naam
+        value: Waarde
+        description: Beschrijving
+        enabled: Actief
+        new_title: Nieuwe variabele
+        edit_title: Variabele bewerken
+    action:
+        new: Nieuwe variabele
+        edit: Bewerken
+        delete: Verwijderen
+        delete_confirm: Deze variabele verwijderen?
+        save: Opslaan
+        back: Terug naar de lijst
+    flash:
+        created: Variabele aangemaakt.
+        updated: Variabele bijgewerkt.
+        deleted: Variabele verwijderd.

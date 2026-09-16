@@ -1,0 +1,24 @@
+runtime_env:
+    index:
+        title: Laufzeit-Umgebungsvariablen
+        subtitle: Werte werden at-rest verschlüsselt (DoctrineEncryptBundle). Änderungen gelten beim nächsten Request ohne Neustart des FrankenPHP-Workers.
+        empty: Noch keine Variablen.
+        actions: Aktionen
+    form:
+        name: Name
+        value: Wert
+        description: Beschreibung
+        enabled: Aktiv
+        new_title: Neue Variable
+        edit_title: Variable bearbeiten
+    action:
+        new: Neue Variable
+        edit: Bearbeiten
+        delete: Löschen
+        delete_confirm: Diese Variable löschen?
+        save: Speichern
+        back: Zurück zur Liste
+    flash:
+        created: Variable erstellt.
+        updated: Variable aktualisiert.
+        deleted: Variable gelöscht.

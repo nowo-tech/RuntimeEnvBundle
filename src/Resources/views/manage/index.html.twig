@@ -1,0 +1,65 @@
+{% extends '@NowoRuntimeEnvBundle/manage/layout.html.twig' %}
+
+{% block title %}{{ 'runtime_env.index.title'|trans({}, translation_domain) }}{% endblock %}
+
+{% block body %}
+<section class="nowo-ui-page">
+    <header class="nowo-ui-page-header">
+        <h1>{{ 'runtime_env.index.title'|trans({}, translation_domain) }}</h1>
+        <p>{{ 'runtime_env.index.subtitle'|trans({}, translation_domain) }}</p>
+        <a class="nowo-ui-btn nowo-ui-btn-primary" href="{{ path('nowo_runtime_env_new') }}">
+            {{ 'runtime_env.action.new'|trans({}, translation_domain) }}
+        </a>
+    </header>
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="nowo-ui-flash nowo-ui-flash-{{ label }}" role="status">{{ message|trans({}, translation_domain) }}</div>
+        {% endfor %}
+    {% endfor %}
+
+    <table class="nowo-ui-table">
+        <thead>
+            <tr>
+                <th>{{ 'runtime_env.form.name'|trans({}, translation_domain) }}</th>
+                <th>{{ 'runtime_env.form.value'|trans({}, translation_domain) }}</th>
+                <th>{{ 'runtime_env.form.enabled'|trans({}, translation_domain) }}</th>
+                <th>{{ 'runtime_env.index.actions'|trans({}, translation_domain) }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for variable in variables %}
+                <tr>
+                    <td><code>{{ variable.name }}</code></td>
+                    <td><code>••••••••</code></td>
+                    <td>{{ variable.enabled ? '✓' : '—' }}</td>
+                    <td>
+                        <a href="{{ path('nowo_runtime_env_edit', {id: variable.id}) }}">{{ 'runtime_env.action.edit'|trans({}, translation_domain) }}</a>
+                        {% set delete_form = delete_forms[variable.id]|default(null) %}
+                        {% if delete_form %}
+                            {{ form_start(delete_form, {
+                                action: path('nowo_runtime_env_delete', {id: variable.id}),
+                                attr: {
+                                    style: 'display:inline',
+                                    onsubmit: "return confirm('" ~ ('runtime_env.action.delete_confirm'|trans({}, translation_domain)|e('js')) ~ "');"
+                                }
+                            }) }}
+                                {% for child in delete_form %}
+                                    {% if not child.rendered %}
+                                        {{ form_row(child) }}
+                                    {% endif %}
+                                {% endfor %}
+                                <button type="submit">{{ 'runtime_env.action.delete'|trans({}, translation_domain) }}</button>
+                            {{ form_end(delete_form) }}
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="4">{{ 'runtime_env.index.empty'|trans({}, translation_domain) }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}
