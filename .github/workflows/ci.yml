@@ -72,12 +72,27 @@ jobs:
 
       - name: Install dependencies with Symfony ${{ matrix.symfony }}
         run: |
-          SYMFONY_PACKAGES="symfony/config:^${{ matrix.symfony }} symfony/dependency-injection:^${{ matrix.symfony }} symfony/framework-bundle:^${{ matrix.symfony }} symfony/http-kernel:^${{ matrix.symfony }} symfony/yaml:^${{ matrix.symfony }}"
+          composer require \
+            "symfony/config:^${{ matrix.symfony }}" \
+            "symfony/dependency-injection:^${{ matrix.symfony }}" \
+            "symfony/event-dispatcher:^${{ matrix.symfony }}" \
+            "symfony/form:^${{ matrix.symfony }}" \
+            "symfony/framework-bundle:^${{ matrix.symfony }}" \
+            "symfony/http-foundation:^${{ matrix.symfony }}" \
+            "symfony/http-kernel:^${{ matrix.symfony }}" \
+            "symfony/routing:^${{ matrix.symfony }}" \
+            "symfony/security-bundle:^${{ matrix.symfony }}" \
+            "symfony/security-core:^${{ matrix.symfony }}" \
+            "symfony/security-csrf:^${{ matrix.symfony }}" \
+            "symfony/twig-bundle:^${{ matrix.symfony }}" \
+            "symfony/validator:^${{ matrix.symfony }}" \
+            "symfony/yaml:^${{ matrix.symfony }}" \
+            --no-interaction --no-update
           if [[ "${{ matrix.symfony }}" == 8.* ]]; then
             # doctrine/doctrine-bundle 2.x supports Symfony only up to 7.x; Symfony 8 needs 3.2+ (PHP 8.4+).
-            SYMFONY_PACKAGES="${SYMFONY_PACKAGES} doctrine/doctrine-bundle:^3.2 doctrine/orm:^3.4"
+            composer require "doctrine/doctrine-bundle:^3.2" "doctrine/orm:^3.4" --no-interaction --no-update
           fi
-          composer update ${SYMFONY_PACKAGES} --with-all-dependencies --no-interaction --prefer-dist --no-progress
+          composer update --with-all-dependencies --no-interaction --prefer-dist --no-progress
 
       - name: Composer audit (Critical/High)
         run: composer audit --locked
