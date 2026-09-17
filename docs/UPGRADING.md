@@ -4,9 +4,18 @@ This guide provides step-by-step instructions for upgrading Runtime Env Bundle b
 
 ## Table of contents
 
+- [From 1.0.0 to 1.0.1](#from-100-to-101)
 - [To 1.0.0 (initial release)](#to-100-initial-release)
 - [Future versions](#future-versions)
 - [Getting help](#getting-help)
+
+## From 1.0.0 to 1.0.1
+
+No breaking changes. **No application upgrade steps.** CI-only fixes for the Symfony 8 matrix.
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
 
 ## To 1.0.0 (initial release)
 

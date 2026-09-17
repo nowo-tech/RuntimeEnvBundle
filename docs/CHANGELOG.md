@@ -8,9 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.0.1] - 2026-09-17](#101---2026-09-17)
 - [[1.0.0] - 2026-09-16](#100---2026-09-16)
 
 ## [Unreleased]
+
+## [1.0.1] - 2026-09-17
+
+### Fixed
+
+- **CI:** Symfony 8.0 / 8.1 matrix jobs resolve correctly by requiring `doctrine/doctrine-bundle` `^3.2` and `doctrine/orm` `^3.4`, and by pinning the full Symfony component set (including `event-dispatcher`) before a full `composer update`.
+
+### Notes
+
+- **No API or configuration changes** for integrators.
+
+[1.0.1]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.0.1
 
 ## [1.0.0] - 2026-09-16
 
