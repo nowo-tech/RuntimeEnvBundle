@@ -118,4 +118,6 @@ return (new Config())
         (new Finder())
             ->in(__DIR__)
             ->exclude(['vendor', 'var', 'coverage', '.phpunit.cache'])
+            // Symfony Flex auto-generated dump; must not be rewritten by CS Fixer.
+            ->notPath('demo/symfony8/config/reference.php')
     );
