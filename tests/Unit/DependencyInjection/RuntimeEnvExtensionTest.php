@@ -63,7 +63,9 @@ final class RuntimeEnvExtensionTest extends TestCase
         self::assertSame(['ROLE_ADMIN'], $container->getParameter('nowo_runtime_env.security')['access_roles']);
 
         $repoDefinition = $container->getDefinition(DoctrineOrmRuntimeEnvVariableRepository::class);
-        self::assertSame('doctrine.orm.default_entity_manager', (string) $repoDefinition->getArgument('$entityManager'));
+        self::assertNull($repoDefinition->getArgument('$entityManager'));
+        self::assertSame('doctrine', (string) $repoDefinition->getArgument('$registry'));
+        self::assertSame('default', $repoDefinition->getArgument('$entityManagerName'));
 
         $metadataDefinition = $container->getDefinition(RuntimeEnvMetadataListener::class);
         self::assertSame('runtime_env_variables', $metadataDefinition->getArgument('$variablesTableName'));
@@ -72,6 +74,7 @@ final class RuntimeEnvExtensionTest extends TestCase
         $bagDefinition = $container->getDefinition(RuntimeEnvBag::class);
         self::assertSame(RuntimeEnvVariableRepositoryInterface::class, (string) $bagDefinition->getArgument('$repository'));
         self::assertTrue($bagDefinition->getArgument('$enabled'));
+        self::assertSame('request_stack', (string) $bagDefinition->getArgument('$requestStack'));
         self::assertSame([['method' => 'reset']], $bagDefinition->getTag('kernel.reset'));
 
         $writerDefinition = $container->getDefinition(RuntimeEnvWriter::class);
@@ -150,6 +153,7 @@ final class RuntimeEnvExtensionTest extends TestCase
         self::assertSame('tenant_runtime', $container->getParameter('nowo_runtime_env.table_prefix'));
         self::assertSame('tenant_runtime_variables', $container->getParameter('nowo_runtime_env.variables_table'));
         self::assertSame('reporting', $container->getParameter('nowo_runtime_env.database.entity_manager'));
+        self::assertSame('reporting', $container->getDefinition(DoctrineOrmRuntimeEnvVariableRepository::class)->getArgument('$entityManagerName'));
         self::assertFalse($container->hasDefinition(RuntimeEnvManageController::class));
         self::assertFalse($container->hasDefinition(RuntimeEnvAccessSubscriber::class));
         self::assertFalse($container->getParameter('nowo_runtime_env.panel.enabled'));

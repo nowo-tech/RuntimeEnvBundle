@@ -9,6 +9,8 @@ use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvBag;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 final class RuntimeEnvBagTest extends TestCase
 {
@@ -76,5 +78,71 @@ final class RuntimeEnvBagTest extends TestCase
         self::assertSame('1', $bag->get('A'));
         $bag->clearRuntimeCache();
         self::assertSame('3', $bag->get('A'));
+    }
+
+    public function testConsecutiveMainRequestsReloadWithoutReset(): void
+    {
+        $this->repository->expects(self::exactly(2))
+            ->method('findAllEnabled')
+            ->willReturnOnConsecutiveCalls(
+                [new RuntimeEnvVariable('API_TOKEN', 'tenant-a'), new RuntimeEnvVariable('REMOVED', 'x')],
+                [new RuntimeEnvVariable('API_TOKEN', 'tenant-b')],
+            );
+
+        $requestStack = new RequestStack();
+        $bag          = new RuntimeEnvBag($this->repository, true, $requestStack);
+
+        $request1 = Request::create('/one');
+        $requestStack->push($request1);
+        self::assertSame('tenant-a', $bag->get('API_TOKEN'));
+        self::assertTrue($bag->has('REMOVED'));
+        $requestStack->pop();
+
+        $request2 = Request::create('/two');
+        $requestStack->push($request2);
+        self::assertSame('tenant-b', $bag->get('API_TOKEN'));
+        self::assertFalse($bag->has('REMOVED'));
+        $requestStack->pop();
+
+        self::assertNotSame($request1, $request2);
+    }
+
+    public function testMapIsMemoizedWithinOneMainRequestIncludingSubRequests(): void
+    {
+        $this->repository->expects(self::once())
+            ->method('findAllEnabled')
+            ->willReturn([new RuntimeEnvVariable('A', '1')]);
+
+        $requestStack = new RequestStack();
+        $bag          = new RuntimeEnvBag($this->repository, true, $requestStack);
+
+        $requestStack->push(Request::create('/main'));
+        self::assertSame('1', $bag->get('A'));
+        $requestStack->push(Request::create('/_fragment'));
+        self::assertSame('1', $bag->get('A'));
+        self::assertTrue($bag->has('A'));
+    }
+
+    public function testSwitchingBetweenHttpAndNonHttpContextsReloads(): void
+    {
+        $this->repository->expects(self::exactly(3))
+            ->method('findAllEnabled')
+            ->willReturnOnConsecutiveCalls(
+                [new RuntimeEnvVariable('A', 'cli')],
+                [new RuntimeEnvVariable('A', 'http')],
+                [new RuntimeEnvVariable('A', 'cli-again')],
+            );
+
+        $requestStack = new RequestStack();
+        $bag          = new RuntimeEnvBag($this->repository, true, $requestStack);
+
+        self::assertSame('cli', $bag->get('A'));
+        self::assertSame('cli', $bag->get('A'));
+
+        $requestStack->push(Request::create('/'));
+        self::assertSame('http', $bag->get('A'));
+        $requestStack->pop();
+
+        self::assertSame('cli-again', $bag->get('A'));
     }
 }

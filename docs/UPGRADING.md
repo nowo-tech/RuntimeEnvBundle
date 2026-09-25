@@ -4,10 +4,23 @@ This guide provides step-by-step instructions for upgrading Runtime Env Bundle b
 
 ## Table of contents
 
+- [From 1.0.1 to 1.0.2](#from-101-to-102)
 - [From 1.0.0 to 1.0.1](#from-100-to-101)
 - [To 1.0.0 (initial release)](#to-100-initial-release)
 - [Future versions](#future-versions)
 - [Getting help](#getting-help)
+
+## From 1.0.1 to 1.0.2
+
+No configuration key changes. Behaviour notes (FrankenPHP worker hardening for `resetKernel=false`):
+
+- The manage-UI access subscriber now listens on `kernel.request` with priority **7** (was 8) and passes `null` as user to the access checker when no security firewall matched the request. Keep `path_prefix` behind a firewall (as already documented); with `security.allow_unauthenticated: true` nothing changes.
+- `DoctrineOrmRuntimeEnvVariableRepository` is wired with `ManagerRegistry` instead of a fixed entity manager. If you instantiate it yourself, `new DoctrineOrmRuntimeEnvVariableRepository($entityManager)` still works; prefer `new DoctrineOrmRuntimeEnvVariableRepository(null, $registry, 'default')`.
+- Repository reads refresh managed `RuntimeEnvVariable` entities from the database; unflushed in-memory changes to those entities are discarded on the next read.
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
 
 ## From 1.0.0 to 1.0.1
 

@@ -15,9 +15,10 @@ To switch: edit `.env`, then `docker compose up -d` (recreate). A plain `restart
 
 ## Worker safety
 
-- `RuntimeEnvBag` is tagged `kernel.reset` and clears its in-memory map between requests.
+- Safe under FrankenPHP worker with **`resetKernel=false`** (scenario B): the bag reloads per main request; the repository re-hydrates from the DB and recovers a closed EntityManager. See [FRANKENPHP-WORKER-AUDIT.md](FRANKENPHP-WORKER-AUDIT.md).
+- `RuntimeEnvBag` is still tagged `kernel.reset` (clears the in-memory map when `services_resetter` runs).
 - The bundle does **not** mutate `$_ENV` / `putenv`.
-- After CRUD save, the bag cache is cleared so the next request reloads from DB (no worker restart).
+- After CRUD save, the bag cache is cleared in the current worker; other workers see changes on their next request (no worker restart).
 
 ## Quick start
 

@@ -4,7 +4,7 @@
 
 > ⭐ **Found this useful?** [Install from Packagist](https://packagist.org/packages/nowo-tech/runtime-env-bundle) · Give it a **star** on [GitHub](https://github.com/nowo-tech/RuntimeEnvBundle) so more developers can find it.
 
-**Database-backed application environment variables** with admin CRUD. Values are **encrypted at rest** with [`nowo-tech/doctrine-encrypt-bundle`](https://github.com/nowo-tech/DoctrineEncryptBundle). Designed for **FrankenPHP worker** (no `$_ENV` / `putenv` mutation; in-memory cache cleared via `ResetInterface`).
+**Database-backed application environment variables** with admin CRUD. Values are **encrypted at rest** with [`nowo-tech/doctrine-encrypt-bundle`](https://github.com/nowo-tech/DoctrineEncryptBundle). Designed for **FrankenPHP worker** (no `$_ENV` / `putenv` mutation; safe with or without `kernel.reset` / `services_resetter`).
 
 ![FrankenPHP Friendly Worker Mode](docs/images/frankenphp-friendly.png)
 
@@ -16,7 +16,7 @@ This bundle is **FrankenPHP worker mode friendly**.
 
 - Doctrine entity `RuntimeEnvVariable` with `#[Encrypted]` value column
 - Admin CRUD at `/_runtime_env` (REQ-UI-002: `ROLE_ADMIN` by default)
-- `RuntimeEnvBag` API + Twig `runtime_env('KEY')` — worker-safe memoization + `kernel.reset`
+- `RuntimeEnvBag` API + Twig `runtime_env('KEY')` — request-scoped memoization (worker-safe even when `resetKernel` is false) + `kernel.reset`
 - Configurable `table_prefix` (default `runtime_env` → table `runtime_env_variables`)
 - UiKit-friendly markup (`nowo-ui-*`)
 
@@ -107,13 +107,14 @@ Demo: `cd demo/symfony8 && make up` → http://localhost:8026 — see [demo/READ
 - [Spec-driven development](docs/SPEC-DRIVEN-DEVELOPMENT.md)
 - [GitHub Spec Kit](docs/SPEC-KIT.md)
 - [Demo with FrankenPHP (development and production)](docs/DEMO-FRANKENPHP.md)
+- [FrankenPHP worker audit (`resetKernel=false`)](docs/FRANKENPHP-WORKER-AUDIT.md)
 - [GitHub Actions CI requirements](docs/GITHUB_CI.md)
 - [PSR evaluation (REQ-CS-007)](docs/PSR.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 
 ## Tests and coverage
 
-- Tests: PHPUnit (PHP) under `tests/Unit/`
+- Tests: PHPUnit (PHP) under `tests/Unit/` and `tests/Integration/` (FrankenPHP worker simulation)
 - Coverage:
   - PHP: 100%
   - TS/JS: N/A

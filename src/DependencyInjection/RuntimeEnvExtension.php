@@ -19,6 +19,7 @@ use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
 use Nowo\RuntimeEnvBundle\Twig\RuntimeEnvTwigExtension;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
@@ -31,7 +32,6 @@ use function dirname;
 use function is_array;
 use function is_string;
 use function rtrim;
-use function sprintf;
 
 final class RuntimeEnvExtension extends Extension implements PrependExtensionInterface
 {
@@ -77,11 +77,11 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
         $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
         $loader->load('services.yaml');
 
-        $emRef = new Reference(sprintf('doctrine.orm.%s_entity_manager', $emName));
-
         $container->setDefinition(DoctrineOrmRuntimeEnvVariableRepository::class, (new Definition(DoctrineOrmRuntimeEnvVariableRepository::class))
             ->setAutowired(false)
-            ->setArgument('$entityManager', $emRef));
+            ->setArgument('$entityManager', null)
+            ->setArgument('$registry', new Reference('doctrine'))
+            ->setArgument('$entityManagerName', $emName));
         $container->setAlias(RuntimeEnvVariableRepositoryInterface::class, DoctrineOrmRuntimeEnvVariableRepository::class);
 
         $container->setDefinition(RuntimeEnvMetadataListener::class, (new Definition(RuntimeEnvMetadataListener::class))
@@ -93,6 +93,7 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
             ->setAutowired(false)
             ->setArgument('$repository', new Reference(RuntimeEnvVariableRepositoryInterface::class))
             ->setArgument('$enabled', (bool) $config['enabled'])
+            ->setArgument('$requestStack', new Reference('request_stack', ContainerInterface::NULL_ON_INVALID_REFERENCE))
             ->addTag('kernel.reset', ['method' => 'reset']));
 
         $container->setDefinition(RuntimeEnvWriter::class, (new Definition(RuntimeEnvWriter::class))

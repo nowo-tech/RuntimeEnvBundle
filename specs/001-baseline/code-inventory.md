@@ -2,7 +2,7 @@
 
 **Baseline spec**: [`spec.md`](spec.md)  
 **Package**: `nowo-tech/runtime-env-bundle`  
-**Last audited**: 2026-09-16
+**Last audited**: 2026-09-25
 
 This file proves that **every production source artifact** under `src/` is inventoried. PHPUnit under `tests/` is out of scope unless promoted in the spec.
 
@@ -17,16 +17,16 @@ This file proves that **every production source artifact** under `src/` is inven
 | `Controller/RuntimeEnvManageController.php` | Admin CRUD | FR-UI-001 |
 | `Doctrine/RuntimeEnvMetadataListener.php` | Table prefix metadata | FR-ORM-001 |
 | `Entity/RuntimeEnvVariable.php` | Encrypted entity | FR-ORM-002 |
-| `EventSubscriber/RuntimeEnvAccessSubscriber.php` | Panel access gate | FR-SEC-001 |
+| `EventSubscriber/RuntimeEnvAccessSubscriber.php` | Panel access gate (priority 7, firewall-aware) | FR-SEC-001, FR-WORKER-003 |
 | `Form/RuntimeEnvDeleteType.php` | CSRF delete form (REQ-TWIG-005) | FR-UI-004 |
 | `Form/RuntimeEnvVariableType.php` | CRUD form | FR-UI-002 |
 | `Repository/RuntimeEnvVariableRepositoryInterface.php` | Repository contract | FR-REP-001 |
-| `Repository/DoctrineOrmRuntimeEnvVariableRepository.php` | ORM repository | FR-REP-002 |
+| `Repository/DoctrineOrmRuntimeEnvVariableRepository.php` | ORM repository (registry + HINT_REFRESH) | FR-REP-002, FR-WORKER-002 |
 | `Routing/RuntimeEnvRouteLoader.php` | Route type `nowo_runtime_env` | FR-RT-001 |
 | `Security/RuntimeEnvAccessCheckerInterface.php` | Access checker contract | FR-SEC-002 |
 | `Security/AllowAllRuntimeEnvAccessChecker.php` | Allow-all checker | FR-SEC-003 |
 | `Security/ConfigurableRuntimeEnvAccessChecker.php` | Role-based checker (REQ-UI-002) | FR-SEC-004 |
-| `Service/RuntimeEnvBag.php` | Runtime read API + ResetInterface | FR-RT-002 |
+| `Service/RuntimeEnvBag.php` | Runtime read API + request-scoped memo + ResetInterface | FR-RT-002, FR-WORKER-001 |
 | `Service/RuntimeEnvWriter.php` | Persist / invalidate | FR-RT-003 |
 | `Twig/RuntimeEnvTwigExtension.php` | `runtime_env()` Twig function | FR-TWIG-001 |
 

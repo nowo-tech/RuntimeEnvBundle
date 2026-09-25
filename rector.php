@@ -11,8 +11,11 @@ declare(strict_types=1);
  * @see https://getrector.com/documentation
  */
 use Rector\CodeQuality\Rector\Concat\DirnameDirConcatStringToDirectStringPathRector;
+use Rector\CodeQuality\Rector\Identical\FlipTypeControlToUseExclusiveTypeRector;
 use Rector\Config\RectorConfig;
+use Rector\Symfony\Symfony72\Rector\StmtsAwareInterface\PushRequestToRequestStackConstructorRector;
 use Rector\TypeDeclaration\Rector\Class_\TypedPropertyFromCreateMockAssignRector;
+use Rector\TypeDeclaration\Rector\Closure\AddClosureNeverReturnTypeRector;
 use Rector\ValueObject\PhpVersion;
 
 return RectorConfig::configure()
@@ -34,4 +37,10 @@ return RectorConfig::configure()
         TypedPropertyFromCreateMockAssignRector::class,
         // Keep dirname(__DIR__) . '/Entity' (realpath form matches tests / Doctrine mapping)
         DirnameDirConcatStringToDirectStringPathRector::class,
+        // Prefer concise null checks over instanceof for nullable constructor deps
+        FlipTypeControlToUseExclusiveTypeRector::class,
+        // Do not rewrite RequestStack push/pop sequences used in worker tests
+        PushRequestToRequestStackConstructorRector::class,
+        // Keep void callbacks that throw without never (PHPUnit stubs)
+        AddClosureNeverReturnTypeRector::class,
     ]);

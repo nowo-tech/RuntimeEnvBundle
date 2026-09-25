@@ -52,4 +52,13 @@ Anything required to boot the kernel / connect to the DB / decrypt fields:
 
 ## FrankenPHP worker
 
-`RuntimeEnvBag` is tagged with `kernel.reset`. Between requests the in-memory map is cleared so values cannot leak across users/requests. After CRUD writes, the bag cache is invalidated immediately for the current process; other workers pick up changes on their next request (next `reset` + reload from DB).
+Safe with or without `kernel.reset` / `services_resetter` (`resetKernel=false`):
+
+- `RuntimeEnvBag` binds its memoized map to the current main HTTP request (`RequestStack` + `WeakReference`). A new main request always reloads from the database.
+- Repository reads use `Query::HINT_REFRESH` and resolve the EntityManager via `ManagerRegistry` (closed managers are replaced).
+- `RuntimeEnvBag` remains tagged `kernel.reset` for classic Symfony resets.
+- After CRUD writes, the bag cache is invalidated immediately for the current process; other workers pick up changes on their next request.
+
+Do **not** store `RuntimeEnvBag::all()` in your own shared service properties — read through the bag each request.
+
+Full audit: [FRANKENPHP-WORKER-AUDIT.md](FRANKENPHP-WORKER-AUDIT.md).

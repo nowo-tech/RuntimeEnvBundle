@@ -9,7 +9,7 @@
 | Manage UI | Unauthorized read/write | REQ-UI-002 `access_roles` + access checker + host `access_control` on path prefix |
 | Mutations | CSRF / session fixation | Symfony Form CSRF on create/update/delete (`RuntimeEnvDeleteType`) |
 | Twig / logs | Accidental secret leak | List UI masks values; do not log `RuntimeEnvBag::all()`; do not render `runtime_env()` on public pages |
-| FrankenPHP worker | Cross-request leak | `ResetInterface` on bag; no `$_ENV`/`putenv` mutation |
+| FrankenPHP worker | Cross-request leak / stale config | Request-scoped bag memoization; repository `HINT_REFRESH` + `ManagerRegistry`; access subscriber priority 7 + `_firewall_context`; no `$_ENV`/`putenv` |
 
 ## Defaults
 
@@ -38,9 +38,10 @@ This subsection is the in-package REQ-SEC-004 record (date, method, grade, resid
 - Empty `security.access_roles` grants all authenticated users — keep at least `ROLE_ADMIN` in production
 - Demo may set `allow_unauthenticated: true` — never copy that to production
 - Host owns retention / audit of who changed which key
-- Multi-worker: after save, other workers see updates after their next request reset (no shared in-memory cache by design)
+- Multi-worker: after save, other workers see updates on their next request (request-scoped bag + refreshed Doctrine reads; no shared in-memory cache by design)
 - Encryptor key material remains an application secret (DoctrineEncryptBundle configuration)
 - Twig `runtime_env('KEY')` returns decrypted strings — do not expose secrets in public HTML
+- Do not put the manage panel behind a firewall with `security: false` unless `allow_unauthenticated` is intentionally enabled (token storage may not refresh)
 
 ## Reporting a vulnerability
 

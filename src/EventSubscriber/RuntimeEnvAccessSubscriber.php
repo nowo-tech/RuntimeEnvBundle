@@ -16,9 +16,14 @@ use function str_starts_with;
 
 /**
  * Soft gate for manage routes (REQ-UI-002). Host must also firewall {@code path_prefix}.
+ *
+ * Runs after the security firewall (priority 8). The token is only trusted when a firewall matched the current
+ * main request, so a token left in the token storage by a previous worker request is never used.
  */
 final class RuntimeEnvAccessSubscriber implements EventSubscriberInterface
 {
+    public const PRIORITY = 7;
+
     public function __construct(
         private readonly RuntimeEnvAccessCheckerInterface $accessChecker,
         private readonly string $pathPrefix,
@@ -29,7 +34,7 @@ final class RuntimeEnvAccessSubscriber implements EventSubscriberInterface
 
     public static function getSubscribedEvents(): array
     {
-        return [KernelEvents::REQUEST => ['onKernelRequest', 8]];
+        return [KernelEvents::REQUEST => ['onKernelRequest', self::PRIORITY]];
     }
 
     public function onKernelRequest(RequestEvent $event): void
@@ -38,8 +43,9 @@ final class RuntimeEnvAccessSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $path   = $event->getRequest()->getPathInfo();
-        $prefix = rtrim($this->pathPrefix, '/') ?: '/_runtime_env';
+        $request = $event->getRequest();
+        $path    = $request->getPathInfo();
+        $prefix  = rtrim($this->pathPrefix, '/') ?: '/_runtime_env';
         if ($path !== $prefix && !str_starts_with($path, $prefix . '/')) {
             return;
         }
@@ -48,7 +54,9 @@ final class RuntimeEnvAccessSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $user = $this->tokenStorage?->getToken()?->getUser();
+        $user = $request->attributes->has('_firewall_context')
+            ? $this->tokenStorage?->getToken()?->getUser()
+            : null;
         if (!$this->accessChecker->canAccess(is_object($user) ? $user : null)) {
             throw new AccessDeniedHttpException('Access denied to Runtime Env manage UI.');
         }
