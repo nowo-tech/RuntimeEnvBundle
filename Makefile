@@ -12,7 +12,7 @@ endif
 COMPOSE     := $(COMPOSE_BIN) -f $(COMPOSE_FILE)
 SERVICE_PHP := php
 
-.PHONY: help up down down-dev build shell install ensure-up test test-unit test-coverage coverage-php-percent cs-check cs-fix qa clean release-check release-check-demos demo-smoke composer-sync rector rector-dry phpstan update validate setup-hooks check-no-cursor-coauthor strip-cursor-coauthor-from-history validate-translations check-twig-extra check-no-raw-html-form assets update-deps
+.PHONY: help up down down-dev build shell install ensure-up test test-unit test-coverage coverage-php-percent cs-check cs-fix qa clean release-check release-check-demos demo-smoke composer-sync rector rector-dry phpstan igor update validate setup-hooks check-no-cursor-coauthor strip-cursor-coauthor-from-history validate-translations check-twig-extra check-no-raw-html-form assets update-deps
 
 help:
 	@echo "Runtime Env Bundle - Development Commands"
@@ -35,6 +35,7 @@ help:
 	@echo "  rector        Apply Rector refactoring"
 	@echo "  rector-dry    Run Rector in dry-run mode"
 	@echo "  phpstan       Run PHPStan static analysis"
+	@echo "  igor          Run Igor worker-state audit (REQ-CS-008)"
 	@echo "  qa            Run all QA checks (cs-check + test)"
 	@echo "  validate-translations  YAML syntax + key parity (en/es/it/fr/pt/de/nl)"
 	@echo "  check-twig-extra       REQ-TWIG-004 twig/extra-bundle gate"
@@ -131,7 +132,11 @@ check-no-raw-html-form:
 	@chmod +x .scripts/check-no-raw-html-form.sh
 	@./.scripts/check-no-raw-html-form.sh
 
-release-check: check-no-cursor-coauthor check-twig-extra check-no-raw-html-form ensure-up composer-sync cs-fix cs-check rector-dry phpstan validate-translations test-coverage release-check-demos
+
+# Run Igor worker-state audit (REQ-CS-008)
+igor: ensure-up
+	$(COMPOSE) exec -T php composer igor
+release-check: check-no-cursor-coauthor check-twig-extra check-no-raw-html-form ensure-up composer-sync cs-fix cs-check rector-dry phpstan igor validate-translations test-coverage release-check-demos
 
 release-check-demos:
 	@if [ -f demo/Makefile ]; then $(MAKE) -C demo release-check; else echo "No demo/Makefile — skip release-check-demos"; fi

@@ -33,6 +33,7 @@ final class RuntimeEnvWriter
 
         $variable = new RuntimeEnvVariable($name, $value, $description, $enabled);
         $this->repository->save($variable);
+        // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
         $this->bag->clearRuntimeCache();
 
         return $variable;
@@ -45,6 +46,7 @@ final class RuntimeEnvWriter
             ->setDescription($description)
             ->setEnabled($enabled);
         $this->repository->save($variable);
+        // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
         $this->bag->clearRuntimeCache();
 
         return $variable;
@@ -60,6 +62,7 @@ final class RuntimeEnvWriter
             }
             $variable->setName($newName);
             $this->repository->save($variable);
+            // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
             $this->bag->clearRuntimeCache();
         }
 
@@ -68,7 +71,9 @@ final class RuntimeEnvWriter
 
     public function delete(RuntimeEnvVariable $variable): void
     {
+        // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
         $this->repository->remove($variable);
+        // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
         $this->bag->clearRuntimeCache();
     }
 

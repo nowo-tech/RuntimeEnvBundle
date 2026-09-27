@@ -32,6 +32,7 @@ final class RuntimeEnvRouteLoader extends Loader
         if ($this->loaded) {
             throw new RuntimeException('Do not add the "nowo_runtime_env" loader twice.');
         }
+        // @igor-ignore - Route loader builds routes at compile/cache warm; not per-request mutation.
         $this->loaded = true;
 
         $collection = new RouteCollection();

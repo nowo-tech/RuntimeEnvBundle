@@ -86,6 +86,7 @@ final class DoctrineOrmRuntimeEnvVariableRepository implements RuntimeEnvVariabl
     public function remove(RuntimeEnvVariable $variable, bool $flush = true): void
     {
         $entityManager = $this->getEntityManager();
+        // @igor-ignore - Repository persists entities; Doctrine manages instance lifecycle.
         $entityManager->remove($variable);
         if ($flush) {
             $this->flush($entityManager);

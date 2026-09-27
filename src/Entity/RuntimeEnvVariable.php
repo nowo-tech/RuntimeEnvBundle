@@ -51,6 +51,7 @@ class RuntimeEnvVariable
      */
     public function setId(int $id): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->id = $id;
 
         return $this;
@@ -63,7 +64,9 @@ class RuntimeEnvVariable
 
     public function setName(string $name): self
     {
-        $this->name      = $name;
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->name = $name;
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->updatedAt = new DateTimeImmutable();
 
         return $this;
@@ -76,7 +79,9 @@ class RuntimeEnvVariable
 
     public function setValue(string $value): self
     {
-        $this->value     = $value;
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->value = $value;
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->updatedAt = new DateTimeImmutable();
 
         return $this;
@@ -89,8 +94,10 @@ class RuntimeEnvVariable
 
     public function setDescription(?string $description): self
     {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->description = $description;
-        $this->updatedAt   = new DateTimeImmutable();
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->updatedAt = new DateTimeImmutable();
 
         return $this;
     }
@@ -102,7 +109,9 @@ class RuntimeEnvVariable
 
     public function setEnabled(bool $enabled): self
     {
-        $this->enabled   = $enabled;
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->enabled = $enabled;
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
         $this->updatedAt = new DateTimeImmutable();
 
         return $this;
