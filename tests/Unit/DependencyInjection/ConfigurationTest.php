@@ -6,6 +6,7 @@ namespace Nowo\RuntimeEnvBundle\Tests\Unit\DependencyInjection;
 
 use Nowo\RuntimeEnvBundle\DependencyInjection\Configuration;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\Definition\Processor;
 
 final class ConfigurationTest extends TestCase
@@ -74,5 +75,17 @@ final class ConfigurationTest extends TestCase
         self::assertSame('@App/runtime_env/index.html.twig', $config['templates']['index']);
         self::assertSame('@App/runtime_env/form.html.twig', $config['templates']['form']);
         self::assertSame('@App/runtime_env/layout.html.twig', $config['templates']['layout']);
+    }
+
+    public function testEmptyAccessRolesRejectedWhenAuthenticatedGateIsRequired(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('access_roles');
+
+        (new Processor())->processConfiguration(new Configuration(), [[
+            'security' => [
+                'access_roles' => [],
+            ],
+        ]]);
     }
 }

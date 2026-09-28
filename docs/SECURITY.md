@@ -22,10 +22,10 @@
 
 | Field | Value |
 |-------|--------|
-| **Date** | 2026-09-16 |
+| **Date** | 2026-09-28 |
 | **Method** | Cursor agent static pass (`src/`, Flex recipe, demo, this doc + `.github/SECURITY.md`) |
-| **Overall risk** | **Medium** |
-| **Grade** | **Pass (conditional)** |
+| **Overall risk** | **Low** |
+| **Grade** | **Pass (good)** |
 | **Record** | This document (in-package). Monorepo catalog row: `BUNDLES_SECURITY_ANALYSIS.md` §4 / §7.2 / Appendix X |
 
 No Critical/High findings. Catalog checklist ✅ for REQ-SEC-004 once the package is listed in the inventory matrix.
@@ -35,7 +35,7 @@ This subsection is the in-package REQ-SEC-004 record (date, method, grade, resid
 ## Residual
 
 - Host owns firewall `access_control` on `panel.path_prefix` (soft gate alone is not enough)
-- Empty `security.access_roles` grants all authenticated users — keep at least `ROLE_ADMIN` in production
+- Empty `security.access_roles` is **rejected** at compile time (fail-closed) unless `allow_unauthenticated` or a custom `access_checker` is set
 - Demo may set `allow_unauthenticated: true` — never copy that to production
 - Host owns retention / audit of who changed which key
 - Multi-worker: after save, other workers see updates on their next request (request-scoped bag + refreshed Doctrine reads; no shared in-memory cache by design)
@@ -70,6 +70,6 @@ Before tagging a release, confirm:
 | **Cryptography** | Field encryption via DoctrineEncryptBundle; keys from secure config / files. |
 | **Permissions / exposure** | Host firewall on `panel.path_prefix`; roles configured for production. |
 | **Limits / DoS** | Admin-only UI; no public write endpoints. |
-| **REQ-SEC-004** | Latest grade Pass (conditional) recorded in org security analysis (2026-09-16). |
+| **REQ-SEC-004** | Latest grade Pass (good) recorded in org security analysis (re-audit 2026-09-28). |
 
 Record confirmation in the release PR or tag notes.

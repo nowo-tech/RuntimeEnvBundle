@@ -8,12 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.0.4] - 2026-09-28](#104---2026-09-28)
 - [[1.0.3] - 2026-09-27](#103---2026-09-27)
 - [[1.0.2] - 2026-09-25](#102---2026-09-25)
 - [[1.0.1] - 2026-09-17](#101---2026-09-17)
 - [[1.0.0] - 2026-09-16](#100---2026-09-16)
 
 ## [Unreleased]
+
+## [1.0.4] - 2026-09-28
+
+### Security
+
+- **Fail-closed `access_roles`:** empty role lists are rejected at config compile unless `allow_unauthenticated` or a custom `access_checker` is set. `ConfigurableRuntimeEnvAccessChecker` denies access when given no roles (was allow-all).
 
 ## [1.0.3] - 2026-09-27
 
@@ -25,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Worker safety (Igor):** justified `// @igor-ignore` annotations and/or `ResetInterface` / request-scoped fixes so `make igor` passes on package `src/`.
 
+[1.0.4]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.0.4
 [1.0.3]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.0.3
 
 ## [1.0.2] - 2026-09-25

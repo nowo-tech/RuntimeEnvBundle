@@ -83,7 +83,7 @@ final class Configuration implements ConfigurationInterface
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->arrayNode('access_roles')
-                            ->info('Symfony roles granted access (at least one). Empty = no bundle-level role check.')
+                            ->info('Symfony roles granted access. At least one non-empty role is required unless allow_unauthenticated or access_checker is set.')
                             ->scalarPrototype()->end()
                             ->defaultValue(['ROLE_ADMIN'])
                         ->end()
@@ -95,6 +95,24 @@ final class Configuration implements ConfigurationInterface
                             ->info('DEV/DEMO only. Never true in production.')
                             ->defaultFalse()
                         ->end()
+                    ->end()
+                    ->validate()
+                        ->ifTrue(static function (array $v): bool {
+                            if (!empty($v['allow_unauthenticated'])) {
+                                return false;
+                            }
+                            $checker = $v['access_checker'] ?? null;
+                            if (is_string($checker) && $checker !== '') {
+                                return false;
+                            }
+                            $roles = array_values(array_filter(
+                                is_array($v['access_roles'] ?? null) ? $v['access_roles'] : [],
+                                static fn (mixed $r): bool => is_string($r) && $r !== '',
+                            ));
+
+                            return $roles === [];
+                        })
+                        ->thenInvalid('nowo_runtime_env.security.access_roles must contain at least one non-empty role when allow_unauthenticated is false and no access_checker is set.')
                     ->end()
                 ->end()
                 ->arrayNode('templates')

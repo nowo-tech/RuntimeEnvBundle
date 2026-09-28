@@ -35,12 +35,12 @@ final class RuntimeEnvAccessCheckerTest extends TestCase
         self::assertFalse($checker->canAccess(null));
     }
 
-    public function testConfigurableGrantsWhenNoRolesConfigured(): void
+    public function testConfigurableDeniesWhenNoRolesConfigured(): void
     {
         $auth = $this->createMock(AuthorizationCheckerInterface::class);
         $auth->expects(self::never())->method('isGranted');
 
         $checker = new ConfigurableRuntimeEnvAccessChecker($auth, []);
-        self::assertTrue($checker->canAccess(new stdClass()));
+        self::assertFalse($checker->canAccess(new stdClass()));
     }
 }

@@ -3,6 +3,17 @@
 
 ## Unreleased
 
+## To 1.0.4
+
+From **1.0.3** — `access_roles` fail-closed.
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+php bin/console cache:clear
+```
+
+- Empty `security.access_roles` is rejected at config compile unless `allow_unauthenticated` or a custom `access_checker` is set. The default checker denies when given no roles.
+
 ## To 1.0.3
 
 From **1.0.2** — REQ-CS-008 Igor FrankenPHP worker audit (igor-php require-dev, igor.json, make igor).

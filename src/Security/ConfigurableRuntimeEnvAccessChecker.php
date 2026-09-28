@@ -21,7 +21,7 @@ final readonly class ConfigurableRuntimeEnvAccessChecker implements RuntimeEnvAc
     public function canAccess(?object $user): bool
     {
         if ($this->accessRoles === []) {
-            return true;
+            return false;
         }
 
         foreach ($this->accessRoles as $role) {
