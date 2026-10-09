@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.0.5] - 2026-10-09](#105---2026-10-09)
+  - [Dependencies](#dependencies)
 - [[1.0.4] - 2026-09-28](#104---2026-09-28)
 - [[1.0.3] - 2026-09-27](#103---2026-09-27)
 - [[1.0.2] - 2026-09-25](#102---2026-09-25)
@@ -15,6 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-09-16](#100---2026-09-16)
 
 ## [Unreleased]
+
+## [1.0.5] - 2026-10-09
+
+### Dependencies
+
+- Dependabot: `nowo-tech/doctrine-encrypt-bundle` 2.4.2, `nowo-tech/ui-kit-bundle` 1.8.5, `igor-php/igor-php` `^0.10.0` (dev), `nowo-tech/phpstan-frankenphp` 1.2.1, phpstan group.
+- Composer refresh: `nowo-tech/doctrine-encrypt-bundle` 2.4.3, `nowo-tech/ui-kit-bundle` 1.9.1, `doctrine/orm` 3.7.4, Symfony 7.4.20 components (lockfile); dev tooling `phpstan/phpstan` 2.3.1, `rector/rector` 2.7.0.
+- Demo: Symfony 8.1.8, `doctrine/orm` 3.7.4, `doctrine/dbal` 4.5.0, `twig/twig` 3.30.0; regenerated `config/reference.php`.
+- Code style: function imports in `Configuration` (PHP CS Fixer).
+
+[1.0.5]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.0.5
 
 ## [1.0.4] - 2026-09-28
 

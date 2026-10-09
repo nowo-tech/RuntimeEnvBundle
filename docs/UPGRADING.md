@@ -3,6 +3,16 @@
 
 ## Unreleased
 
+## To 1.0.5
+
+From **1.0.4** — dependency refresh only.
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
+
+- No breaking changes. No application upgrade steps.
+
 ## To 1.0.4
 
 From **1.0.3** — `access_roles` fail-closed.
