@@ -1281,8 +1281,15 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     },
  * }
  * @psalm-type NowoDoctrineEncryptConfig = array{
+ *     connections?: Param|string|list<scalar|Param|null>,
  *     default_profile?: scalar|Param|null, // Profile name to use when #[Encrypted] has no alias or uses "default". // Default: "default"
  *     batch_size?: int|Param, // Default batch size for doctrine:decrypt:database and doctrine:encrypt:database (raw SQL). Overridable per run via the batchSize argument. // Default: 5
+ *     secret_permissions?: array{ // Filesystem hardening for file-based keys: creates missing key directories with directory_mode and chmods key files to file_mode (console: every command; HTTP: at most once per http_check_interval seconds per worker).
+ *         enabled?: bool|Param, // Default: true
+ *         directory_mode?: int|Param, // Mode for key directories created by the bundle (octal string "0770" or "0700", or integer). Existing directories are not changed. // Default: 504
+ *         file_mode?: int|Param, // Mode enforced on key files (octal string "0600" or integer). // Default: 384
+ *         http_check_interval?: int|Param, // Seconds between HTTP checks per worker (0 = every main request). // Default: 60
+ *     },
  *     profiles?: array<string, array{ // Default: []
  *         encryptor_class?: scalar|Param|null, // Default: "Halite"
  *         secret_directory_path?: scalar|Param|null, // Directory for the key file. Required unless secret_key_env_var is set. // Default: null
@@ -1297,6 +1304,14 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     icon_set?: "bootstrap-icons"|"tabler-icons"|"ux_icon"|"svg_inline"|"none"|Param, // Icon rendering: bootstrap-icons|tabler-icons|ux_icon|svg_inline|none. // Default: "bootstrap-icons"
  *     row_actions_display?: "icon"|"text"|"icon_text"|Param, // Table/list row actions: icon (glyph only) | text (label only) | icon_text (both). // Default: "icon"
  *     panel_path_rewrites?: array<string, scalar|Param|null>,
+ *     release_check?: array{ // Optional GitHub release-version checker (footer dialog + JSON endpoint). Off by default.
+ *         enabled?: bool|Param, // Register the checker service + controller. Also import @NowoUiKitBundle/Resources/config/routes/release_check.yaml. // Default: false
+ *         github_repo?: scalar|Param|null, // Public GitHub repository "owner/name" whose releases are compared (e.g. nowo-tech/my-app). // Default: ""
+ *         current_version?: scalar|Param|null, // Installed version label, clean semver x.y.z with optional "v" (e.g. "%app.version%"). Non-semver values skip the check. // Default: ""
+ *         cache_ttl?: int|Param, // Seconds to cache the GitHub answer (cache.app). Default 12h. // Default: 43200
+ *         default_branch?: scalar|Param|null, // Branch used as compare target when the installed version is already the latest. // Default: "main"
+ *         user_agent?: scalar|Param|null, // User-Agent sent to api.github.com. // Default: "nowo-ui-kit-release-check"
+ *     },
  * }
  * @psalm-type NowoRuntimeEnvConfig = array{ // Nowo Runtime Env Bundle — database-backed encrypted env variables with admin CRUD.
  *     enabled?: bool|Param, // Master switch for the runtime env bag and manage UI. // Default: true
@@ -1309,8 +1324,8 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         path_prefix?: scalar|Param|null, // URL prefix for manage routes. // Default: "/_runtime_env"
  *     },
  *     web_ui?: array{ // REQ-UI-001 look-and-feel.
- *         enabled?: bool|Param, // Default: true
- *         layout_template?: scalar|Param|null, // Default: "@NowoRuntimeEnvBundle/manage/layout.html.twig"
+ *         enabled?: bool|Param, // false = no HTML manage UI (no routes, controller removed), like panel.enabled: false. // Default: true
+ *         layout_template?: scalar|Param|null, // Twig layout the manage pages extend (exposed to them as runtime_env_layout). // Default: "@NowoRuntimeEnvBundle/manage/layout.html.twig"
  *         css_framework?: "bootstrap"|"bootstrap4"|"bootstrap5"|"tailwind"|"foundation"|"custom"|"tabler"|"none"|Param, // Default: "custom"
  *         icon_set?: "bootstrap-icons"|"tabler-icons"|"ux_icon"|"svg_inline"|"none"|Param, // Default: "none"
  *     },
@@ -1322,7 +1337,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     templates?: array{
  *         index?: scalar|Param|null, // Default: "@NowoRuntimeEnvBundle/manage/index.html.twig"
  *         form?: scalar|Param|null, // Default: "@NowoRuntimeEnvBundle/manage/form.html.twig"
- *         layout?: scalar|Param|null, // Default: "@NowoRuntimeEnvBundle/manage/layout.html.twig"
+ *         layout?: scalar|Param|null, // Deprecated: The "layout" option at path "nowo_runtime_env.templates.layout" is deprecated, use "nowo_runtime_env.web_ui.layout_template" instead. // Deprecated: use web_ui.layout_template. When set to a non-default value it still wins for BC. // Default: "@NowoRuntimeEnvBundle/manage/layout.html.twig"
  *     },
  * }
  * @psalm-type DebugConfig = array{
