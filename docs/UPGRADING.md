@@ -1,5 +1,22 @@
 # Upgrade Guide
 
+## Table of contents
+
+- [Unreleased](#unreleased)
+- [To 1.1.0](#to-110)
+- [To 1.0.6](#to-106)
+- [To 1.0.5](#to-105)
+- [To 1.0.4](#to-104)
+- [To 1.0.3](#to-103)
+- [From 1.0.1 to 1.0.2](#from-101-to-102)
+- [From 1.0.0 to 1.0.1](#from-100-to-101)
+- [To 1.0.0 (initial release)](#to-100-initial-release)
+  - [Requirements](#requirements)
+  - [Enable and configure](#enable-and-configure)
+  - [Breaking changes](#breaking-changes)
+- [Future versions](#future-versions)
+- [Getting help](#getting-help)
+
 ## Unreleased
 
 ## To 1.1.0
@@ -57,14 +74,6 @@ php bin/console cache:clear
 - No application upgrade steps for require-dev Igor tooling (REQ-CS-008). Consumers do not pull `igor-php/igor-php` transitively.
 
 This guide provides step-by-step instructions for upgrading Runtime Env Bundle between versions.
-
-## Table of contents
-
-- [From 1.0.1 to 1.0.2](#from-101-to-102)
-- [From 1.0.0 to 1.0.1](#from-100-to-101)
-- [To 1.0.0 (initial release)](#to-100-initial-release)
-- [Future versions](#future-versions)
-- [Getting help](#getting-help)
 
 ## From 1.0.1 to 1.0.2
 
