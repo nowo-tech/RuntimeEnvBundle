@@ -11,6 +11,9 @@ runtime_env:
         enabled: Enabled
         new_title: New variable
         edit_title: Edit variable
+        value_keep_help: "Leave blank to keep the current value. The stored value is never shown."
+        value_keep_placeholder: "Leave blank to keep current value"
+        clear_value: "Clear the value (set it to an empty string)"
     action:
         new: New variable
         edit: Edit

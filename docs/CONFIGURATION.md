@@ -12,8 +12,11 @@ Alias: `nowo_runtime_env`
 | `security.access_roles` | `[ROLE_ADMIN]` | REQ-UI-002 |
 | `security.access_checker` | `null` | Optional service id |
 | `security.allow_unauthenticated` | `false` | Demo only |
-| `web_ui.*` | (see tree) | REQ-UI-001 layout / CSS / icons |
-| `templates.*` | bundle defaults | Twig overrides |
+| `web_ui.enabled` | `true` | `false` removes the HTML manage UI (no routes, controller and access subscriber removed), same effect as `panel.enabled: false`. The bag and Twig helpers keep working. |
+| `web_ui.layout_template` | `@NowoRuntimeEnvBundle/manage/layout.html.twig` | Layout the manage pages extend. Passed to the templates as `runtime_env_layout`; your layout must define `title` and `body` blocks. |
+| `web_ui.css_framework` / `web_ui.icon_set` | `custom` / `none` | Defaults prepended to NowoUiKitBundle when the host did not set them. |
+| `templates.index` / `templates.form` | bundle templates | Twig overrides for the list and form pages. |
+| `templates.layout` | `@NowoRuntimeEnvBundle/manage/layout.html.twig` | **Deprecated since 1.1**, use `web_ui.layout_template`. Still honoured (and wins) when set to a non-default value. |
 
 ## Example
 
@@ -30,6 +33,8 @@ nowo_runtime_env:
         access_roles: [ROLE_ADMIN]
         allow_unauthenticated: false
     web_ui:
+        enabled: true
+        layout_template: '@NowoRuntimeEnvBundle/manage/layout.html.twig'
         css_framework: bootstrap5
         icon_set: bootstrap-icons
 ```

@@ -13,6 +13,7 @@ use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
+use ReflectionProperty;
 use RuntimeException;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormInterface;
@@ -37,7 +38,7 @@ final class RuntimeEnvManageControllerTest extends TestCase
     private const TEMPLATES = [
         'index'  => '@NowoRuntimeEnvBundle/manage/index.html.twig',
         'form'   => '@NowoRuntimeEnvBundle/manage/form.html.twig',
-        'layout' => '@NowoRuntimeEnvBundle/manage/layout.html.twig',
+        'layout' => '@App/admin/base.html.twig',
     ];
 
     /** @var MockObject&RuntimeEnvVariableRepositoryInterface */
@@ -103,6 +104,7 @@ final class RuntimeEnvManageControllerTest extends TestCase
         self::assertSame($variables, $this->rendered[0]['parameters']['variables']);
         self::assertArrayHasKey(3, $this->rendered[0]['parameters']['delete_forms']);
         self::assertSame('/admin/runtime-env', $this->rendered[0]['parameters']['path_prefix']);
+        self::assertSame('@App/admin/base.html.twig', $this->rendered[0]['parameters']['runtime_env_layout']);
     }
 
     public function testIndexSkipsDeleteFormsForVariablesWithoutId(): void
@@ -194,6 +196,7 @@ final class RuntimeEnvManageControllerTest extends TestCase
         self::assertSame(self::TEMPLATES['form'], $response->getContent());
         self::assertSame('/admin/runtime-env', $this->rendered[0]['parameters']['path_prefix']);
         self::assertSame('NowoRuntimeEnvBundle', $this->rendered[0]['parameters']['translation_domain']);
+        self::assertSame('@App/admin/base.html.twig', $this->rendered[0]['parameters']['runtime_env_layout']);
     }
 
     public function testEditThrowsNotFoundWhenVariableDoesNotExist(): void
@@ -257,6 +260,19 @@ final class RuntimeEnvManageControllerTest extends TestCase
         self::assertSame(self::TEMPLATES['form'], $response->getContent());
         self::assertTrue($this->rendered[0]['parameters']['is_edit']);
         self::assertSame($variable, $this->rendered[0]['parameters']['variable']);
+        self::assertSame('@App/admin/base.html.twig', $this->rendered[0]['parameters']['runtime_env_layout']);
+    }
+
+    public function testLayoutFallsBackToTheBundleDefaultWhenNotConfigured(): void
+    {
+        $this->repository->method('findAllOrderedByName')->willReturn([]);
+        $controller = new RuntimeEnvManageController($this->repository, $this->writer, ['index' => 'index.html.twig', 'form' => 'form.html.twig'], '/x');
+        $reference  = $this->createController();
+        $controller->setContainer((new ReflectionProperty($reference, 'container'))->getValue($reference));
+
+        $controller->index();
+
+        self::assertSame('@NowoRuntimeEnvBundle/manage/layout.html.twig', $this->rendered[0]['parameters']['runtime_env_layout']);
     }
 
     public function testDeleteThrowsNotFoundWhenVariableDoesNotExist(): void

@@ -11,6 +11,9 @@ runtime_env:
         enabled: Aktiv
         new_title: Neue Variable
         edit_title: Variable bearbeiten
+        value_keep_help: "Leer lassen, um den aktuellen Wert beizubehalten. Der gespeicherte Wert wird nie angezeigt."
+        value_keep_placeholder: "Leer lassen, um den aktuellen Wert beizubehalten"
+        clear_value: "Wert leeren (auf eine leere Zeichenkette setzen)"
     action:
         new: Neue Variable
         edit: Bearbeiten

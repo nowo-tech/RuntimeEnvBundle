@@ -11,6 +11,9 @@ runtime_env:
         enabled: Activée
         new_title: Nouvelle variable
         edit_title: Modifier la variable
+        value_keep_help: "Laissez vide pour conserver la valeur actuelle. La valeur enregistrée n'est jamais affichée."
+        value_keep_placeholder: "Laissez vide pour conserver la valeur actuelle"
+        clear_value: "Vider la valeur (chaîne vide)"
     action:
         new: Nouvelle variable
         edit: Modifier

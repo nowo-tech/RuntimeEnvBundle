@@ -18,6 +18,8 @@ final class Configuration implements ConfigurationInterface
 {
     public const ALIAS = 'nowo_runtime_env';
 
+    public const DEFAULT_LAYOUT = '@NowoRuntimeEnvBundle/manage/layout.html.twig';
+
     public function getConfigTreeBuilder(): TreeBuilder
     {
         $treeBuilder = new TreeBuilder(self::ALIAS);
@@ -65,10 +67,12 @@ final class Configuration implements ConfigurationInterface
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->booleanNode('enabled')
+                            ->info('false = no HTML manage UI (no routes, controller removed), like panel.enabled: false.')
                             ->defaultTrue()
                         ->end()
                         ->scalarNode('layout_template')
-                            ->defaultValue('@NowoRuntimeEnvBundle/manage/layout.html.twig')
+                            ->info('Twig layout the manage pages extend (exposed to them as runtime_env_layout).')
+                            ->defaultValue(self::DEFAULT_LAYOUT)
                             ->cannotBeEmpty()
                         ->end()
                         ->enumNode('css_framework')
@@ -128,7 +132,9 @@ final class Configuration implements ConfigurationInterface
                             ->defaultValue('@NowoRuntimeEnvBundle/manage/form.html.twig')
                         ->end()
                         ->scalarNode('layout')
-                            ->defaultValue('@NowoRuntimeEnvBundle/manage/layout.html.twig')
+                            ->info('Deprecated: use web_ui.layout_template. When set to a non-default value it still wins for BC.')
+                            ->defaultValue(self::DEFAULT_LAYOUT)
+                            ->setDeprecated('nowo-tech/runtime-env-bundle', '1.1', 'The "%node%" option at path "%path%" is deprecated, use "nowo_runtime_env.web_ui.layout_template" instead.')
                         ->end()
                     ->end()
                 ->end()

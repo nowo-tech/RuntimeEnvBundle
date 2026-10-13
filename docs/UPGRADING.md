@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `web_ui.enabled: false` now really disables the manage UI (no routes). If you had it set to `false` while still using the panel, remove it.
+- Manage templates extend `runtime_env_layout` (from `web_ui.layout_template`). If you set `templates.layout`, move the value to `web_ui.layout_template` (the old key is deprecated but still wins when changed). Custom `templates.index` / `templates.form` overrides may use `{% extends runtime_env_layout %}`.
+- The edit form no longer shows the stored value: leave the field blank to keep it, or tick "Clear the value" to empty it. Overridden form templates must render the new `clear_value` field (the default `form_row` loop does).
+
 ## To 1.0.6
 
 From **1.0.5** — dependency refresh and repository maintenance.

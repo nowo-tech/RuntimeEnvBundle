@@ -11,6 +11,9 @@ runtime_env:
         enabled: Attiva
         new_title: Nuova variabile
         edit_title: Modifica variabile
+        value_keep_help: "Lascia vuoto per mantenere il valore attuale. Il valore salvato non viene mai mostrato."
+        value_keep_placeholder: "Lascia vuoto per mantenere il valore attuale"
+        clear_value: "Svuota il valore (stringa vuota)"
     action:
         new: Nuova variabile
         edit: Modifica

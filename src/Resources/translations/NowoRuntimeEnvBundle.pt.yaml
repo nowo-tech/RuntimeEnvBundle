@@ -11,6 +11,9 @@ runtime_env:
         enabled: Ativa
         new_title: Nova variável
         edit_title: Editar variável
+        value_keep_help: "Deixe em branco para manter o valor atual. O valor guardado nunca é mostrado."
+        value_keep_placeholder: "Deixe em branco para manter o valor atual"
+        clear_value: "Limpar o valor (cadeia vazia)"
     action:
         new: Nova variável
         edit: Editar

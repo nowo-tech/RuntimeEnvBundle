@@ -1,4 +1,4 @@
-{% extends '@NowoRuntimeEnvBundle/manage/layout.html.twig' %}
+{% extends runtime_env_layout|default('@NowoRuntimeEnvBundle/manage/layout.html.twig') %}
 
 {% block title %}{{ (is_edit ? 'runtime_env.form.edit_title' : 'runtime_env.form.new_title')|trans({}, translation_domain) }}{% endblock %}
 

@@ -11,6 +11,9 @@ runtime_env:
         enabled: Actief
         new_title: Nieuwe variabele
         edit_title: Variabele bewerken
+        value_keep_help: "Laat leeg om de huidige waarde te behouden. De opgeslagen waarde wordt nooit getoond."
+        value_keep_placeholder: "Laat leeg om de huidige waarde te behouden"
+        clear_value: "Waarde wissen (lege tekenreeks)"
     action:
         new: Nieuwe variabele
         edit: Bewerken

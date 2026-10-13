@@ -19,6 +19,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `web_ui.enabled: false` is now honoured: the manage UI routes, controller and access subscriber are not registered (previously the value was only stored as a parameter).
+- `web_ui.layout_template` is now used: the manage templates extend the `runtime_env_layout` variable passed by the controller instead of a hard-coded bundle layout.
+- Variables can hold an empty string: the `NotBlank` constraint on the value field was dropped.
+
+### Security
+
+- The edit form no longer pre-fills the decrypted value. The value field starts empty and masked; a blank submission keeps the current value, a new value replaces it and the new `clear_value` checkbox stores an empty string. New translation keys in all 7 locales.
+
+### Deprecated
+
+- `templates.layout`: use `web_ui.layout_template`. It is still honoured (and wins) when changed from the default.
+
 ## [1.0.6] - 2026-10-13
 
 ### Dependencies

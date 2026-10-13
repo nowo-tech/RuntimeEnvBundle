@@ -1,4 +1,4 @@
-{% extends '@NowoRuntimeEnvBundle/manage/layout.html.twig' %}
+{% extends runtime_env_layout|default('@NowoRuntimeEnvBundle/manage/layout.html.twig') %}
 
 {% block title %}{{ 'runtime_env.index.title'|trans({}, translation_domain) }}{% endblock %}
 

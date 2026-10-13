@@ -78,6 +78,74 @@ final class RuntimeEnvVariableTypeTest extends TypeTestCase
         self::assertSame(CheckboxType::class, $form->get('enabled')->getConfig()->getType()->getInnerType()::class);
     }
 
+    public function testNewVariableAcceptsAnEmptyValue(): void
+    {
+        $variable = new RuntimeEnvVariable('NEW_KEY', 'placeholder');
+        $form     = $this->factory->create(RuntimeEnvVariableType::class, $variable);
+
+        $form->submit(['name' => 'FEATURE_SUFFIX', 'value' => '', 'description' => '', 'enabled' => true]);
+
+        self::assertTrue($form->isValid(), (string) $form->getErrors(true));
+        self::assertSame('', $variable->getValue());
+        self::assertFalse($form->get('value')->getConfig()->getRequired());
+    }
+
+    public function testEditNeverRendersTheStoredSecret(): void
+    {
+        $form = $this->factory->create(RuntimeEnvVariableType::class, new RuntimeEnvVariable('APP_KEY', 'top-secret'), [
+            'is_edit' => true,
+        ]);
+
+        $value = $form->get('value');
+        self::assertFalse($value->getConfig()->getMapped());
+        self::assertSame('', $form->createView()['value']->vars['value']);
+        self::assertSame('runtime_env.form.value_keep_help', $value->getConfig()->getOption('help'));
+        self::assertSame('nowo-runtime-env-secret', $value->getConfig()->getOption('attr')['class']);
+    }
+
+    public function testEditWithBlankValueKeepsTheCurrentValue(): void
+    {
+        $variable = new RuntimeEnvVariable('APP_KEY', 'top-secret');
+        $form     = $this->factory->create(RuntimeEnvVariableType::class, $variable, ['is_edit' => true]);
+
+        $form->submit(['value' => '', 'description' => 'Updated', 'enabled' => true]);
+
+        self::assertTrue($form->isValid(), (string) $form->getErrors(true));
+        self::assertSame('top-secret', $variable->getValue());
+        self::assertSame('Updated', $variable->getDescription());
+    }
+
+    public function testEditWithNewValueReplacesIt(): void
+    {
+        $variable = new RuntimeEnvVariable('APP_KEY', 'top-secret');
+        $form     = $this->factory->create(RuntimeEnvVariableType::class, $variable, ['is_edit' => true]);
+
+        $form->submit(['value' => 'rotated', 'enabled' => true]);
+
+        self::assertTrue($form->isValid());
+        self::assertSame('rotated', $variable->getValue());
+    }
+
+    public function testEditClearValueSetsAnEmptyString(): void
+    {
+        $variable = new RuntimeEnvVariable('APP_KEY', 'top-secret');
+        $form     = $this->factory->create(RuntimeEnvVariableType::class, $variable, ['is_edit' => true]);
+
+        $form->submit(['value' => 'ignored', 'clear_value' => '1', 'enabled' => true]);
+
+        self::assertTrue($form->isValid());
+        self::assertSame('', $variable->getValue());
+    }
+
+    public function testEditListenerIgnoresNonEntityData(): void
+    {
+        $form = $this->factory->create(RuntimeEnvVariableType::class, null, ['is_edit' => true, 'data_class' => null]);
+
+        $form->submit(['value' => 'x']);
+
+        self::assertNull($form->getData()['name'] ?? null);
+    }
+
     public function testInvalidIsEditOptionTypeIsRejected(): void
     {
         $this->expectException(InvalidOptionsException::class);

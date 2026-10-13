@@ -6,6 +6,8 @@ namespace Nowo\RuntimeEnvBundle\Tests\Unit\DependencyInjection;
 
 use Nowo\RuntimeEnvBundle\DependencyInjection\Configuration;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Config\Definition\ArrayNode;
+use Symfony\Component\Config\Definition\BaseNode;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\Definition\Processor;
 
@@ -54,9 +56,8 @@ final class ConfigurationTest extends TestCase
                 'allow_unauthenticated' => true,
             ],
             'templates' => [
-                'index'  => '@App/runtime_env/index.html.twig',
-                'form'   => '@App/runtime_env/form.html.twig',
-                'layout' => '@App/runtime_env/layout.html.twig',
+                'index' => '@App/runtime_env/index.html.twig',
+                'form'  => '@App/runtime_env/form.html.twig',
             ],
         ]]);
 
@@ -74,7 +75,23 @@ final class ConfigurationTest extends TestCase
         self::assertTrue($config['security']['allow_unauthenticated']);
         self::assertSame('@App/runtime_env/index.html.twig', $config['templates']['index']);
         self::assertSame('@App/runtime_env/form.html.twig', $config['templates']['form']);
-        self::assertSame('@App/runtime_env/layout.html.twig', $config['templates']['layout']);
+        self::assertSame(Configuration::DEFAULT_LAYOUT, $config['templates']['layout']);
+    }
+
+    public function testTemplatesLayoutIsDeprecatedInFavourOfWebUiLayoutTemplate(): void
+    {
+        $root = (new Configuration())->getConfigTreeBuilder()->buildTree();
+        self::assertInstanceOf(ArrayNode::class, $root);
+        $templates = $root->getChildren()['templates'];
+        self::assertInstanceOf(ArrayNode::class, $templates);
+        $layout = $templates->getChildren()['layout'];
+        self::assertInstanceOf(BaseNode::class, $layout);
+
+        self::assertTrue($layout->isDeprecated());
+        $deprecation = $layout->getDeprecation('layout', 'nowo_runtime_env.templates');
+        self::assertSame('nowo-tech/runtime-env-bundle', $deprecation['package']);
+        self::assertSame('1.1', $deprecation['version']);
+        self::assertStringContainsString('web_ui.layout_template', $deprecation['message']);
     }
 
     public function testEmptyAccessRolesRejectedWhenAuthenticatedGateIsRequired(): void

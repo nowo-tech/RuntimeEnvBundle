@@ -18,6 +18,7 @@ use Nowo\RuntimeEnvBundle\Security\RuntimeEnvAccessCheckerInterface;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvBag;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
 use Nowo\RuntimeEnvBundle\Twig\RuntimeEnvTwigExtension;
+use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -161,6 +162,60 @@ final class RuntimeEnvExtensionTest extends TestCase
         $routeLoaderDefinition = $container->getDefinition(RuntimeEnvRouteLoader::class);
         self::assertFalse($routeLoaderDefinition->getArgument('$panelEnabled'));
         self::assertSame('/admin/runtime-env', $routeLoaderDefinition->getArgument('$pathPrefix'));
+    }
+
+    public function testWebUiDisabledRemovesTheManageUiAndItsRoutes(): void
+    {
+        $container = new ContainerBuilder();
+
+        // No security bundle needed: there is no panel to protect.
+        $this->extension->load([['web_ui' => ['enabled' => false]]], $container);
+
+        self::assertFalse($container->hasDefinition(RuntimeEnvManageController::class));
+        self::assertFalse($container->hasDefinition(RuntimeEnvAccessSubscriber::class));
+        self::assertFalse($container->getParameter('nowo_runtime_env.panel.enabled'));
+        self::assertFalse($container->getDefinition(RuntimeEnvRouteLoader::class)->getArgument('$panelEnabled'));
+        self::assertTrue($container->hasDefinition(RuntimeEnvBag::class));
+    }
+
+    public function testWebUiLayoutTemplateIsPassedToTheController(): void
+    {
+        $container = new ContainerBuilder();
+        $container->registerExtension($this->dummyExtension('security'));
+
+        $this->extension->load([['web_ui' => ['layout_template' => '@App/admin/base.html.twig']]], $container);
+
+        /** @var array<string, string> $templates */
+        $templates = $container->getDefinition(RuntimeEnvManageController::class)->getArgument('$templates');
+        self::assertSame('@App/admin/base.html.twig', $templates['layout']);
+    }
+
+    public function testDefaultLayoutIsUsedWhenNothingIsConfigured(): void
+    {
+        $container = new ContainerBuilder();
+        $container->registerExtension($this->dummyExtension('security'));
+
+        $this->extension->load([], $container);
+
+        /** @var array<string, string> $templates */
+        $templates = $container->getDefinition(RuntimeEnvManageController::class)->getArgument('$templates');
+        self::assertSame('@NowoRuntimeEnvBundle/manage/layout.html.twig', $templates['layout']);
+    }
+
+    #[IgnoreDeprecations]
+    public function testDeprecatedTemplatesLayoutStillWinsWhenChanged(): void
+    {
+        $container = new ContainerBuilder();
+        $container->registerExtension($this->dummyExtension('security'));
+
+        $this->extension->load([[
+            'web_ui'    => ['layout_template' => '@App/admin/base.html.twig'],
+            'templates' => ['layout' => '@App/legacy/layout.html.twig'],
+        ]], $container);
+
+        /** @var array<string, string> $templates */
+        $templates = $container->getDefinition(RuntimeEnvManageController::class)->getArgument('$templates');
+        self::assertSame('@App/legacy/layout.html.twig', $templates['layout']);
     }
 
     public function testPrependAddsDoctrineMappingAndUiKitDefaults(): void

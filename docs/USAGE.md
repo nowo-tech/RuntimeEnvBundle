@@ -40,7 +40,7 @@ Do **not** dump secret values into public HTML.
 
 Open `/_runtime_env` (or your `panel.path_prefix`). Names must match `^[A-Z][A-Z0-9_]*$`.
 
-List view always **masks** values. Edit form shows the decrypted plaintext only to authorized admins.
+List view always **masks** values. The edit form never renders the stored (decrypted) value: the value field starts empty and masked; leave it blank to keep the current value, type a new one to replace it, or tick **Clear the value** to store an empty string. Empty values are allowed (also when creating a variable).
 
 ## What stays in `.env`
 

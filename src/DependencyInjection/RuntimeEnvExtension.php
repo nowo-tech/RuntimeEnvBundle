@@ -51,6 +51,11 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
         $configuration = new Configuration();
         $config        = $this->processConfiguration($configuration, $configs);
 
+        // web_ui.enabled: false removes the HTML manage UI exactly like panel.enabled: false.
+        $config['panel']['enabled'] = (bool) $config['panel']['enabled'] && (bool) $config['web_ui']['enabled'];
+        // Single effective layout: the deprecated templates.layout wins only when changed from the default.
+        $config['templates']['layout'] = self::resolveLayout($config);
+
         if (
             (bool) $config['panel']['enabled']
             && !$config['security']['allow_unauthenticated']
@@ -243,6 +248,24 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
         if ($defaults !== []) {
             $container->prependExtensionConfig('nowo_ui_kit', $defaults);
         }
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private static function resolveLayout(array $config): string
+    {
+        /** @var array<string, mixed> $templates */
+        $templates = $config['templates'];
+        /** @var array<string, mixed> $webUi */
+        $webUi  = $config['web_ui'];
+        $legacy = (string) ($templates['layout'] ?? '');
+
+        if ($legacy !== '' && $legacy !== Configuration::DEFAULT_LAYOUT) {
+            return $legacy;
+        }
+
+        return (string) $webUi['layout_template'];
     }
 
     private function isSecurityBundleAvailable(ContainerBuilder $container): bool

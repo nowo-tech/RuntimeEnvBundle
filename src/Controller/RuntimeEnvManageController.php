@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\RuntimeEnvBundle\Controller;
 
 use InvalidArgumentException;
+use Nowo\RuntimeEnvBundle\DependencyInjection\Configuration;
 use Nowo\RuntimeEnvBundle\Entity\RuntimeEnvVariable;
 use Nowo\RuntimeEnvBundle\Form\RuntimeEnvDeleteType;
 use Nowo\RuntimeEnvBundle\Form\RuntimeEnvVariableType;
@@ -54,6 +55,7 @@ final class RuntimeEnvManageController extends AbstractController
             'delete_forms'       => $deleteForms,
             'path_prefix'        => $this->pathPrefix,
             'translation_domain' => NowoRuntimeEnvBundle::TRANSLATION_DOMAIN,
+            'runtime_env_layout' => $this->layout(),
         ]);
     }
 
@@ -85,6 +87,7 @@ final class RuntimeEnvManageController extends AbstractController
             'is_edit'            => false,
             'path_prefix'        => $this->pathPrefix,
             'translation_domain' => NowoRuntimeEnvBundle::TRANSLATION_DOMAIN,
+            'runtime_env_layout' => $this->layout(),
         ]);
     }
 
@@ -116,7 +119,13 @@ final class RuntimeEnvManageController extends AbstractController
             'is_edit'            => true,
             'path_prefix'        => $this->pathPrefix,
             'translation_domain' => NowoRuntimeEnvBundle::TRANSLATION_DOMAIN,
+            'runtime_env_layout' => $this->layout(),
         ]);
+    }
+
+    private function layout(): string
+    {
+        return $this->templates['layout'] ?? Configuration::DEFAULT_LAYOUT;
     }
 
     public function delete(Request $request, int $id): RedirectResponse
