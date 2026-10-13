@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `docs/SECURITY.md`: threat model and defaults cover the 1.1.0 edit form (stored value never rendered) and `web_ui.enabled: false`.
+
 ## [1.1.0] - 2026-10-13
 
 ### Fixed

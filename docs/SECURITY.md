@@ -9,6 +9,7 @@
 | Manage UI | Unauthorized read/write | REQ-UI-002 `access_roles` + access checker + host `access_control` on path prefix |
 | Mutations | CSRF / session fixation | Symfony Form CSRF on create/update/delete (`RuntimeEnvDeleteType`) |
 | Twig / logs | Accidental secret leak | List UI masks values; do not log `RuntimeEnvBag::all()`; do not render `runtime_env()` on public pages |
+| Edit form | Secret rendered back into HTML | Since 1.1.0 the edit form never renders the stored (decrypted) value: the field starts empty, blank keeps the value, `clear_value` empties it |
 | FrankenPHP worker | Cross-request leak / stale config | Request-scoped bag memoization; repository `HINT_REFRESH` + `ManagerRegistry`; access subscriber priority 7 + `_firewall_context`; no `$_ENV`/`putenv` |
 
 ## Defaults
@@ -16,7 +17,7 @@
 - `security.allow_unauthenticated: false`
 - `security.access_roles: [ROLE_ADMIN]`
 - Flex recipe adds `access_control` for `^/_runtime_env` → `ROLE_ADMIN`
-- Panel disabled if you set `panel.enabled: false`
+- Panel disabled if you set `panel.enabled: false` or (since 1.1.0) `web_ui.enabled: false`
 
 ## REQ-SEC-004 (AI security audit)
 
