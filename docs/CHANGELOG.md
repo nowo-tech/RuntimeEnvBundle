@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.1.0] - 2026-10-13](#110---2026-10-13)
 - [[1.0.6] - 2026-10-13](#106---2026-10-13)
 - [[1.0.5] - 2026-10-09](#105---2026-10-09)
   - [Dependencies](#dependencies)
@@ -18,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-09-16](#100---2026-09-16)
 
 ## [Unreleased]
+
+## [1.1.0] - 2026-10-13
 
 ### Fixed
 
@@ -32,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 
 - `templates.layout`: use `web_ui.layout_template`. It is still honoured (and wins) when changed from the default.
+
+[1.1.0]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.1.0
 
 ## [1.0.6] - 2026-10-13
 
