@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.1.1](#to-111)
 - [To 1.1.0](#to-110)
 - [To 1.0.6](#to-106)
 - [To 1.0.5](#to-105)
@@ -18,6 +19,16 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+## To 1.1.1
+
+From **1.1.0** — SECURITY.md covers the 1.1.0 edit form and web_ui.enabled.
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
+
+- No breaking changes. No application upgrade steps.
 
 ## To 1.1.0
 

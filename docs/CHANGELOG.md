@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.1.1] - 2026-10-13](#111---2026-10-13)
 - [[1.1.0] - 2026-10-13](#110---2026-10-13)
 - [[1.0.6] - 2026-10-13](#106---2026-10-13)
 - [[1.0.5] - 2026-10-09](#105---2026-10-09)
@@ -19,9 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-13
+
 ### Changed
 
 - `docs/SECURITY.md`: threat model and defaults cover the 1.1.0 edit form (stored value never rendered) and `web_ui.enabled: false`.
+
+[1.1.1]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.1.1
 
 ## [1.1.0] - 2026-10-13
 
