@@ -1,7 +1,16 @@
 # Upgrade Guide
 
-
 ## Unreleased
+
+## To 1.0.6
+
+From **1.0.5** — dependency refresh and repository maintenance.
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
+
+- No breaking changes. No application upgrade steps.
 
 ## To 1.0.5
 

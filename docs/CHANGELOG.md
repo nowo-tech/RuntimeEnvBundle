@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.0.6] - 2026-10-13](#106---2026-10-13)
 - [[1.0.5] - 2026-10-09](#105---2026-10-09)
   - [Dependencies](#dependencies)
 - [[1.0.4] - 2026-09-28](#104---2026-09-28)
@@ -17,6 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-09-16](#100---2026-09-16)
 
 ## [Unreleased]
+
+## [1.0.6] - 2026-10-13
+
+### Dependencies
+
+- `nowo-tech/ui-kit-bundle` 1.9.1 → 1.11.0 (development lock; #9).
+- `nowo-tech/doctrine-encrypt-bundle` 2.4.3 → 2.5.0 (development lock; #10).
+- `doctrine/orm` 3.7.4 → 3.7.5 (development lock; #11).
+
+[1.0.6]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.0.6
 
 ## [1.0.5] - 2026-10-09
 
