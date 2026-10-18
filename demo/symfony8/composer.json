@@ -9,7 +9,7 @@
     "doctrine/orm": "^3.0",
     "nowo-tech/doctrine-encrypt-bundle": "^2.2",
     "nowo-tech/runtime-env-bundle": "@dev",
-    "nowo-tech/ui-kit-bundle": "^1.4",
+    "nowo-tech/ui-kit-bundle": "^1.4 || ^2.2",
     "symfony/console": "^8.0",
     "symfony/dotenv": "^8.0",
     "symfony/flex": "^2.0",
