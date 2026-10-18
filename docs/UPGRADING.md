@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.1.2](#to-112)
 - [To 1.1.1](#to-111)
 - [To 1.1.0](#to-110)
 - [To 1.0.6](#to-106)
@@ -19,6 +20,14 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+## To 1.1.2
+
+From **1.1.1**:
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
 
 ## To 1.1.1
 
