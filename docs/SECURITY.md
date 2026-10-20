@@ -1,5 +1,14 @@
 # Security
 
+## Table of contents
+
+- [Threat model](#threat-model)
+- [Defaults](#defaults)
+- [REQ-SEC-004 (AI security audit)](#req-sec-004-ai-security-audit)
+- [Residual](#residual)
+- [Reporting a vulnerability](#reporting-a-vulnerability)
+- [Release security checklist (12.4.1)](#release-security-checklist-1241)
+
 ## Threat model
 
 | Asset | Risk | Control |

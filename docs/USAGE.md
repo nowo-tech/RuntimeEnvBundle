@@ -1,5 +1,13 @@
 # Usage
 
+## Table of contents
+
+- [Read variables in PHP](#read-variables-in-php)
+- [Twig](#twig)
+- [Admin CRUD](#admin-crud)
+- [What stays in `.env`](#what-stays-in-env)
+- [FrankenPHP worker](#frankenphp-worker)
+
 ## Read variables in PHP
 
 ```php

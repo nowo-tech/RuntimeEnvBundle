@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Documentation: wave-1 REQ compliance — README documentation list order (Code of Conduct in the base list, extras under Additional documentation), Installation before Requirements, GitHub stars badge, canonical bug report template, DEMO-FRANKENPHP dev/prod start and troubleshooting, demo `APP_SHARE_DIR` comment, CONTRIBUTING Cursor Agent settings, TOCs for long docs.
+
 ## [1.1.2] - 2026-10-18
 
 Allows nowo-tech/ui-kit-bundle 2.x (^1.4 || ^2.2) so hosts can move to UiKit 2.2. See [UPGRADING](UPGRADING.md#to-112).

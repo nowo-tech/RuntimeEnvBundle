@@ -8,7 +8,7 @@ assignees: ''
 ---
 
 <!--
-- Please do not report an issue for a version of `runtime-env-bundle` that is no longer supported. See [Version policy](https://github.com/nowo-tech/RuntimeEnvBundle#version-policy) and [Supported versions](https://github.com/nowo-tech/RuntimeEnvBundle/security/policy#supported-versions) in the repository.
+- Please do not report an issue for a version of `runtime-env-bundle` that is no longer supported. Currently supported versions are listed here: https://github.com/nowo-tech/RuntimeEnvBundle#version-information
 - Please fill in this template according to your issue.
 - Please keep the table shown below at the top of your issue.
 - You can retrieve `runtime-env-bundle` version by running `composer info | grep "runtime-env-bundle"`.

@@ -1,5 +1,13 @@
 # Installation
 
+## Table of contents
+
+- [Requirements](#requirements)
+- [Composer](#composer)
+- [DoctrineEncryptBundle](#doctrineencryptbundle)
+- [Schema](#schema)
+- [Firewall](#firewall)
+
 ## Requirements
 
 - PHP `>=8.2 <8.6`

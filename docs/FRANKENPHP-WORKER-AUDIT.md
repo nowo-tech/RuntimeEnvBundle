@@ -9,6 +9,18 @@
 | **Verdict** | ✅ **Viable under scenario B** — the bag reloads per main request, the repository re-hydrates from the database and recovers a closed EntityManager, and the access check never reuses a stale token (was: ⚠️ viable with conditions) |
 | Remediation (2026-09-23) | W-01, W-02, W-03 resolved (`RuntimeEnvBag`, `DoctrineOrmRuntimeEnvVariableRepository`, `RuntimeEnvExtension`, `RuntimeEnvAccessSubscriber`); regression tests simulate consecutive requests / two workers without `reset()` (`tests/Unit/Service/RuntimeEnvBagTest.php`, `tests/Unit/EventSubscriber/RuntimeEnvAccessSubscriberTest.php`, `tests/Unit/Repository/…`, `tests/Integration/Repository/DoctrineOrmRuntimeEnvVariableRepositoryWorkerTest.php` on SQLite) |
 
+## Table of contents
+
+- [Execution model assumed](#execution-model-assumed)
+- [Summary](#summary)
+- [Services reviewed](#services-reviewed)
+- [Findings](#findings)
+  - [W-01 — Memoized variables are never refreshed without reset, and writes only invalidate one worker thread (Medium, scenario B only)](#w-01--memoized-variables-are-never-refreshed-without-reset-and-writes-only-invalidate-one-worker-thread-medium-scenario-b-only)
+  - [W-02 — Correctness depends on DoctrineBundle resetting the EntityManager (Medium, scenario B only)](#w-02--correctness-depends-on-doctrinebundle-resetting-the-entitymanager-medium-scenario-b-only)
+  - [W-03 — Access subscriber shares priority 8 with the security firewall (Low)](#w-03--access-subscriber-shares-priority-8-with-the-security-firewall-low)
+- [Usage recommendations in worker mode](#usage-recommendations-in-worker-mode)
+- [Re-audit triggers](#re-audit-triggers)
+
 ## Execution model assumed
 
 FrankenPHP worker mode boots the Symfony kernel once per worker and serves many requests with the same container. This audit assumes the **strict** variant: the kernel is **not** rebooted between requests, so every shared service, static property and PHP global survives from one request to the next. Two scenarios are evaluated:

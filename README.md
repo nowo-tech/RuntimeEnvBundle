@@ -1,6 +1,6 @@
 # Runtime Env Bundle
 
-[![CI](https://github.com/nowo-tech/RuntimeEnvBundle/actions/workflows/ci.yml/badge.svg)](https://github.com/nowo-tech/RuntimeEnvBundle/actions/workflows/ci.yml) [![Packagist Version](https://img.shields.io/packagist/v/nowo-tech/runtime-env-bundle.svg?style=flat)](https://packagist.org/packages/nowo-tech/runtime-env-bundle) [![Packagist Downloads](https://img.shields.io/packagist/dt/nowo-tech/runtime-env-bundle.svg)](https://packagist.org/packages/nowo-tech/runtime-env-bundle) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php)](https://php.net) [![Symfony](https://img.shields.io/badge/Symfony-7.4%2B%20%7C%208.0%20%7C%208.1%2B-000000?logo=symfony)](https://symfony.com) [![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen)](#tests-and-coverage)
+[![CI](https://github.com/nowo-tech/RuntimeEnvBundle/actions/workflows/ci.yml/badge.svg)](https://github.com/nowo-tech/RuntimeEnvBundle/actions/workflows/ci.yml) [![Packagist Version](https://img.shields.io/packagist/v/nowo-tech/runtime-env-bundle.svg?style=flat)](https://packagist.org/packages/nowo-tech/runtime-env-bundle) [![Packagist Downloads](https://img.shields.io/packagist/dt/nowo-tech/runtime-env-bundle.svg)](https://packagist.org/packages/nowo-tech/runtime-env-bundle) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php)](https://php.net) [![Symfony](https://img.shields.io/badge/Symfony-7.4%2B%20%7C%208.0%20%7C%208.1%2B-000000?logo=symfony)](https://symfony.com) [![GitHub stars](https://img.shields.io/github/stars/nowo-tech/runtime-env-bundle.svg?style=social&label=Star)](https://github.com/nowo-tech/RuntimeEnvBundle) [![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen)](#tests-and-coverage)
 
 > ⭐ **Found this useful?** [Install from Packagist](https://packagist.org/packages/nowo-tech/runtime-env-bundle) · Give it a **star** on [GitHub](https://github.com/nowo-tech/RuntimeEnvBundle) so more developers can find it.
 
@@ -20,14 +20,6 @@ This bundle is **FrankenPHP worker mode friendly**.
 - Configurable `table_prefix` (default `runtime_env` → table `runtime_env_variables`)
 - UiKit-friendly markup (`nowo-ui-*`)
 
-## Requirements
-
-- PHP >= 8.2, < 8.6
-- Symfony 7.4, 8.0, or 8.1 (see `composer.json`; CI exercises 7.4, 8.0, and 8.1)
-- Doctrine ORM + Doctrine Bundle
-- [`nowo-tech/doctrine-encrypt-bundle`](https://packagist.org/packages/nowo-tech/doctrine-encrypt-bundle) (Halite recommended)
-- Twig 3.12+
-
 ## Installation
 
 ```bash
@@ -44,6 +36,14 @@ nowo_runtime_env:
     resource: .
     type: nowo_runtime_env
 ```
+
+## Requirements
+
+- PHP >= 8.2, < 8.6
+- Symfony 7.4, 8.0, or 8.1 (see `composer.json`; CI exercises 7.4, 8.0, and 8.1)
+- Doctrine ORM + Doctrine Bundle
+- [`nowo-tech/doctrine-encrypt-bundle`](https://packagist.org/packages/nowo-tech/doctrine-encrypt-bundle) (Halite recommended)
+- Twig 3.12+
 
 ## Configuration
 
@@ -100,6 +100,7 @@ Demo: `cd demo/symfony8 && make up` → http://localhost:8026 — see [demo/READ
 - [Configuration](docs/CONFIGURATION.md)
 - [Usage](docs/USAGE.md)
 - [Contributing](docs/CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Changelog](docs/CHANGELOG.md)
 - [Upgrading](docs/UPGRADING.md)
 - [Release](docs/RELEASE.md)
@@ -107,11 +108,13 @@ Demo: `cd demo/symfony8 && make up` → http://localhost:8026 — see [demo/READ
 - [Engram](docs/ENGRAM.md)
 - [Spec-driven development](docs/SPEC-DRIVEN-DEVELOPMENT.md)
 - [GitHub Spec Kit](docs/SPEC-KIT.md)
+
+### Additional documentation
+
 - [Demo with FrankenPHP (development and production)](docs/DEMO-FRANKENPHP.md)
 - [FrankenPHP worker audit (`resetKernel=false`)](docs/FRANKENPHP-WORKER-AUDIT.md)
 - [GitHub Actions CI requirements](docs/GITHUB_CI.md)
 - [PSR evaluation (REQ-CS-007)](docs/PSR.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
 
 ## Tests and coverage
 
