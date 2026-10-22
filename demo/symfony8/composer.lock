@@ -1031,7 +1031,7 @@
         },
         {
             "name": "nowo-tech/runtime-env-bundle",
-            "version": "dev-chore/req-wave2",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "/var/runtime-env-bundle",
