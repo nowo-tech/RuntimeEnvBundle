@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.1.3] - 2026-10-22](#113---2026-10-22)
 - [[1.1.2] - 2026-10-18](#112---2026-10-18)
 - [[1.1.1] - 2026-10-13](#111---2026-10-13)
 - [[1.1.0] - 2026-10-13](#110---2026-10-13)
@@ -21,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-10-22
+
+Dependency refresh, MySQL-only demo with a real release check, explicit worker reset, open-PR and coverage release gates. See [UPGRADING](UPGRADING.md#to-113).
+
 ### Changed
 
 - Demo: the unused PostgreSQL `database` service left by the Doctrine Flex recipe (and the `compose.override.yaml` that published its port) is removed; MySQL `db` is the only demo database and publishes no port (REQ-DEMO-006, REQ-DEMO-011). The demo release check syncs the bundle (`update-bundle`), runs the demo checks (`make test` = container + Twig lint) and requires a final HTTP 200 (REQ-DEMO-007).
@@ -33,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependencies refreshed (Composer and pnpm/npm lock files of the bundle and its demos, campaign 2026-10-19).
 - `.php-cs-fixer.dist.php`: `new ParallelConfig(2)` (REQ-CS-001).
 - Documentation: wave-1 REQ compliance — README documentation list order (Code of Conduct in the base list, extras under Additional documentation), Installation before Requirements, GitHub stars badge, canonical bug report template, DEMO-FRANKENPHP dev/prod start and troubleshooting, demo `APP_SHARE_DIR` comment, CONTRIBUTING Cursor Agent settings, TOCs for long docs.
+
+[1.1.3]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.1.3
 
 ## [1.1.2] - 2026-10-18
 
