@@ -7,6 +7,7 @@
 - [Admin CRUD](#admin-crud)
 - [What stays in `.env`](#what-stays-in-env)
 - [FrankenPHP worker](#frankenphp-worker)
+- [Translation overrides](#translation-overrides)
 
 ## Read variables in PHP
 
@@ -70,3 +71,8 @@ Safe with or without `kernel.reset` / `services_resetter` (`resetKernel=false`):
 Do **not** store `RuntimeEnvBag::all()` in your own shared service properties — read through the bag each request.
 
 Full audit: [FRANKENPHP-WORKER-AUDIT.md](FRANKENPHP-WORKER-AUDIT.md).
+
+## Translation overrides
+
+The admin UI strings use the **`NowoRuntimeEnvBundle`** translation domain, shipped in en, es, fr, de, it, pt and nl (`src/Resources/translations/NowoRuntimeEnvBundle.<locale>.yaml`). To change a string, create `translations/NowoRuntimeEnvBundle.<locale>.yaml` in your application with the same key (application translations take precedence), then clear the cache. Only the keys you override are needed; the rest fall back to the bundle catalogue. `make validate-translations` checks that every bundled locale has the same keys as `en`.
+

@@ -1031,11 +1031,11 @@
         },
         {
             "name": "nowo-tech/runtime-env-bundle",
-            "version": "dev-main",
+            "version": "dev-chore/req-wave2",
             "dist": {
                 "type": "path",
                 "url": "/var/runtime-env-bundle",
-                "reference": "6458fecd75fd3e41959a219e9b1369dc5b3dd0e0"
+                "reference": "a766621f37f3247b97525a4ecf1172641d7b0926"
             },
             "require": {
                 "doctrine/doctrine-bundle": "^2.10 || ^3.0",

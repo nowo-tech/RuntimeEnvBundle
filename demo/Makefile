@@ -55,10 +55,10 @@ demo-smoke:
 	[ -z "$$PORT" ] && PORT=8026; \
 	echo "Demo smoke: symfony8 (http://127.0.0.1:$$PORT)"; \
 	$(MAKE) -C symfony8 up || exit 1; \
-	code=$$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$$PORT" || true); \
+	code=$$(curl -sL -o /dev/null -w "%{http_code}" "http://127.0.0.1:$$PORT/" || true); \
 	[ -z "$$code" ] && code=000; \
 	$(MAKE) -C symfony8 down 2>/dev/null || true; \
-	if [ "$$code" != "200" ] && [ "$$code" != "302" ]; then echo "symfony8 failed with HTTP $$code"; exit 1; fi; \
+	if [ "$$code" != "200" ]; then echo "symfony8 failed with HTTP $$code"; exit 1; fi; \
 	echo "symfony8 OK (HTTP $$code)"
 
 release-verify:
@@ -68,13 +68,15 @@ release-verify:
 		[ -z "$$port" ] && port=8026; \
 		echo "Release verify: $$demo (port $$port)..."; \
 		$(MAKE) -C $$demo up || exit 1; \
-		code=$$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:$$port 2>/dev/null || echo "000"); \
+		$(MAKE) -C $$demo update-bundle && $(MAKE) -C $$demo test || { $(MAKE) -C $$demo down 2>/dev/null; exit 1; }; \
+		code=$$(curl -sL -o /dev/null -w "%{http_code}" http://127.0.0.1:$$port/ 2>/dev/null || echo "000"); \
 		$(MAKE) -C $$demo down 2>/dev/null || true; \
-		if [ "$$code" != "200" ] && [ "$$code" != "302" ]; then echo "Demo $$demo healthcheck failed (HTTP $$code)"; exit 1; fi; \
+		if [ "$$code" != "200" ]; then echo "Demo $$demo healthcheck failed (HTTP $$code)"; exit 1; fi; \
 		echo "OK $$demo (HTTP $$code)"; \
 	done
 	@echo "All demos passed release-verify."
 
+# REQ-DEMO-007: release-verify syncs the bundle (update-bundle) and runs the demo checks before the HTTP check
 release-check: release-verify
 	@echo "All demos passed release-check."
 

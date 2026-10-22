@@ -23,7 +23,7 @@ return RectorConfig::configure()
         __DIR__ . '/src',
         __DIR__ . '/tests',
     ])
-    ->withPhpVersion(PhpVersion::PHP_81)
+    ->withPhpVersion(PhpVersion::PHP_82)
     ->withComposerBased(symfony: true)
     ->withPreparedSets(
         deadCode: true,

@@ -54,7 +54,7 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
         // web_ui.enabled: false removes the HTML manage UI exactly like panel.enabled: false.
         $config['panel']['enabled'] = (bool) $config['panel']['enabled'] && (bool) $config['web_ui']['enabled'];
         // Single effective layout: the deprecated templates.layout wins only when changed from the default.
-        $config['templates']['layout'] = self::resolveLayout($config);
+        $config['templates']['layout'] = $this->resolveLayout($config);
 
         if (
             (bool) $config['panel']['enabled']
@@ -253,7 +253,7 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
     /**
      * @param array<string, mixed> $config
      */
-    private static function resolveLayout(array $config): string
+    private function resolveLayout(array $config): string
     {
         /** @var array<string, mixed> $templates */
         $templates = $config['templates'];

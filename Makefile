@@ -12,7 +12,7 @@ endif
 COMPOSE     := $(COMPOSE_BIN) -f $(COMPOSE_FILE)
 SERVICE_PHP := php
 
-.PHONY: help up down down-dev build shell install ensure-up test test-unit test-coverage coverage-php-percent cs-check cs-fix qa clean release-check release-check-demos demo-smoke composer-sync rector rector-dry phpstan igor update validate setup-hooks check-no-cursor-coauthor strip-cursor-coauthor-from-history validate-translations check-twig-extra check-no-raw-html-form assets update-deps
+.PHONY: check-open-prs help up down down-dev build shell install ensure-up test test-unit test-coverage coverage-php-percent cs-check cs-fix qa clean release-check release-check-demos demo-smoke composer-sync rector rector-dry phpstan igor update validate setup-hooks check-no-cursor-coauthor strip-cursor-coauthor-from-history validate-translations check-twig-extra check-no-raw-html-form assets update-deps
 
 help:
 	@echo "Runtime Env Bundle - Development Commands"
@@ -91,8 +91,9 @@ test-unit: ensure-up
 	$(COMPOSE) exec $(SERVICE_PHP) composer test-unit
 
 test-coverage: ensure-up
-	$(COMPOSE) exec $(SERVICE_PHP) composer test-coverage | tee coverage-php.txt
+	$(COMPOSE) exec -T $(SERVICE_PHP) composer test-coverage | tee coverage-php.txt
 	./.scripts/php-coverage-percent.sh coverage-php.txt
+	sh .scripts/coverage-fail-under.sh coverage-php.txt 99
 
 coverage-php-percent:
 	@./.scripts/php-coverage-percent.sh coverage-php.txt
@@ -136,7 +137,7 @@ check-no-raw-html-form:
 # Run Igor worker-state audit (REQ-CS-008)
 igor: ensure-up
 	$(COMPOSE) exec -T php composer igor
-release-check: check-no-cursor-coauthor check-twig-extra check-no-raw-html-form ensure-up composer-sync cs-fix cs-check rector-dry phpstan igor validate-translations test-coverage release-check-demos
+release-check: ensure-up check-no-cursor-coauthor check-open-prs check-twig-extra check-no-raw-html-form composer-sync cs-fix cs-check rector-dry phpstan igor validate-translations test-coverage release-check-demos
 
 release-check-demos:
 	@if [ -f demo/Makefile ]; then $(MAKE) -C demo release-check; else echo "No demo/Makefile — skip release-check-demos"; fi
@@ -172,3 +173,9 @@ check-no-cursor-coauthor:
 strip-cursor-coauthor-from-history:
 	@chmod +x .scripts/strip-cursor-coauthor-from-history.sh
 	@./.scripts/strip-cursor-coauthor-from-history.sh main
+
+# REQ-REL-003 — no unresolved open GitHub PRs before release
+check-open-prs:
+	@chmod +x .scripts/check-open-prs.sh
+	@bash .scripts/check-open-prs.sh
+

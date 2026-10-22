@@ -23,7 +23,7 @@ Others are **N/A** (or already covered by Symfony) so the decision stays auditab
 
 | PSR | Decision | Notes |
 | --- | -------- | ----- |
-| PSR-3 Logger | **N/A** | Logging calls exist but there is no public/injectable logger SPI yet; do not add `psr/log` without type-hints. |
+| PSR-3 Logger | **N/A** | The bundle does not log: it reads variables from the database and the admin CRUD relies on the host's request logging. |
 | PSR-6 / PSR-16 Cache | **N/A** | No package-owned cache layer. |
 | PSR-7 / PSR-17 HTTP messages | **N/A** | Symfony HttpFoundation (or no HTTP messages API) is the correct surface; a PSR-7 bridge would not help consumers. |
 | PSR-18 HTTP client | **N/A** | No outbound HTTP client. |

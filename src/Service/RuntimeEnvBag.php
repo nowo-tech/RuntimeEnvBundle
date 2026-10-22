@@ -88,7 +88,9 @@ final class RuntimeEnvBag implements ResetInterface
 
     public function reset(): void
     {
-        $this->clearRuntimeCache();
+        // Reset every memoized property here (not only through a helper) so the worker-state audit can see it.
+        $this->values        = null;
+        $this->valuesRequest = null;
     }
 
     private function isMemoizedFor(?Request $request): bool
