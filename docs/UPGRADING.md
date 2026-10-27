@@ -22,6 +22,10 @@
 
 ## Unreleased
 
+### Manage panel requires form CSRF protection at compile time
+
+While the manage panel is enabled the container no longer compiles without form CSRF protection (`LogicException`: "requires CSRF protection"). Standard Flex hosts (`symfony/security-csrf` installed, `framework.csrf_protection` enabled, `framework.form.csrf_protection` not disabled) need no change. Otherwise enable `framework.csrf_protection: true` — also in the `test` environment of functional suites that enable the panel — or set `panel.enabled: false`.
+
 ## To 1.1.3
 
 From **1.1.2**:

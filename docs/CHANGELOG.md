@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- CSRF fails closed: new `CsrfProtectionPass` makes the container refuse to compile while the manage panel is registered (`panel.enabled` and `web_ui.enabled` true) and form CSRF protection is unavailable (`security.csrf.token_manager` or `form.type_extension.csrf` missing, or `framework.form.csrf_protection: false`). Before, variable delete (`RuntimeEnvDeleteType` declares its own CSRF options) and the create / edit forms accepted tokenless cross-site POSTs in that configuration. See [UPGRADING](UPGRADING.md#unreleased) and [SECURITY](SECURITY.md#threat-model).
+
 ## [1.1.3] - 2026-10-22
 
 Dependency refresh, MySQL-only demo with a real release check, explicit worker reset, open-PR and coverage release gates. See [UPGRADING](UPGRADING.md#to-113).
