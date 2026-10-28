@@ -12,6 +12,19 @@ This bundle is **FrankenPHP worker mode friendly**.
 
 > Bootstrap secrets (`DATABASE_URL`, `APP_SECRET`, encryptor key files, `FRANKENPHP_MODE`, …) **stay in `.env`**. This bundle is for agility on business/integration variables you want to edit without redeploy.
 
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/images/demo/manage-panel.webp" alt="Manage panel listing runtime variables with masked, encrypted values and Edit / Delete actions" />
+      <br /><sub>Manage panel: variables encrypted at rest, values masked</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/images/demo/runtime-env-bag.webp" alt="Demo home page showing the value of DEMO_SAMPLE_VALUE read through RuntimeEnvBag" />
+      <br /><sub>RuntimeEnvBag reads the stored value on the next request</sub>
+    </td>
+  </tr>
+</table>
+
 ## Features
 
 - Doctrine entity `RuntimeEnvVariable` with `#[Encrypted]` value column
@@ -93,6 +106,7 @@ make cs-check
 ```
 
 Demo: `cd demo/symfony8 && make up` → http://localhost:8026 — see [demo/README.md](demo/README.md).
+The screenshots at the top come from this demo: refresh them with `make -C demo/symfony8 demo-screenshots`; `make -C demo/symfony8 test-e2e` runs the Playwright happy path.
 
 ## Documentation
 
