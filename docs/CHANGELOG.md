@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.2.0] - 2026-10-28](#120---2026-10-28)
 - [[1.1.3] - 2026-10-22](#113---2026-10-22)
 - [[1.1.2] - 2026-10-18](#112---2026-10-18)
 - [[1.1.1] - 2026-10-13](#111---2026-10-13)
@@ -22,9 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-28
+
+Security: the admin UI refuses to compile without form CSRF protection (CsrfProtectionPass, fail closed). See [UPGRADING](UPGRADING.md#to-120).
+
 ### Security
 
 - CSRF fails closed: new `CsrfProtectionPass` makes the container refuse to compile while the manage panel is registered (`panel.enabled` and `web_ui.enabled` true) and form CSRF protection is unavailable (`security.csrf.token_manager` or `form.type_extension.csrf` missing, or `framework.form.csrf_protection: false`). Before, variable delete (`RuntimeEnvDeleteType` declares its own CSRF options) and the create / edit forms accepted tokenless cross-site POSTs in that configuration. See [UPGRADING](UPGRADING.md#unreleased) and [SECURITY](SECURITY.md#threat-model).
+
+[1.2.0]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.2.0
 
 ## [1.1.3] - 2026-10-22
 
