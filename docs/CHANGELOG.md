@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.2.1] - 2026-10-28](#121---2026-10-28)
 - [[1.2.0] - 2026-10-28](#120---2026-10-28)
 - [[1.1.3] - 2026-10-22](#113---2026-10-22)
 - [[1.1.2] - 2026-10-18](#112---2026-10-18)
@@ -23,11 +24,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-28
+
+Security: the manage UI access check also applies when the routes are mounted under another prefix. See [UPGRADING](UPGRADING.md#to-121).
+
 ### Security
 
 - **Manage UI guard no longer depends on the URL.** `RuntimeEnvAccessSubscriber` only checked requests under
   `path_prefix`; importing the routes with another `prefix:` served the manage UI outside it (and outside the recipe's
   `access_control`) without the soft gate. Requests handled by the bundle's controllers are now always checked.
+
+[1.2.1]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.2.1
 
 ## [1.2.0] - 2026-10-28
 

@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.2.1](#to-121)
 - [To 1.2.0](#to-120)
   - [Manage panel requires form CSRF protection at compile time](#manage-panel-requires-form-csrf-protection-at-compile-time)
 - [To 1.1.3](#to-113)
@@ -23,6 +24,14 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+## To 1.2.1
+
+From **1.2.0**:
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
 
 ## To 1.2.0
 
