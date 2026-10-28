@@ -92,6 +92,19 @@ final class RuntimeEnvAccessSubscriberTest extends TestCase
         $subscriber->onKernelRequest($this->createRequestEvent('/_runtime_env/delete', firewalled: true));
     }
 
+    /** A routing import with its own `prefix:` moves the manage UI out of path_prefix: still guarded. */
+    public function testBundleControllerOutsideThePathPrefixIsStillGuarded(): void
+    {
+        $checker = $this->createMock(RuntimeEnvAccessCheckerInterface::class);
+        $checker->expects(self::once())->method('canAccess')->with(null)->willReturn(false);
+
+        $event = $this->createRequestEvent('/admin/env');
+        $event->getRequest()->attributes->set('_controller', 'Nowo\\RuntimeEnvBundle\\Controller\\RuntimeEnvManageController::index');
+
+        $this->expectException(AccessDeniedHttpException::class);
+        (new RuntimeEnvAccessSubscriber($checker, '', false))->onKernelRequest($event);
+    }
+
     public function testTokenIsIgnoredWhenNoFirewallMatchedTheRequest(): void
     {
         $tokenStorage = $this->createMock(TokenStorageInterface::class);

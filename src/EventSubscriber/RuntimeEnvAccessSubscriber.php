@@ -12,6 +12,9 @@ use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 use function is_object;
+use function is_string;
+use function ltrim;
+use function rtrim;
 use function str_starts_with;
 
 /**
@@ -23,6 +26,8 @@ use function str_starts_with;
 final class RuntimeEnvAccessSubscriber implements EventSubscriberInterface
 {
     public const PRIORITY = 7;
+
+    public const CONTROLLER_NAMESPACE = 'Nowo\\RuntimeEnvBundle\\Controller\\';
 
     public function __construct(
         private readonly RuntimeEnvAccessCheckerInterface $accessChecker,
@@ -46,7 +51,11 @@ final class RuntimeEnvAccessSubscriber implements EventSubscriberInterface
         $request = $event->getRequest();
         $path    = $request->getPathInfo();
         $prefix  = rtrim($this->pathPrefix, '/') ?: '/_runtime_env';
-        if ($path !== $prefix && !str_starts_with($path, $prefix . '/')) {
+        // The bundle's controllers are guarded wherever the host mounts them: a routing import with its own `prefix:`
+        // moves them out of path_prefix (and out of the recipe's access_control).
+        $controller         = $request->attributes->get('_controller');
+        $isBundleController = is_string($controller) && str_starts_with(ltrim($controller, '\\'), self::CONTROLLER_NAMESPACE);
+        if (!$isBundleController && $path !== $prefix && !str_starts_with($path, $prefix . '/')) {
             return;
         }
 

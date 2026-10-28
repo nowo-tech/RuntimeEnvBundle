@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Manage UI guard no longer depends on the URL.** `RuntimeEnvAccessSubscriber` only checked requests under
+  `path_prefix`; importing the routes with another `prefix:` served the manage UI outside it (and outside the recipe's
+  `access_control`) without the soft gate. Requests handled by the bundle's controllers are now always checked.
+
 ## [1.2.0] - 2026-10-28
 
 Security: the admin UI refuses to compile without form CSRF protection (CsrfProtectionPass, fail closed). See [UPGRADING](UPGRADING.md#to-120).
