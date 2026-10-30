@@ -22,9 +22,12 @@ use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
 use Nowo\RuntimeEnvBundle\Twig\RuntimeEnvTwigExtension;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
+use Symfony\Component\DependencyInjection\Compiler\MergeExtensionConfigurationPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 
@@ -374,6 +377,47 @@ final class RuntimeEnvExtensionTest extends TestCase
         $this->extension->prepend($container);
 
         self::assertSame([], $container->getExtensionConfig('nowo_ui_kit'));
+    }
+
+    /**
+     * @return iterable<string, array{0: array<string, mixed>, 1: string}>
+     */
+    public static function envPlaceholderSwitches(): iterable
+    {
+        yield 'security.allow_unauthenticated' => [['security' => ['allow_unauthenticated' => '%env(bool:RUNTIME_ENV_OPEN)%']], 'security.allow_unauthenticated'];
+        yield 'web_ui.enabled' => [['web_ui' => ['enabled' => '%env(bool:RUNTIME_ENV_UI)%']], 'web_ui.enabled'];
+        yield 'enabled' => [['enabled' => '%env(bool:RUNTIME_ENV_ON)%'], 'enabled'];
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    #[DataProvider('envPlaceholderSwitches')]
+    public function testEnvPlaceholdersOnSecuritySwitchesAreRefused(array $config, string $path): void
+    {
+        // Real container flow: MergeExtensionConfigurationPass turns %env()% into (truthy) placeholder strings.
+        $container = new ContainerBuilder();
+        $container->registerExtension($this->extension);
+        $container->registerExtension($this->dummyExtension('security'));
+        $container->loadFromExtension('nowo_runtime_env', $config);
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('nowo_runtime_env.' . $path . ' must be a literal boolean');
+
+        (new MergeExtensionConfigurationPass())->process($container);
+    }
+
+    #[IgnoreDeprecations]
+    public function testEnvPlaceholderOnDeprecatedPanelEnabledIsRefused(): void
+    {
+        $container = new ContainerBuilder();
+        $container->registerExtension($this->extension);
+        $container->loadFromExtension('nowo_runtime_env', ['panel' => ['enabled' => '%env(bool:RUNTIME_ENV_PANEL)%']]);
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('nowo_runtime_env.panel.enabled must be a literal boolean');
+
+        (new MergeExtensionConfigurationPass())->process($container);
     }
 
     private function dummyExtension(string $alias): Extension

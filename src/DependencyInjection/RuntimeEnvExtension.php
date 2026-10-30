@@ -20,6 +20,7 @@ use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
 use Nowo\RuntimeEnvBundle\Twig\RuntimeEnvTwigExtension;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -33,8 +34,10 @@ use function array_key_exists;
 use function array_values;
 use function dirname;
 use function is_array;
+use function is_bool;
 use function is_string;
 use function rtrim;
+use function sprintf;
 
 final class RuntimeEnvExtension extends Extension implements PrependExtensionInterface
 {
@@ -53,6 +56,7 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
     {
         $configuration = new Configuration();
         $config        = $this->processConfiguration($configuration, $configs);
+        $this->assertLiteralBooleans($config);
 
         // web_ui.enabled: false removes the HTML manage UI; the deprecated panel.enabled: false still does too.
         $config['panel']['enabled']  = (bool) $config['panel']['enabled'] && (bool) $config['web_ui']['enabled'];
@@ -142,7 +146,7 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
             return;
         }
 
-        if (!empty($security['allow_unauthenticated'])) {
+        if (($security['allow_unauthenticated'] ?? false) === true) {
             $container->setDefinition(AllowAllRuntimeEnvAccessChecker::class, new Definition(AllowAllRuntimeEnvAccessChecker::class));
             $container->setAlias(RuntimeEnvAccessCheckerInterface::class, AllowAllRuntimeEnvAccessChecker::class);
 
@@ -338,6 +342,27 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
         }
 
         return $templates;
+    }
+
+    /**
+     * The security switches must be literal booleans: an `%env(bool:…)%` placeholder is a non-empty string while the
+     * container is built, so it would read as true (fail open) whatever the runtime value is.
+     *
+     * @param array<string, mixed> $config
+     */
+    private function assertLiteralBooleans(array $config): void
+    {
+        $switches = [
+            'enabled'                        => $config['enabled'] ?? null,
+            'panel.enabled'                  => $config['panel']['enabled'] ?? null,
+            'web_ui.enabled'                 => $config['web_ui']['enabled'] ?? null,
+            'security.allow_unauthenticated' => $config['security']['allow_unauthenticated'] ?? null,
+        ];
+        foreach ($switches as $path => $value) {
+            if (!is_bool($value)) {
+                throw new InvalidConfigurationException(sprintf('nowo_runtime_env.%s must be a literal boolean (true or false); environment placeholders such as %%env(bool:...)%% are not supported for security switches.', $path));
+            }
+        }
     }
 
     private function isSecurityBundleAvailable(ContainerBuilder $container): bool

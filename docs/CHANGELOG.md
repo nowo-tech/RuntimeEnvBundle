@@ -70,11 +70,31 @@ See [UPGRADING](UPGRADING.md#unreleased).
   `@NowoRuntimeEnvBundle/manage/layout.html.twig` is mapped to the UiKit layout.
 - The `runtime_env_layout` template variable.
 
+### Security
+
+Fixes of the REQ-SEC-004 re-audit 2026-10-30 (Appendix BM, Pass (good) / Low); see [SECURITY](SECURITY.md).
+
+- **No value in the view models (L1).** List rows are value-free arrays (`RuntimeEnvPageFactory::row()`), the value
+  column key is `masked_value`, and no entity reaches the page contexts (`variables` / `variable` are value-free
+  arrays): a host template extending the plain UiKit list scaffold can no longer print decrypted values.
+- **Literal booleans for security switches (L2).** `enabled`, `web_ui.enabled`, `panel.enabled` and
+  `security.allow_unauthenticated` refuse `%env(bool:…)%` placeholders, which read as true while the container is built
+  (fail open).
+- **`allow_unauthenticated: true` only with `kernel.debug` (L3).** `UnauthenticatedAccessPass` refuses to compile the
+  container otherwise while the manage UI is enabled.
+- **Typed secrets are never re-rendered (L4).** After a failed submission the value field is printed empty on create
+  and edit; the create field is masked too. Firefox ignores `-webkit-text-security` (documented).
+- An invalid edit no longer modifies the managed entity (the form edits a detached copy); embedded sub-requests
+  (`render(controller())`) and array `_controller` values of the bundle controller are access-checked; dev files
+  (`.specify/`, `.coderabbit.yaml`, `.cursorignore`, `.scripts/`, `igor.json`, `composer.lock`) are export-ignored.
+
 ### Template contract
 
 - `manage/index.html.twig` extends `@NowoUiKit/page/list.html.twig` (variable `page: ListPage`, data block
   `nowo_ui_list_row`); `manage/form.html.twig` extends `@NowoUiKit/page/form.html.twig` (variable `page: FormPage`,
   block `nowo_ui_styles`). Full-file overrides of these templates written for 1.2 must be redone (see UPGRADING).
+- List rows (`page.rows`, `variables`) and the form `variable` are value-free arrays `{id, name, description, enabled}`,
+  not `RuntimeEnvVariable` entities; the value column key is `masked_value`.
 
 ## [1.2.1] - 2026-10-28
 

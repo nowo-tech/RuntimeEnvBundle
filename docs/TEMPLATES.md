@@ -29,20 +29,30 @@ UiKit confirm `<dialog>` (`View\Confirm`); there is no inline `confirm()`.
 
 | Page (`web_ui.templates` id) | Template | Scaffold | View model | Data blocks filled |
 | --- | --- | --- | --- | --- |
-| Variables (`index`) | `manage/index.html.twig` | `page/list` | `ListPage` (header `runtime_env.index.title` + `subtitle`, action New variable (`create`); columns name (required), value, description (priority 2), enabled; rows = `list<RuntimeEnvVariable>` of the current page; row actions Edit / Delete (Confirm `runtime_env.confirm.*`); `Pagination` (`web_ui.list_page_size`, route `nowo_runtime_env_index`); `EmptyState` `runtime_env.index.empty` with New variable; `data-testid="runtime-env-variables"`) | `nowo_ui_list_row` (name on `code`; value = fixed mask `••••••••` on `code` (`data-testid="runtime-env-masked-value"`); description or a `muted` dash; enabled on `badge_success` / `badge_neutral`) |
+| Variables (`index`) | `manage/index.html.twig` | `page/list` | `ListPage` (header `runtime_env.index.title` + `subtitle`, action New variable (`create`); columns name (required), `masked_value` (value), description (priority 2), enabled; rows = value-free arrays `{id, name, description, enabled}` of the current page (`RuntimeEnvPageFactory::row()`); row actions Edit / Delete (Confirm `runtime_env.confirm.*`); `Pagination` (`web_ui.list_page_size`, route `nowo_runtime_env_index`); `EmptyState` `runtime_env.index.empty` with New variable; `data-testid="runtime-env-variables"`) | `nowo_ui_list_row` (name on `code`; value = fixed mask `••••••••` on `code` (`data-testid="runtime-env-masked-value"`); description or a `muted` dash; enabled on `badge_success` / `badge_neutral`) |
 | Variable new / edit (`form`) | `manage/form.html.twig` | `page/form` | `FormPage` (header `runtime_env.form.new_title` / `edit_title`, intro = `new_intro` / the variable name, back link to the list (`data-testid="runtime-env-back"`); form = `RuntimeEnvVariableType`; submit `runtime_env.action.save`; cancel = list; on edit the delete zone with the Delete action; `data-testid="runtime-env-variable-form"`) | `nowo_ui_styles` (`{{ parent() }}` + the bundle stylesheet that masks the value field); `nowo_ui_form_body` is the scaffold default (REQ-TWIG-003 child loop) |
 
-Other variables passed by the controller (for host templates set through `web_ui.templates.<page>`): `variables`,
-`delete_forms` (index), `form`, `variable`, `is_edit` (form), `path_prefix`, `translation_domain` (both), plus the
+Other variables passed by the controller (for host templates set through `web_ui.templates.<page>`): `variables`
+(the same value-free rows as `page.rows`), `delete_forms` (index), `form`, `variable` (value-free row array), `is_edit`
+(form), `path_prefix`, `translation_domain` (both), plus the
 bridge variables `nowo_runtime_env_legacy_layout` / `nowo_runtime_env_legacy_blocks`.
 
 ## Secrets in the pages
 
-- The list never renders a value: the value cell prints a fixed mask, and the view models carry no value.
+- No entity reaches the templates. List rows and the `variable` variable are value-free arrays (`id`, `name`,
+  `description`, `enabled`), and the value column key is `masked_value`, which resolves to nothing: even a host
+  template that extends the plain UiKit list scaffold (default cells, no `nowo_ui_list_row` override) cannot print a
+  value (covered by `PageContractTest::testPlainUiKitListScaffoldNeverPrintsAStoredValue`). The bundle's row prints a
+  fixed mask.
 - The edit form never renders the stored (decrypted) value back: the value field starts empty, a blank submission keeps
-  the current value and `clear_value` sets it to an empty string. What is typed is masked by
-  `bundles/noworuntimeenv/css/runtime-env.css` (`textarea.nowo-runtime-env-secret`).
-- Host overrides must keep these properties: never print `row.value` / `variable.value` in a page.
+  the current value and `clear_value` sets it to an empty string.
+- A typed value is never rendered back either: after a failed submission (validation error, expired CSRF token,
+  duplicate name) the value field is printed empty, on create and on edit (`RuntimeEnvVariableType::finishView()`).
+- What is typed is masked on create and edit by `bundles/noworuntimeenv/css/runtime-env.css`
+  (`textarea.nowo-runtime-env-secret`, `-webkit-text-security`). **Firefox ignores `-webkit-text-security`**: there the
+  typed value stays visible while typing (it is still never rendered back). Hosts that need the mask in Firefox can
+  map the class to a masking font (e.g. a dot font) in their own stylesheet.
+- The form edits a detached copy of the entity: an invalid submission never changes the managed entity.
 
 ## Unique pages
 

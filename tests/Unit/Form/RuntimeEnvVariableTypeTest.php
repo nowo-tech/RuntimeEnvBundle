@@ -154,4 +154,23 @@ final class RuntimeEnvVariableTypeTest extends TypeTestCase
             'is_edit' => 'yes',
         ]);
     }
+
+    public function testSubmittedValueIsNeverRenderedBackOnCreate(): void
+    {
+        $form = $this->factory->create(RuntimeEnvVariableType::class, new RuntimeEnvVariable('NEW_KEY', ''));
+        $form->submit(['name' => 'not valid', 'value' => 'REDACTED-TEST-TYPED', 'description' => '', 'enabled' => '1']);
+
+        self::assertFalse($form->isValid());
+        $view = $form->createView();
+        self::assertSame('', $view['value']->vars['value']);
+        self::assertSame('nowo-runtime-env-secret', $view['value']->vars['attr']['class']);
+    }
+
+    public function testSubmittedValueIsNeverRenderedBackOnEdit(): void
+    {
+        $form = $this->factory->create(RuntimeEnvVariableType::class, new RuntimeEnvVariable('APP_KEY', 'REDACTED-TEST-STORED'), ['is_edit' => true]);
+        $form->submit(['value' => 'REDACTED-TEST-TYPED', 'description' => '', 'enabled' => '1']);
+
+        self::assertSame('', $form->createView()['value']->vars['value']);
+    }
 }

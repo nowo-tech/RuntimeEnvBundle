@@ -18,7 +18,9 @@
 | Manage UI | Unauthorized read/write | REQ-UI-002 `access_roles` + access checker + host `access_control` on path prefix |
 | Mutations | CSRF / session fixation | Symfony Form CSRF on create/update/delete (`RuntimeEnvDeleteType`). **Fails closed**: `CsrfProtectionPass` refuses to compile the container while the manage panel is registered without `security.csrf.token_manager` + `form.type_extension.csrf`, or with `framework.form.csrf_protection: false` (`RuntimeEnvDeleteType` declares its own CSRF options and would otherwise accept tokenless POSTs) |
 | Twig / logs | Accidental secret leak | List UI masks values; do not log `RuntimeEnvBag::all()`; do not render `runtime_env()` on public pages |
-| Edit form | Secret rendered back into HTML | Since 1.1.0 the edit form never renders the stored (decrypted) value: the field starts empty, blank keeps the value, `clear_value` empties it |
+| Edit form | Secret rendered back into HTML | Since 1.1.0 the edit form never renders the stored (decrypted) value: the field starts empty, blank keeps the value, `clear_value` empties it. Since 1.3.0 a typed value is never re-rendered after a failed submission (create and edit) |
+| List / templates | Secret printed by a template | Since 1.3.0 no entity reaches the templates: list rows are value-free arrays, the value column key resolves to nothing |
+| Configuration | Fail-open switches | Since 1.3.0 security switches accept only literal booleans; `allow_unauthenticated: true` is refused unless `kernel.debug` |
 | FrankenPHP worker | Cross-request leak / stale config | Request-scoped bag memoization; repository `HINT_REFRESH` + `ManagerRegistry`; access subscriber priority 7 + `_firewall_context`; no `$_ENV`/`putenv` |
 
 ## Defaults
@@ -32,13 +34,22 @@
 
 | Field | Value |
 |-------|--------|
-| **Date** | 2026-09-28 |
-| **Method** | Cursor agent static pass (`src/`, Flex recipe, demo, this doc + `.github/SECURITY.md`) |
+| **Date** | 2026-10-30 (previous: 2026-09-28) |
+| **Method** | Claude Code static re-audit (`v1.2.1..302d316`, every security path of `src/`, UiKit 2.17.3 list scaffold) |
 | **Overall risk** | **Low** |
 | **Grade** | **Pass (good)** |
-| **Record** | This document (in-package). Monorepo catalog row: `BUNDLES_SECURITY_ANALYSIS.md` §4 / §7.2 / Appendix X |
+| **Record** | This document (in-package). Monorepo catalog: `BUNDLES_SECURITY_ANALYSIS.md` §4 / §7 / Appendix BM (2026-10-30), Appendix X (2026-09-28) |
 
-No Critical/High findings. Catalog checklist ✅ for REQ-SEC-004 once the package is listed in the inventory matrix.
+No Critical / High / Medium findings. The four Low findings of the 2026-10-30 re-audit (Appendix BM) are fixed in 1.3.0:
+
+| Finding | Fix (1.3.0) |
+|---------|-------------|
+| L1 list view model carried decrypted values (UiKit default cells could print them under a host override) | Value-free row arrays, `masked_value` column key, no entity in the page contexts; contract test on the plain UiKit list scaffold |
+| L2 `%env(bool:…)%` on security switches read as true (fail open) | `enabled`, `web_ui.enabled`, `panel.enabled`, `security.allow_unauthenticated` accept only literal booleans (`InvalidConfigurationException`) |
+| L3 `allow_unauthenticated: true` accepted in production | `UnauthenticatedAccessPass` refuses it unless `kernel.debug` is true (manage UI enabled) |
+| L4 a typed secret was re-rendered after a failed submission; mask on edit only | Value field blanked on every re-render (create and edit), mask class on create; Firefox `-webkit-text-security` gap documented |
+
+Info items also addressed: dev files export-ignored from the dist; embedded sub-requests (`render(controller())`) and array `_controller` values of the bundle controller are gated; an invalid edit no longer modifies the managed entity (the form edits a detached copy).
 
 This subsection is the in-package REQ-SEC-004 record (date, method, grade, residuals).
 
@@ -46,7 +57,7 @@ This subsection is the in-package REQ-SEC-004 record (date, method, grade, resid
 
 - Host owns firewall `access_control` on `web_ui.path_prefix` (soft gate alone is not enough)
 - Empty `security.access_roles` is **rejected** at compile time (fail-closed) unless `allow_unauthenticated` or a custom `access_checker` is set
-- Demo may set `allow_unauthenticated: true` — never copy that to production
+- Demo may set `allow_unauthenticated: true` — refused at compile time outside `kernel.debug` since 1.3.0
 - Host owns retention / audit of who changed which key
 - Multi-worker: after save, other workers see updates on their next request (request-scoped bag + refreshed Doctrine reads; no shared in-memory cache by design)
 - Encryptor key material remains an application secret (DoctrineEncryptBundle configuration)
@@ -80,6 +91,6 @@ Before tagging a release, confirm:
 | **Cryptography** | Field encryption via DoctrineEncryptBundle; keys from secure config / files. |
 | **Permissions / exposure** | Host firewall on `web_ui.path_prefix`; roles configured for production. |
 | **Limits / DoS** | Admin-only UI; no public write endpoints. |
-| **REQ-SEC-004** | Latest grade Pass (good) recorded in org security analysis (re-audit 2026-09-28). |
+| **REQ-SEC-004** | Latest grade Pass (good) / Low recorded in org security analysis (re-audit 2026-10-30, Appendix BM; Lows fixed in 1.3.0). |
 
 Record confirmation in the release PR or tag notes.

@@ -40,6 +40,7 @@ use Symfony\Component\Translation\Translator;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Environment;
 
+use function array_column;
 use function array_key_exists;
 use function array_keys;
 use function dirname;
@@ -117,7 +118,8 @@ final class RuntimeEnvManageControllerTest extends TestCase
         self::assertSame(Response::HTTP_OK, $response->getStatusCode());
         self::assertSame(self::INDEX, $response->getContent());
         $parameters = $this->rendered[0]['parameters'];
-        self::assertSame([$variable], $parameters['variables']);
+        $row        = ['id' => 3, 'name' => 'APP_KEY', 'description' => null, 'enabled' => true];
+        self::assertSame([$row], $parameters['variables'], 'Value-free rows only: no entity in the context.');
         self::assertArrayHasKey(3, $parameters['delete_forms']);
         self::assertSame('/admin/runtime-env', $parameters['path_prefix']);
         self::assertSame('NowoRuntimeEnvBundle', $parameters['translation_domain']);
@@ -125,7 +127,7 @@ final class RuntimeEnvManageControllerTest extends TestCase
 
         $page = $parameters['page'];
         self::assertInstanceOf(ListPage::class, $page);
-        self::assertSame([$variable], $page->rows);
+        self::assertSame([$row], $page->rows);
         self::assertInstanceOf(Pagination::class, $page->pagination);
         self::assertSame(3, $page->pagination->page, 'An out-of-range page is clamped to the last page.');
         self::assertSame(2, $page->pagination->perPage);
@@ -150,7 +152,7 @@ final class RuntimeEnvManageControllerTest extends TestCase
         $this->createController(listPageSize: 2)->index($this->createRequest('/admin/runtime-env?page=2'));
 
         $parameters = $this->rendered[0]['parameters'];
-        self::assertSame([$variables[2], $variables[3]], $parameters['variables']);
+        self::assertSame(['C_KEY', 'DRAFT_KEY'], array_column($parameters['variables'], 'name'));
         self::assertSame([3], array_keys($parameters['delete_forms']), 'Unsaved variables get no delete form.');
         self::assertSame(4, $parameters['page']->pagination->total);
     }
@@ -316,11 +318,65 @@ final class RuntimeEnvManageControllerTest extends TestCase
         self::assertSame(self::FORM, $response->getContent());
         self::assertSame(Response::HTTP_UNPROCESSABLE_ENTITY, $response->getStatusCode());
         self::assertTrue($this->rendered[0]['parameters']['is_edit']);
-        self::assertSame($variable, $this->rendered[0]['parameters']['variable']);
+        self::assertSame(['id' => 5, 'name' => 'APP_KEY', 'description' => null, 'enabled' => true], $this->rendered[0]['parameters']['variable']);
         $page = $this->rendered[0]['parameters']['page'];
         self::assertInstanceOf(FormPage::class, $page);
         self::assertNotNull($page->deleteAction);
         self::assertNotNull($page->deleteAction->confirm, 'Delete goes through the UiKit confirm dialog.');
+    }
+
+    public function testInvalidEditNeverModifiesTheManagedEntity(): void
+    {
+        $variable   = (new RuntimeEnvVariable('APP_KEY', 'REDACTED-TEST-STORED', 'Old', true))->setId(5);
+        $form       = $this->createFormMock(true, false);
+        $deleteForm = $this->createMock(FormInterface::class);
+        $deleteForm->method('createView')->willReturn(new FormView());
+
+        $this->repository->method('find')->willReturn($variable);
+        $this->repository->expects(self::never())->method('save');
+        $this->formFactory->expects(self::exactly(2))
+            ->method('create')
+            ->willReturnCallback(static function (string $type, mixed $data) use ($variable, $form, $deleteForm): FormInterface {
+                if ($type !== RuntimeEnvVariableType::class) {
+                    return $deleteForm;
+                }
+                self::assertInstanceOf(RuntimeEnvVariable::class, $data);
+                self::assertNotSame($variable, $data, 'The form binds a detached copy.');
+                // What Symfony's data mapping would do on submit.
+                $data->setValue('REDACTED-TEST-TYPED')->setDescription('Hacked')->setEnabled(false);
+
+                return $form;
+            });
+
+        $this->createController()->edit($this->createRequest('/admin/runtime-env/5/edit', 'POST'), 5);
+
+        self::assertSame('REDACTED-TEST-STORED', $variable->getValue());
+        self::assertSame('Old', $variable->getDescription());
+        self::assertTrue($variable->isEnabled());
+    }
+
+    public function testValidEditCopiesTheDraftOntoTheManagedEntity(): void
+    {
+        $variable = (new RuntimeEnvVariable('APP_KEY', 'REDACTED-TEST-STORED', 'Old', true))->setId(5);
+        $form     = $this->createFormMock(true, true);
+
+        $this->repository->method('find')->willReturn($variable);
+        $this->repository->expects(self::once())->method('save')->with(self::identicalTo($variable));
+        $this->router->method('generate')->willReturn('/runtime-env');
+        $this->formFactory->expects(self::once())
+            ->method('create')
+            ->willReturnCallback(static function (string $type, RuntimeEnvVariable $data) use ($form): FormInterface {
+                $data->setValue('REDACTED-TEST-NEW')->setDescription('New')->setEnabled(false);
+
+                return $form;
+            });
+
+        $request = $this->createRequest('/admin/runtime-env/5/edit', 'POST');
+        $this->createController()->edit($request, 5);
+
+        self::assertSame('REDACTED-TEST-NEW', $variable->getValue());
+        self::assertSame('New', $variable->getDescription());
+        self::assertFalse($variable->isEnabled());
     }
 
     public function testDeleteThrowsNotFoundWhenVariableDoesNotExist(): void

@@ -8,6 +8,7 @@ use Nowo\RuntimeEnvBundle\EventSubscriber\RuntimeEnvAccessSubscriber;
 use Nowo\RuntimeEnvBundle\Security\RuntimeEnvAccessCheckerInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -24,15 +25,63 @@ final class RuntimeEnvAccessSubscriberTest extends TestCase
         self::assertSame([KernelEvents::REQUEST => ['onKernelRequest', 7]], RuntimeEnvAccessSubscriber::getSubscribedEvents());
     }
 
-    public function testSubRequestsAreIgnored(): void
+    public function testSubRequestsToOtherControllersAreIgnored(): void
     {
         $checker = $this->createMock(RuntimeEnvAccessCheckerInterface::class);
         $checker->expects(self::never())->method('canAccess');
 
         $subscriber = new RuntimeEnvAccessSubscriber($checker, '/admin/runtime-env', false);
+        // A sub-request is matched by controller only, never by the path of the fragment URL.
         $subscriber->onKernelRequest($this->createRequestEvent('/admin/runtime-env', HttpKernelInterface::SUB_REQUEST));
 
         self::assertTrue(true);
+    }
+
+    public function testEmbeddedBundleControllerSubRequestIsGuarded(): void
+    {
+        $checker = $this->createMock(RuntimeEnvAccessCheckerInterface::class);
+        $checker->expects(self::once())->method('canAccess')->with(null)->willReturn(false);
+
+        $event = $this->createRequestEvent('/_fragment', HttpKernelInterface::SUB_REQUEST);
+        $event->getRequest()->attributes->set('_controller', 'Nowo\\RuntimeEnvBundle\\Controller\\RuntimeEnvManageController::index');
+
+        $this->expectException(AccessDeniedHttpException::class);
+
+        (new RuntimeEnvAccessSubscriber($checker, '/admin/runtime-env', false, new TokenStorage(), new RequestStack()))->onKernelRequest($event);
+    }
+
+    public function testEmbeddedSubRequestTrustsTheTokenOfAFirewalledMainRequest(): void
+    {
+        $user  = $this->createMock(UserInterface::class);
+        $token = $this->createMock(TokenInterface::class);
+        $token->method('getUser')->willReturn($user);
+        $tokenStorage = new TokenStorage();
+        $tokenStorage->setToken($token);
+        $checker = $this->createMock(RuntimeEnvAccessCheckerInterface::class);
+        $checker->expects(self::once())->method('canAccess')->with($user)->willReturn(true);
+
+        $main = Request::create('/dashboard');
+        $main->attributes->set('_firewall_context', 'security.firewall.map.context.main');
+        $requestStack = new RequestStack();
+        $requestStack->push($main);
+
+        $event = $this->createRequestEvent('/_fragment', HttpKernelInterface::SUB_REQUEST);
+        $event->getRequest()->attributes->set('_controller', ['Nowo\\RuntimeEnvBundle\\Controller\\RuntimeEnvManageController', 'index']);
+
+        (new RuntimeEnvAccessSubscriber($checker, '/admin/runtime-env', false, $tokenStorage, $requestStack))->onKernelRequest($event);
+    }
+
+    public function testArrayControllerOutsideThePrefixIsGuarded(): void
+    {
+        $checker = $this->createMock(RuntimeEnvAccessCheckerInterface::class);
+        $checker->expects(self::once())->method('canAccess')->willReturn(false);
+
+        $event = $this->createRequestEvent('/elsewhere');
+        $event->getRequest()->attributes->set('_controller', ['\\Nowo\\RuntimeEnvBundle\\Controller\\RuntimeEnvManageController', 'delete']);
+
+        $this->expectException(AccessDeniedHttpException::class);
+
+        (new RuntimeEnvAccessSubscriber($checker, '/admin/runtime-env', false))->onKernelRequest($event);
     }
 
     public function testUnrelatedPathsAreIgnored(): void

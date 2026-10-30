@@ -13,6 +13,8 @@ use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Form\FormView;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Regex;
@@ -91,7 +93,12 @@ final class RuntimeEnvVariableType extends AbstractType
                 'label'      => 'runtime_env.form.value',
                 'required'   => false,
                 'empty_data' => '',
-                'attr'       => ['rows' => 3, 'autocomplete' => 'off', 'spellcheck' => 'false'],
+                'attr'       => [
+                    'rows'         => 3,
+                    'autocomplete' => 'off',
+                    'spellcheck'   => 'false',
+                    'class'        => 'nowo-runtime-env-secret',
+                ],
             ]);
         }
 
@@ -104,6 +111,17 @@ final class RuntimeEnvVariableType extends AbstractType
                 'label'    => 'runtime_env.form.enabled',
                 'required' => false,
             ]);
+    }
+
+    /**
+     * A typed secret is never rendered back: after a failed submission (validation error, expired CSRF token,
+     * duplicate name) the value field is printed empty, on create and on edit.
+     */
+    public function finishView(FormView $view, FormInterface $form, array $options): void
+    {
+        if (isset($view['value'])) {
+            $view['value']->vars['value'] = '';
+        }
     }
 
     public function configureOptions(OptionsResolver $resolver): void
