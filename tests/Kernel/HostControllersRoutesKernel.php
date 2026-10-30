@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\RuntimeEnvBundle\Tests\Kernel;
 
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
+use Nowo\FormKitBundle\NowoFormKitBundle;
 use Nowo\RuntimeEnvBundle\NowoRuntimeEnvBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
@@ -29,6 +30,7 @@ final class HostControllersRoutesKernel extends Kernel
         yield new FrameworkBundle();
         yield new TwigBundle();
         yield new DoctrineBundle();
+        yield new NowoFormKitBundle();
         yield new NowoRuntimeEnvBundle();
     }
 

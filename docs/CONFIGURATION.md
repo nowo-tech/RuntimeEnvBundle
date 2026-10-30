@@ -32,6 +32,31 @@ would read as true while the container is built.
 
 The value `@NowoRuntimeEnvBundle/manage/layout.html.twig` (the removed pre-1.3 default layout) is mapped to `null`.
 
+## FormKit profile
+
+The manage forms (`RuntimeEnvVariableType`, the CSRF-only `RuntimeEnvDeleteType`) are FormKit Types
+(`#[FormKitConfig('runtime_env')]`, REQ-TWIG-005 rule 11). Their field defaults come from the FormKit profile
+**`nowo_form_kit.profiles.runtime_env`**, which the bundle prepends unless you define it:
+
+```yaml
+# config/packages/nowo_form_kit.yaml — define the profile to override the bundle default (nothing is prepended then)
+nowo_form_kit:
+    profiles:
+        runtime_env:
+            alias: runtime_env
+            translation_domain: NowoRuntimeEnvBundle
+            auto_help: false
+            auto_placeholder: false
+            defaults:
+                attr: {}
+                row_attr: {}
+            field_types: {}   # e.g. text: { attr: { class: my-input } }
+```
+
+No framework classes by default (REQ-UI-003): the UiKit form scaffold paints the fields. Explicit options on the types
+(labels, `nowo-runtime-env-secret`, `rows`, `autocomplete`) win over the profile. The profile does not change your
+`nowo_form_kit.default_profile`.
+
 ## Look and feel (UiKit page contract)
 
 The manage pages extend the UiKit list / form scaffolds (REQ-UI-003): the host themes them once, for every Nowo bundle,

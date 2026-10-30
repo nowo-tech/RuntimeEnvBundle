@@ -8,6 +8,7 @@
     "doctrine/doctrine-bundle": "^3.2",
     "doctrine/orm": "^3.0",
     "nowo-tech/doctrine-encrypt-bundle": "^2.2",
+    "nowo-tech/form-kit-bundle": "^2.16",
     "nowo-tech/runtime-env-bundle": "@dev",
     "nowo-tech/ui-kit-bundle": "^2.17.3",
     "symfony/console": "^8.0",

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Nowo\RuntimeEnvBundle\Tests\Unit\Form;
 
 use Nowo\RuntimeEnvBundle\Form\RuntimeEnvDeleteType;
-use Symfony\Component\Form\PreloadedExtension;
+use Nowo\RuntimeEnvBundle\Tests\Support\FormKitTestSupport;
 use Symfony\Component\Form\Test\TypeTestCase;
 
 final class RuntimeEnvDeleteTypeTest extends TypeTestCase
@@ -13,10 +13,7 @@ final class RuntimeEnvDeleteTypeTest extends TypeTestCase
     protected function getExtensions(): array
     {
         return [
-            new PreloadedExtension(
-                [new RuntimeEnvDeleteType()],
-                [],
-            ),
+            FormKitTestSupport::extension(),
         ];
     }
 

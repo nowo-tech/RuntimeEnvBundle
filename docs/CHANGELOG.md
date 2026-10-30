@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Forms are FormKit Types (REQ-TWIG-005 rule 11):** `nowo-tech/form-kit-bundle` (`^2.16`) is now a required dependency. `RuntimeEnvVariableType` and the CSRF-only `RuntimeEnvDeleteType` carry `#[FormKitConfig('runtime_env')]` + `FormOptionsTrait` (fields added through FormKit), themed by the FormKit profile `nowo_form_kit.profiles.runtime_env` the bundle prepends (translation domain `NowoRuntimeEnvBundle`, no auto help / placeholder keys, no framework classes: the UiKit form scaffold paints the fields). Host override: define `nowo_form_kit.profiles.runtime_env` yourself. Field names, CSRF token ids and the rendered markup are unchanged.
+
 ### Added
 
 - Integration test `HostControllersRoutesTest`: a host whose routing is only `routing.controllers` (Symfony >= 7.3 default) gets no bundle route; the manage controller is already registered with `setAutoconfigured(false)` (REQ-SF-004 rule 7).

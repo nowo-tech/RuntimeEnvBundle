@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Nowo\DoctrineEncryptBundle\NowoDoctrineEncryptBundle;
+use Nowo\FormKitBundle\NowoFormKitBundle;
 use Nowo\HotReloadBundle\NowoHotReloadBundle;
 use Nowo\RuntimeEnvBundle\NowoRuntimeEnvBundle;
 use Nowo\TwigInspectorBundle\NowoTwigInspectorBundle;
@@ -23,6 +24,7 @@ return [
     TwigExtraBundle::class           => ['all' => true],
     NowoDoctrineEncryptBundle::class => ['all' => true],
     NowoUiKitBundle::class           => ['all' => true],
+    NowoFormKitBundle::class         => ['all' => true],
     NowoRuntimeEnvBundle::class      => ['all' => true],
     DebugBundle::class               => ['dev' => true],
     WebProfilerBundle::class         => ['dev' => true, 'test' => true],
