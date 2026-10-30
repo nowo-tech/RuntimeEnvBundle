@@ -126,6 +126,9 @@ jobs:
       - name: Run PHPStan (REQ-CS-006)
         run: composer phpstan
 
+      - name: Validate translations (leaf-key parity, REQ-I18N-002)
+        run: php .scripts/validate-translations.php
+
   cs-check:
     name: Code Style Check
     runs-on: ubuntu-latest

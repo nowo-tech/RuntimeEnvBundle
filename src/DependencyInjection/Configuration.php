@@ -4,12 +4,19 @@ declare(strict_types=1);
 
 namespace Nowo\RuntimeEnvBundle\DependencyInjection;
 
+use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
+use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 
+use function array_diff;
+use function array_keys;
+use function implode;
 use function is_array;
 use function is_string;
+use function sprintf;
+use function trim;
 
 /**
  * Bundle configuration under alias {@see self::ALIAS}.
@@ -18,7 +25,14 @@ final class Configuration implements ConfigurationInterface
 {
     public const ALIAS = 'nowo_runtime_env';
 
-    public const DEFAULT_LAYOUT = '@NowoRuntimeEnvBundle/manage/layout.html.twig';
+    /** Pre-1.3 default layout (removed in 1.3; mapped to null = nowo_ui_kit.layouts.admin). */
+    public const LEGACY_DEFAULT_LAYOUT = '@NowoRuntimeEnvBundle/manage/layout.html.twig';
+
+    /** @deprecated since 1.3, the bundle layout was removed (pages extend the UiKit scaffolds); kept for BC */
+    public const DEFAULT_LAYOUT = self::LEGACY_DEFAULT_LAYOUT;
+
+    /** Default URL prefix of the manage routes. */
+    public const DEFAULT_PATH_PREFIX = '/_runtime_env';
 
     public function getConfigTreeBuilder(): TreeBuilder
     {
@@ -49,39 +63,85 @@ final class Configuration implements ConfigurationInterface
                     ->end()
                 ->end()
                 ->arrayNode('panel')
-                    ->info('Admin CRUD panel.')
+                    ->info('Deprecated since 1.3: use web_ui.enabled and web_ui.path_prefix (REQ-UI-003).')
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->booleanNode('enabled')
+                            ->info('Deprecated since 1.3: use web_ui.enabled. false still removes the manage UI.')
                             ->defaultTrue()
+                            ->setDeprecated('nowo-tech/runtime-env-bundle', '1.3', 'The "%path%" option is deprecated, use "nowo_runtime_env.web_ui.enabled" instead (REQ-UI-003).')
                         ->end()
                         ->scalarNode('path_prefix')
-                            ->info('URL prefix for manage routes.')
-                            ->defaultValue('/_runtime_env')
-                            ->cannotBeEmpty()
+                            ->info('Deprecated since 1.3: use web_ui.path_prefix (used when web_ui.path_prefix is not set).')
+                            ->defaultNull()
+                            ->setDeprecated('nowo-tech/runtime-env-bundle', '1.3', 'The "%path%" option is deprecated, use "nowo_runtime_env.web_ui.path_prefix" instead (REQ-UI-003).')
+                            ->validate()
+                                ->ifTrue(static fn (mixed $v): bool => $v !== null && (!is_string($v) || trim($v) === ''))
+                                ->thenInvalid('nowo_runtime_env.panel.path_prefix must be a non-empty path.')
+                            ->end()
                         ->end()
                     ->end()
                 ->end()
                 ->arrayNode('web_ui')
-                    ->info('REQ-UI-001 look-and-feel.')
+                    ->info('Manage UI (REQ-UI-001 / REQ-UI-003): pages extend the UiKit list / form scaffolds.')
                     ->addDefaultsIfNotSet()
+                    ->beforeNormalization()
+                        ->ifArray()
+                        ->then(static function (array $v): array {
+                            // The pre-1.3 default layout was removed (REQ-UI-003): null = nowo_ui_kit.layouts.admin.
+                            if (($v['layout_template'] ?? null) === self::LEGACY_DEFAULT_LAYOUT) {
+                                $v['layout_template'] = null;
+                            }
+
+                            return $v;
+                        })
+                    ->end()
                     ->children()
                         ->booleanNode('enabled')
-                            ->info('false = no HTML manage UI (no routes, controller removed), like panel.enabled: false.')
+                            ->info('false = no HTML manage UI (no routes, controller removed).')
                             ->defaultTrue()
                         ->end()
+                        ->scalarNode('path_prefix')
+                            ->info('URL prefix of the manage routes. Null (default) = panel.path_prefix when set (deprecated), else ' . self::DEFAULT_PATH_PREFIX . '.')
+                            ->defaultNull()
+                            ->validate()
+                                ->ifTrue(static fn (mixed $v): bool => $v !== null && (!is_string($v) || trim($v) === ''))
+                                ->thenInvalid('nowo_runtime_env.web_ui.path_prefix must be a non-empty path.')
+                            ->end()
+                        ->end()
                         ->scalarNode('layout_template')
-                            ->info('Twig layout the manage pages extend (exposed to them as runtime_env_layout).')
-                            ->defaultValue(self::DEFAULT_LAYOUT)
-                            ->cannotBeEmpty()
+                            ->info('Layout the manage pages extend (REQ-UI-003). Null (default) = nowo_ui_kit.layouts.admin. A pre-1.3 layout without the UiKit canonical blocks is wrapped in a deprecated bridge.')
+                            ->defaultNull()
+                        ->end()
+                        ->arrayNode('templates')
+                            ->info('Per-page template overrides (page id => template): index, form. Extend @!NowoRuntimeEnvBundle/manage/... and override a data block.')
+                            ->useAttributeAsKey('page')
+                            ->normalizeKeys(false)
+                            ->scalarPrototype()->cannotBeEmpty()->end()
+                            ->validate()
+                                ->ifTrue(static fn (array $v): bool => array_diff(array_keys($v), array_keys(RuntimeEnvPages::TEMPLATES)) !== [])
+                                ->then(static function (array $v): never {
+                                    throw new InvalidConfigurationException(sprintf('Unknown nowo_runtime_env.web_ui.templates page(s) "%s"; known: %s.', implode('", "', array_diff(array_keys($v), array_keys(RuntimeEnvPages::TEMPLATES))), implode(', ', array_keys(RuntimeEnvPages::TEMPLATES))));
+                                })
+                            ->end()
+                        ->end()
+                        ->integerNode('list_page_size')
+                            ->info('Rows per page of the manage list (REQ-PERF-001).')
+                            ->defaultValue(50)
+                            ->min(1)
+                            ->max(500)
                         ->end()
                         ->enumNode('css_framework')
                             ->values(['bootstrap', 'bootstrap4', 'bootstrap5', 'tailwind', 'foundation', 'custom', 'tabler', 'none'])
-                            ->defaultValue('custom')
+                            ->defaultNull()
+                            ->setDeprecated('nowo-tech/runtime-env-bundle', '1.3', 'The "%path%" option is deprecated, set "nowo_ui_kit.css_framework" instead (REQ-UI-003).')
+                            ->info('Deprecated since 1.3: the CSS stack is inherited from nowo_ui_kit.css_framework (copied there when the host did not set it).')
                         ->end()
                         ->enumNode('icon_set')
                             ->values(['bootstrap-icons', 'tabler-icons', 'ux_icon', 'svg_inline', 'none'])
-                            ->defaultValue('none')
+                            ->defaultNull()
+                            ->setDeprecated('nowo-tech/runtime-env-bundle', '1.3', 'The "%path%" option is deprecated, set "nowo_ui_kit.icon_set" instead (REQ-UI-003).')
+                            ->info('Deprecated since 1.3: the icon set is inherited from nowo_ui_kit.icon_set (copied there when the host did not set it).')
                         ->end()
                     ->end()
                 ->end()
@@ -123,17 +183,20 @@ final class Configuration implements ConfigurationInterface
                     ->end()
                 ->end()
                 ->arrayNode('templates')
+                    ->info('Deprecated since 1.3: use web_ui.templates.<page> and web_ui.layout_template.')
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->scalarNode('index')
-                            ->defaultValue('@NowoRuntimeEnvBundle/manage/index.html.twig')
+                            ->defaultNull()
+                            ->setDeprecated('nowo-tech/runtime-env-bundle', '1.3', 'The "%path%" option is deprecated, use "nowo_runtime_env.web_ui.templates.index" instead (REQ-UI-003).')
                         ->end()
                         ->scalarNode('form')
-                            ->defaultValue('@NowoRuntimeEnvBundle/manage/form.html.twig')
+                            ->defaultNull()
+                            ->setDeprecated('nowo-tech/runtime-env-bundle', '1.3', 'The "%path%" option is deprecated, use "nowo_runtime_env.web_ui.templates.form" instead (REQ-UI-003).')
                         ->end()
                         ->scalarNode('layout')
-                            ->info('Deprecated: use web_ui.layout_template. When set to a non-default value it still wins for BC.')
-                            ->defaultValue(self::DEFAULT_LAYOUT)
+                            ->info('Deprecated: use web_ui.layout_template (used when web_ui.layout_template is not set).')
+                            ->defaultNull()
                             ->setDeprecated('nowo-tech/runtime-env-bundle', '1.1', 'The "%node%" option at path "%path%" is deprecated, use "nowo_runtime_env.web_ui.layout_template" instead.')
                         ->end()
                     ->end()

@@ -137,6 +137,22 @@ final class DoctrineOrmRuntimeEnvVariableRepositoryWorkerTest extends TestCase
         self::assertSame('ok', $repoWorker2->findOneByName('OTHER')?->getValue());
     }
 
+    public function testPaginatedReadsAreBoundedAndOrderedByName(): void
+    {
+        $repository = new DoctrineOrmRuntimeEnvVariableRepository($this->createEntityManager());
+        foreach (['DELTA', 'ALPHA', 'CHARLIE', 'ECHO', 'BRAVO'] as $name) {
+            $repository->save(new RuntimeEnvVariable($name, 'v'));
+        }
+
+        $names = static fn (array $rows): array => array_map(static fn (RuntimeEnvVariable $v): string => $v->getName(), $rows);
+
+        self::assertSame(5, $repository->countAll());
+        self::assertSame(['ALPHA', 'BRAVO'], $names($repository->findPageOrderedByName(2, 0)));
+        self::assertSame(['CHARLIE', 'DELTA'], $names($repository->findPageOrderedByName(2, 2)));
+        self::assertSame(['ECHO'], $names($repository->findPageOrderedByName(2, 4)));
+        self::assertSame(['ALPHA'], $names($repository->findPageOrderedByName(0, -3)), 'Limit and offset are clamped.');
+    }
+
     private function createEntityManager(): EntityManagerInterface
     {
         $config = ORMSetup::createAttributeMetadataConfiguration([dirname(__DIR__, 3) . '/src/Entity'], true);

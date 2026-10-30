@@ -5,15 +5,24 @@ declare(strict_types=1);
 namespace Nowo\RuntimeEnvBundle\Routing;
 
 use Nowo\RuntimeEnvBundle\Controller\RuntimeEnvManageController;
+use ReflectionClass;
+use ReflectionMethod;
 use RuntimeException;
 use Symfony\Component\Config\Loader\Loader;
+use Symfony\Component\Routing\Attribute\Route as RouteAttribute;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
+use function is_string;
 use function rtrim;
 
 /**
- * Loads manage CRUD routes when the panel is enabled.
+ * Loads the manage CRUD routes when the manage UI is enabled.
+ *
+ * The routes are declared with #[Route] on {@see RuntimeEnvManageController} (path relative to the prefix, name,
+ * methods, requirements); this loader reads those attributes and prepends `web_ui.path_prefix`, so the prefix stays
+ * configurable while the route definitions live on the controller (REQ-SF-004). Route names and paths are unchanged
+ * since 1.0.
  */
 final class RuntimeEnvRouteLoader extends Loader
 {
@@ -42,28 +51,18 @@ final class RuntimeEnvRouteLoader extends Loader
 
         $prefix = rtrim($this->pathPrefix, '/') ?: '/_runtime_env';
 
-        $collection->add('nowo_runtime_env_index', new Route(
-            $prefix,
-            ['_controller' => RuntimeEnvManageController::class . '::index'],
-            methods: ['GET'],
-        ));
-        $collection->add('nowo_runtime_env_new', new Route(
-            $prefix . '/new',
-            ['_controller' => RuntimeEnvManageController::class . '::new'],
-            methods: ['GET', 'POST'],
-        ));
-        $collection->add('nowo_runtime_env_edit', new Route(
-            $prefix . '/{id}/edit',
-            ['_controller' => RuntimeEnvManageController::class . '::edit'],
-            ['id' => '\d+'],
-            methods: ['GET', 'POST'],
-        ));
-        $collection->add('nowo_runtime_env_delete', new Route(
-            $prefix . '/{id}/delete',
-            ['_controller' => RuntimeEnvManageController::class . '::delete'],
-            ['id' => '\d+'],
-            methods: ['POST'],
-        ));
+        foreach ((new ReflectionClass(RuntimeEnvManageController::class))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+            foreach ($method->getAttributes(RouteAttribute::class) as $attribute) {
+                $declared = $attribute->newInstance();
+                $path     = $declared->path;
+                $collection->add((string) $declared->name, new Route(
+                    $prefix . (is_string($path) ? $path : ''),
+                    ['_controller' => RuntimeEnvManageController::class . '::' . $method->getName()],
+                    $declared->requirements,
+                    methods: $declared->methods,
+                ));
+            }
+        }
 
         return $collection;
     }

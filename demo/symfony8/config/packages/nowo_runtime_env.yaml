@@ -2,12 +2,11 @@
 nowo_runtime_env:
     enabled: true
     table_prefix: runtime_env
-    panel:
-        enabled: true
-        path_prefix: /_runtime_env
     security:
         access_roles: [ROLE_ADMIN]
         allow_unauthenticated: true
     web_ui:
-        css_framework: bootstrap5
-        icon_set: bootstrap-icons
+        enabled: true
+        path_prefix: /_runtime_env
+        # REQ-PERF-001: realistic page size; the demo seeds more rows than one page.
+        list_page_size: 10

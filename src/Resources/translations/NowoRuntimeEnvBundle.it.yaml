@@ -4,6 +4,9 @@ runtime_env:
         subtitle: I valori sono cifrati a riposo (DoctrineEncryptBundle). Le modifiche si applicano alla richiesta successiva senza riavviare il worker FrankenPHP.
         empty: Nessuna variabile ancora.
         actions: Azioni
+        value_masked: "Nascosto: i valori salvati non vengono mai mostrati"
+        enabled_yes: "Attiva"
+        enabled_no: "Disattivata"
     form:
         name: Nome
         value: Valore
@@ -11,6 +14,7 @@ runtime_env:
         enabled: Attiva
         new_title: Nuova variabile
         edit_title: Modifica variabile
+        new_intro: "I nomi sono in maiuscolo (A-Z, 0-9, _). Il valore è cifrato a riposo."
         value_keep_help: "Lascia vuoto per mantenere il valore attuale. Il valore salvato non viene mai mostrato."
         value_keep_placeholder: "Lascia vuoto per mantenere il valore attuale"
         clear_value: "Svuota il valore (stringa vuota)"
@@ -21,6 +25,12 @@ runtime_env:
         delete_confirm: Eliminare questa variabile?
         save: Salva
         back: Torna all'elenco
+        cancel: "Annulla"
+    confirm:
+        delete_title: "Elimina variabile"
+        delete_message: "Eliminare la variabile di ambiente %name%? Il codice che la legge non otterrà alcun valore alla richiesta successiva."
+        delete_confirm: "Elimina"
+        cancel: "Annulla"
     flash:
         created: Variabile creata.
         updated: Variabile aggiornata.

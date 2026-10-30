@@ -13,6 +13,25 @@ $requiredLocales = ['en', 'es', 'it', 'fr', 'pt', 'de', 'nl'];
 $domain          = 'NowoRuntimeEnvBundle';
 $dir             = dirname(__DIR__) . '/src/Resources/translations';
 
+/**
+ * @param array<mixed> $tree
+ *
+ * @return list<string>
+ */
+$flatten = static function (array $tree, string $prefix = '') use (&$flatten): array {
+    $keys = [];
+    foreach ($tree as $key => $value) {
+        $id = $prefix === '' ? (string) $key : $prefix . '.' . $key;
+        if (is_array($value)) {
+            array_push($keys, ...$flatten($value, $id));
+        } else {
+            $keys[] = $id;
+        }
+    }
+
+    return $keys;
+};
+
 $catalogues = [];
 foreach ($requiredLocales as $locale) {
     $file = sprintf('%s/%s.%s.yaml', $dir, $domain, $locale);
@@ -25,7 +44,8 @@ foreach ($requiredLocales as $locale) {
         fwrite(STDERR, "Invalid YAML (not a map): {$file}\n");
         exit(1);
     }
-    $catalogues[$locale] = array_keys($parsed);
+    // Leaf keys in dot notation: parity is checked per message, not only per top-level node.
+    $catalogues[$locale] = $flatten($parsed);
     sort($catalogues[$locale]);
 }
 

@@ -48,9 +48,12 @@ Do **not** dump secret values into public HTML.
 
 ## Admin CRUD
 
-Open `/_runtime_env` (or your `panel.path_prefix`). Names must match `^[A-Z][A-Z0-9_]*$`.
+Open `/_runtime_env` (or your `web_ui.path_prefix`). Names must match `^[A-Z][A-Z0-9_]*$`.
 
-List view always **masks** values. The edit form never renders the stored (decrypted) value: the value field starts empty and masked; leave it blank to keep the current value, type a new one to replace it, or tick **Clear the value** to store an empty string. Empty values are allowed (also when creating a variable).
+The list is paginated (`web_ui.list_page_size`, default 50; `?page=N`) and always **masks** values. Deleting a
+variable opens the UiKit confirm dialog (no inline `confirm()`); the delete is a CSRF-protected POST. The pages follow
+the UiKit page contract (layout `nowo_ui_kit.layouts.admin`, list / form scaffolds) — see [TEMPLATES.md](TEMPLATES.md).
+ The edit form never renders the stored (decrypted) value: the value field starts empty and masked; leave it blank to keep the current value, type a new one to replace it, or tick **Clear the value** to store an empty string. Empty values are allowed (also when creating a variable).
 
 ## What stays in `.env`
 
@@ -81,16 +84,15 @@ directory when it exists).
 
 | `<subpath>` | Purpose |
 | --- | --- |
-| `manage/layout.html.twig` | Default layout of the manage pages (`title` and `body` blocks) |
-| `manage/index.html.twig` | Variables list (masked values, edit / delete actions) |
-| `manage/form.html.twig` | Create / edit page |
-| `manage/_form_fields.html.twig` | Fields of the variable form |
+| `manage/index.html.twig` | Variables list (UiKit list scaffold; masked values, edit / delete actions) |
+| `manage/form.html.twig` | Create / edit page (UiKit form scaffold) |
+| `manage/_legacy_layout.html.twig` | Deprecated bridge for pre-1.3 layouts (removed in 2.0) |
 
 **Procedure:** copy the vendor file from `vendor/nowo-tech/runtime-env-bundle/src/Resources/views/<subpath>` to
 `templates/bundles/NowoRuntimeEnvBundle/<subpath>`, edit it, then `php bin/console cache:clear`. The manage UI is only
-registered when `web_ui.enabled` (and `panel.enabled`) are true — see [CONFIGURATION.md](CONFIGURATION.md).
+registered when `web_ui.enabled` is true — see [CONFIGURATION.md](CONFIGURATION.md).
 
-**Override vs upgrade (freeze rule).** An application file at the override path always wins and does not pick up vendor changes for that path until you remove or merge it: a full-file override freezes that `<subpath>` on every `composer update` while the rest of the bundle keeps upgrading. Prefer the upgrade-safe options first: `web_ui.layout_template` for your own admin layout, and `templates.index` / `templates.form` pointing at your **own** template names (they can `{% extends '@!NowoRuntimeEnvBundle/manage/index.html.twig' %}` and override one block).
+**Override vs upgrade (freeze rule).** An application file at the override path always wins and does not pick up vendor changes for that path until you remove or merge it: a full-file override freezes that `<subpath>` on every `composer update` while the rest of the bundle keeps upgrading. Prefer the upgrade-safe options first: `nowo_ui_kit.layouts.admin` (or `web_ui.layout_template`) for your own admin layout, `nowo_ui_kit.theme` for classes / tokens (one theme for every Nowo bundle), and `web_ui.templates.index` / `web_ui.templates.form` pointing at your **own** template names (they can `{% extends '@!NowoRuntimeEnvBundle/manage/index.html.twig' %}` and override one data block such as `nowo_ui_list_row`). Never print `row.value` / `variable.value` in an override: values are secrets.
 
 **Recovering upstream after a freeze:** delete (or rename aside) the application override, clear the cache (`php bin/console cache:clear`) and re-apply only the customisation you still need. Diff your copy against the new vendor file under `vendor/nowo-tech/runtime-env-bundle/src/Resources/views/` before re-copying.
 

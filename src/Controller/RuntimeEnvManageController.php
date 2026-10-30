@@ -5,39 +5,72 @@ declare(strict_types=1);
 namespace Nowo\RuntimeEnvBundle\Controller;
 
 use InvalidArgumentException;
-use Nowo\RuntimeEnvBundle\DependencyInjection\Configuration;
 use Nowo\RuntimeEnvBundle\Entity\RuntimeEnvVariable;
+use Nowo\RuntimeEnvBundle\EventSubscriber\RuntimeEnvAccessSubscriber;
 use Nowo\RuntimeEnvBundle\Form\RuntimeEnvDeleteType;
 use Nowo\RuntimeEnvBundle\Form\RuntimeEnvVariableType;
-use Nowo\RuntimeEnvBundle\NowoRuntimeEnvBundle;
+use Nowo\RuntimeEnvBundle\Repository\PaginatedRuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
+use Nowo\RuntimeEnvBundle\Routing\RuntimeEnvRouteLoader;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
+use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory;
+use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
+use Nowo\UiKitBundle\View\Pagination;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormView;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
+
+use function array_slice;
+use function ceil;
+use function count;
+use function max;
+use function min;
 
 /**
  * Admin CRUD for runtime environment variables.
+ *
+ * Routes are declared with #[Route] (REQ-SF-004) and loaded by {@see RuntimeEnvRouteLoader},
+ * which prepends `web_ui.path_prefix`. Access is enforced by {@see RuntimeEnvAccessSubscriber}
+ * (REQ-UI-002); mutations are CSRF-protected forms (REQ-SEC-005). Stored values are never rendered back.
  */
 final class RuntimeEnvManageController extends AbstractController
 {
-    /**
-     * @param array<string, string> $templates
-     */
+    /** Default rows per page of the manage list (REQ-PERF-001; `web_ui.list_page_size`). */
+    public const DEFAULT_LIST_PAGE_SIZE = 50;
+
     public function __construct(
         private readonly RuntimeEnvVariableRepositoryInterface $repository,
         private readonly RuntimeEnvWriter $writer,
-        private readonly array $templates,
         private readonly string $pathPrefix,
+        private readonly int $listPageSize = self::DEFAULT_LIST_PAGE_SIZE,
+        private readonly ?RuntimeEnvPageFactory $pageFactory = null,
+        private readonly ?TranslatorInterface $translator = null,
     ) {
     }
 
-    public function index(): Response
+    #[Route(path: '', name: 'nowo_runtime_env_index', methods: ['GET'])]
+    public function index(Request $request): Response
     {
-        $variables = $this->repository->findAllOrderedByName();
+        // REQ-PERF-001: one COUNT + one bounded SELECT per page (web_ui.list_page_size rows).
+        $perPage = max(1, $this->listPageSize);
+        if ($this->repository instanceof PaginatedRuntimeEnvVariableRepositoryInterface) {
+            $total     = $this->repository->countAll();
+            $page      = $this->currentPage($request, $total, $perPage);
+            $variables = $this->repository->findPageOrderedByName($perPage, ($page - 1) * $perPage);
+        } else {
+            // Custom 1.2 repositories without the paginated interface: same page, sliced in memory.
+            $all       = $this->repository->findAllOrderedByName();
+            $total     = count($all);
+            $page      = $this->currentPage($request, $total, $perPage);
+            $variables = array_slice($all, ($page - 1) * $perPage, $perPage);
+        }
+
         /** @var array<int, FormView> $deleteForms */
         $deleteForms = [];
         foreach ($variables as $variable) {
@@ -45,20 +78,25 @@ final class RuntimeEnvManageController extends AbstractController
             if ($id === null) {
                 continue;
             }
-            $deleteForms[$id] = $this->createForm(RuntimeEnvDeleteType::class, null, [
-                'csrf_token_id' => 'runtime_env_delete_' . $id,
-            ])->createView();
+            $deleteForms[$id] = $this->deleteForm($id);
         }
 
-        return $this->render($this->templates['index'], [
+        $pages = $this->pages();
+
+        return $this->render($pages->template('index'), $pages->context([
+            'page' => $pages->index(
+                $variables,
+                Pagination::fromTotal($total, $page, $perPage, [$perPage], $perPage, 'nowo_runtime_env_index'),
+                $deleteForms,
+            ),
             'variables'          => $variables,
             'delete_forms'       => $deleteForms,
             'path_prefix'        => $this->pathPrefix,
-            'translation_domain' => NowoRuntimeEnvBundle::TRANSLATION_DOMAIN,
-            'runtime_env_layout' => $this->layout(),
-        ]);
+            'translation_domain' => RuntimeEnvPages::DOMAIN,
+        ]));
     }
 
+    #[Route(path: '/new', name: 'nowo_runtime_env_new', methods: ['GET', 'POST'])]
     public function new(Request $request): Response
     {
         $variable = new RuntimeEnvVariable('NEW_KEY', '');
@@ -73,7 +111,7 @@ final class RuntimeEnvManageController extends AbstractController
                     $variable->getDescription(),
                     $variable->isEnabled(),
                 );
-                $this->addFlash('success', 'runtime_env.flash.created');
+                $this->addFlash('success', $this->trans('runtime_env.flash.created'));
 
                 return $this->redirectToRoute('nowo_runtime_env_index');
             } catch (InvalidArgumentException $e) {
@@ -81,16 +119,10 @@ final class RuntimeEnvManageController extends AbstractController
             }
         }
 
-        return $this->render($this->templates['form'], [
-            'form'               => $form,
-            'variable'           => $variable,
-            'is_edit'            => false,
-            'path_prefix'        => $this->pathPrefix,
-            'translation_domain' => NowoRuntimeEnvBundle::TRANSLATION_DOMAIN,
-            'runtime_env_layout' => $this->layout(),
-        ]);
+        return $this->renderFormPage($form->createView(), $variable, false, $form->isSubmitted());
     }
 
+    #[Route(path: '/{id}/edit', name: 'nowo_runtime_env_edit', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
     public function edit(Request $request, int $id): Response
     {
         $variable = $this->repository->find($id);
@@ -108,26 +140,15 @@ final class RuntimeEnvManageController extends AbstractController
                 $variable->getDescription(),
                 $variable->isEnabled(),
             );
-            $this->addFlash('success', 'runtime_env.flash.updated');
+            $this->addFlash('success', $this->trans('runtime_env.flash.updated'));
 
             return $this->redirectToRoute('nowo_runtime_env_index');
         }
 
-        return $this->render($this->templates['form'], [
-            'form'               => $form,
-            'variable'           => $variable,
-            'is_edit'            => true,
-            'path_prefix'        => $this->pathPrefix,
-            'translation_domain' => NowoRuntimeEnvBundle::TRANSLATION_DOMAIN,
-            'runtime_env_layout' => $this->layout(),
-        ]);
+        return $this->renderFormPage($form->createView(), $variable, true, $form->isSubmitted(), $this->deleteForm($id));
     }
 
-    private function layout(): string
-    {
-        return $this->templates['layout'] ?? Configuration::DEFAULT_LAYOUT;
-    }
-
+    #[Route(path: '/{id}/delete', name: 'nowo_runtime_env_delete', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function delete(Request $request, int $id): RedirectResponse
     {
         $variable = $this->repository->find($id);
@@ -144,8 +165,61 @@ final class RuntimeEnvManageController extends AbstractController
         }
 
         $this->writer->delete($variable);
-        $this->addFlash('success', 'runtime_env.flash.deleted');
+        $this->addFlash('success', $this->trans('runtime_env.flash.deleted'));
 
         return $this->redirectToRoute('nowo_runtime_env_index');
+    }
+
+    private function renderFormPage(FormView $form, RuntimeEnvVariable $variable, bool $isEdit, bool $submitted, ?FormView $deleteForm = null): Response
+    {
+        $pages = $this->pages();
+
+        return $this->render($pages->template('form'), $pages->context([
+            'page'               => $pages->form($form, $variable, $isEdit, $deleteForm),
+            'form'               => $form,
+            'variable'           => $variable,
+            'is_edit'            => $isEdit,
+            'path_prefix'        => $this->pathPrefix,
+            'translation_domain' => RuntimeEnvPages::DOMAIN,
+        ]), new Response(status: $submitted ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
+    }
+
+    /**
+     * CSRF-only delete form of one variable (REQ-TWIG-005: no raw form markup in the views).
+     */
+    private function deleteForm(int $id): FormView
+    {
+        return $this->createForm(RuntimeEnvDeleteType::class, null, [
+            'csrf_token_id' => 'runtime_env_delete_' . $id,
+        ])->createView();
+    }
+
+    private function currentPage(Request $request, int $total, int $perPage): int
+    {
+        $totalPages = max(1, (int) ceil($total / $perPage));
+
+        return min(max(1, $request->query->getInt('page', 1)), $totalPages);
+    }
+
+    private function pages(): RuntimeEnvPageFactory
+    {
+        if ($this->pageFactory instanceof RuntimeEnvPageFactory) {
+            return $this->pageFactory;
+        }
+
+        /** @var UrlGeneratorInterface $router */
+        $router = $this->container->get('router');
+
+        return new RuntimeEnvPageFactory($router);
+    }
+
+    /**
+     * Flash copy from the bundle catalogue (`NowoRuntimeEnvBundle`); the key itself without a translator.
+     */
+    private function trans(string $key): string
+    {
+        return $this->translator instanceof TranslatorInterface
+            ? $this->translator->trans($key, [], RuntimeEnvPages::DOMAIN)
+            : $key;
     }
 }

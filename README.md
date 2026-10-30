@@ -14,11 +14,15 @@ This bundle is **FrankenPHP worker mode friendly**.
 
 <table>
   <tr>
-    <td align="center" width="50%">
-      <img src="docs/images/demo/manage-panel.webp" alt="Manage panel listing runtime variables with masked, encrypted values and Edit / Delete actions" />
-      <br /><sub>Manage panel: variables encrypted at rest, values masked</sub>
+    <td align="center" width="33%">
+      <img src="docs/images/demo/manage-panel.webp" alt="Manage panel (UiKit list page) listing runtime variables with masked, encrypted values, Edit / Delete row actions and pagination" />
+      <br /><sub>Manage panel: encrypted at rest, values masked, paginated</sub>
     </td>
-    <td align="center" width="50%">
+    <td align="center" width="33%">
+      <img src="docs/images/demo/manage-edit.webp" alt="Edit page (UiKit form page): the stored value is never rendered back; delete zone behind a confirm dialog" />
+      <br /><sub>Edit: stored value never shown; delete behind a confirm dialog</sub>
+    </td>
+    <td align="center" width="33%">
       <img src="docs/images/demo/runtime-env-bag.webp" alt="Demo home page showing the value of DEMO_SAMPLE_VALUE read through RuntimeEnvBag" />
       <br /><sub>RuntimeEnvBag reads the stored value on the next request</sub>
     </td>
@@ -28,10 +32,10 @@ This bundle is **FrankenPHP worker mode friendly**.
 ## Features
 
 - Doctrine entity `RuntimeEnvVariable` with `#[Encrypted]` value column
-- Admin CRUD at `/_runtime_env` (REQ-UI-002: `ROLE_ADMIN` by default)
+- Admin CRUD at `/_runtime_env` (REQ-UI-002: `ROLE_ADMIN` by default), paginated, CSRF-protected deletes behind a confirm dialog
 - `RuntimeEnvBag` API + Twig `runtime_env('KEY')` — request-scoped memoization (worker-safe even when `resetKernel` is false) + `kernel.reset`
 - Configurable `table_prefix` (default `runtime_env` → table `runtime_env_variables`)
-- UiKit-friendly markup (`nowo-ui-*`)
+- UiKit page contract (list / form scaffolds, one host theme for every Nowo bundle; no CDN, no inline JS)
 
 ## Installation
 
@@ -65,13 +69,18 @@ nowo_runtime_env:
 nowo_runtime_env:
     enabled: true
     table_prefix: runtime_env
-    panel:
-        enabled: true
-        path_prefix: /_runtime_env
     security:
         access_roles: [ROLE_ADMIN]
         allow_unauthenticated: false  # never true in production
+    web_ui:
+        enabled: true
+        path_prefix: /_runtime_env
+        list_page_size: 50
 ```
+
+The manage pages follow the [UiKit](https://github.com/nowo-tech/UiKitBundle) page contract: they render inside
+`nowo_ui_kit.layouts.admin` and use the host theme (`nowo_ui_kit.css_framework`, `nowo_ui_kit.theme`). Page map and
+override points: [docs/TEMPLATES.md](docs/TEMPLATES.md).
 
 Full tree: [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 

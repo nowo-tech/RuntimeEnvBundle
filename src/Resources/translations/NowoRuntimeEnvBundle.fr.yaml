@@ -4,6 +4,9 @@ runtime_env:
         subtitle: Les valeurs sont chiffrées au repos (DoctrineEncryptBundle). Les changements s'appliquent à la requête suivante sans redémarrer le worker FrankenPHP.
         empty: Aucune variable pour le moment.
         actions: Actions
+        value_masked: "Masqué : les valeurs enregistrées ne sont jamais affichées"
+        enabled_yes: "Active"
+        enabled_no: "Désactivée"
     form:
         name: Nom
         value: Valeur
@@ -11,6 +14,7 @@ runtime_env:
         enabled: Activée
         new_title: Nouvelle variable
         edit_title: Modifier la variable
+        new_intro: "Les noms sont en majuscules (A-Z, 0-9, _). La valeur est chiffrée au repos."
         value_keep_help: "Laissez vide pour conserver la valeur actuelle. La valeur enregistrée n'est jamais affichée."
         value_keep_placeholder: "Laissez vide pour conserver la valeur actuelle"
         clear_value: "Vider la valeur (chaîne vide)"
@@ -21,6 +25,12 @@ runtime_env:
         delete_confirm: Supprimer cette variable ?
         save: Enregistrer
         back: Retour à la liste
+        cancel: "Annuler"
+    confirm:
+        delete_title: "Supprimer la variable"
+        delete_message: "Supprimer la variable d'environnement %name% ? Le code qui la lit n'obtiendra aucune valeur à la requête suivante."
+        delete_confirm: "Supprimer"
+        cancel: "Annuler"
     flash:
         created: Variable créée.
         updated: Variable mise à jour.

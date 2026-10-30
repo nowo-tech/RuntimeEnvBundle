@@ -4,6 +4,9 @@ runtime_env:
         subtitle: Werte werden at-rest verschlüsselt (DoctrineEncryptBundle). Änderungen gelten beim nächsten Request ohne Neustart des FrankenPHP-Workers.
         empty: Noch keine Variablen.
         actions: Aktionen
+        value_masked: "Verborgen: gespeicherte Werte werden nie angezeigt"
+        enabled_yes: "Aktiv"
+        enabled_no: "Inaktiv"
     form:
         name: Name
         value: Wert
@@ -11,6 +14,7 @@ runtime_env:
         enabled: Aktiv
         new_title: Neue Variable
         edit_title: Variable bearbeiten
+        new_intro: "Namen in Großbuchstaben (A-Z, 0-9, _). Der Wert wird verschlüsselt gespeichert."
         value_keep_help: "Leer lassen, um den aktuellen Wert beizubehalten. Der gespeicherte Wert wird nie angezeigt."
         value_keep_placeholder: "Leer lassen, um den aktuellen Wert beizubehalten"
         clear_value: "Wert leeren (auf eine leere Zeichenkette setzen)"
@@ -21,6 +25,12 @@ runtime_env:
         delete_confirm: Diese Variable löschen?
         save: Speichern
         back: Zurück zur Liste
+        cancel: "Abbrechen"
+    confirm:
+        delete_title: "Variable löschen"
+        delete_message: "Die Laufzeitvariable %name% löschen? Code, der sie liest, erhält beim nächsten Request keinen Wert."
+        delete_confirm: "Löschen"
+        cancel: "Abbrechen"
     flash:
         created: Variable erstellt.
         updated: Variable aktualisiert.

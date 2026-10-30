@@ -26,7 +26,7 @@
 - `security.allow_unauthenticated: false`
 - `security.access_roles: [ROLE_ADMIN]`
 - Flex recipe adds `access_control` for `^/_runtime_env` → `ROLE_ADMIN`
-- Panel disabled if you set `panel.enabled: false` or (since 1.1.0) `web_ui.enabled: false`
+- Panel disabled if you set `web_ui.enabled: false` (or the deprecated `panel.enabled: false`)
 
 ## REQ-SEC-004 (AI security audit)
 
@@ -44,7 +44,7 @@ This subsection is the in-package REQ-SEC-004 record (date, method, grade, resid
 
 ## Residual
 
-- Host owns firewall `access_control` on `panel.path_prefix` (soft gate alone is not enough)
+- Host owns firewall `access_control` on `web_ui.path_prefix` (soft gate alone is not enough)
 - Empty `security.access_roles` is **rejected** at compile time (fail-closed) unless `allow_unauthenticated` or a custom `access_checker` is set
 - Demo may set `allow_unauthenticated: true` — never copy that to production
 - Host owns retention / audit of who changed which key
@@ -78,7 +78,7 @@ Before tagging a release, confirm:
 | **Dependencies** | `composer audit` run; issues triaged. |
 | **Logging** | Do not log decrypted `RuntimeEnvBag` values. |
 | **Cryptography** | Field encryption via DoctrineEncryptBundle; keys from secure config / files. |
-| **Permissions / exposure** | Host firewall on `panel.path_prefix`; roles configured for production. |
+| **Permissions / exposure** | Host firewall on `web_ui.path_prefix`; roles configured for production. |
 | **Limits / DoS** | Admin-only UI; no public write endpoints. |
 | **REQ-SEC-004** | Latest grade Pass (good) recorded in org security analysis (re-audit 2026-09-28). |
 
