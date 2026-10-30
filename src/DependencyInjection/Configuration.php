@@ -165,7 +165,7 @@ final class Configuration implements ConfigurationInterface
                     ->end()
                     ->validate()
                         ->ifTrue(static function (array $v): bool {
-                            if (!empty($v['allow_unauthenticated'])) {
+                            if (($v['allow_unauthenticated'] ?? false) === true) {
                                 return false;
                             }
                             $checker = $v['access_checker'] ?? null;

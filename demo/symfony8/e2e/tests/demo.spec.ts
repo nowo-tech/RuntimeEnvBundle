@@ -49,6 +49,16 @@ test.describe('RuntimeEnv demo', () => {
     expect(await gotoVariable(page, name)).toBeFalsy();
   });
 
+  test('a typed value is never rendered back after a failed submission', async ({ page }) => {
+    await page.goto('/_runtime_env/new');
+    await page.getByLabel('Name', { exact: true }).fill('not valid');
+    await page.getByLabel('Value', { exact: true }).fill('e2e-typed-secret');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByLabel('Name', { exact: true })).toHaveValue('not valid');
+    await expect(page.getByLabel('Value', { exact: true })).toHaveValue('');
+    expect(await page.content()).not.toContain('e2e-typed-secret');
+  });
+
   test('a delete without a valid CSRF token is refused', async ({ page, request }) => {
     expect(await gotoVariable(page, 'MY_API_TOKEN')).toBeTruthy();
     const edit = await rowOf(page, 'MY_API_TOKEN').getByRole('link', { name: 'Edit' }).getAttribute('href');

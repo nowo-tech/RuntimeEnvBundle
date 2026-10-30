@@ -6,6 +6,7 @@ namespace Nowo\RuntimeEnvBundle;
 
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\CsrfProtectionPass;
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\TwigPathsPass;
+use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\UnauthenticatedAccessPass;
 use Nowo\RuntimeEnvBundle\DependencyInjection\RuntimeEnvExtension;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
@@ -20,6 +21,7 @@ final class NowoRuntimeEnvBundle extends Bundle
         parent::build($container);
         $container->addCompilerPass(new TwigPathsPass());
         $container->addCompilerPass(new CsrfProtectionPass());
+        $container->addCompilerPass(new UnauthenticatedAccessPass());
     }
 
     public function getContainerExtension(): ?ExtensionInterface

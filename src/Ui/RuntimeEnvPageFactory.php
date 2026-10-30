@@ -21,7 +21,9 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * Builds the UiKit view models of the runtime env manage pages (REQ-UI-003): page headers (title, intro, actions, back
  * link), columns, row actions (POST + CSRF FormViews behind a Confirm for deletes), pagination and the empty state. The
  * controller and the page contract test share it, so the test renders exactly the view models the application gets.
- * The view models never carry a variable value. Stateless: safe in worker mode.
+ * The view models never carry a variable value: list rows are value-free arrays ({@see self::row()}) and the value
+ * column key (`masked_value`) resolves to nothing, so even the default UiKit cells cannot print a secret. Stateless:
+ * safe in worker mode.
  */
 final readonly class RuntimeEnvPageFactory
 {
@@ -52,7 +54,22 @@ final readonly class RuntimeEnvPageFactory
     }
 
     /**
-     * Variables list: New variable in the header, Edit / Delete per row.
+     * Value-free list row of a variable (id, name, description, enabled): the only shape the list pages receive.
+     *
+     * @return array{id: int|null, name: string, description: string|null, enabled: bool}
+     */
+    public static function row(RuntimeEnvVariable $variable): array
+    {
+        return [
+            'id'          => $variable->getId(),
+            'name'        => $variable->getName(),
+            'description' => $variable->getDescription(),
+            'enabled'     => $variable->isEnabled(),
+        ];
+    }
+
+    /**
+     * Variables list: New variable in the header, Edit / Delete per row. Rows are {@see self::row()} arrays.
      *
      * @param list<RuntimeEnvVariable> $variables
      * @param array<int, FormView> $deleteForms variable id => CSRF delete form
@@ -62,7 +79,9 @@ final readonly class RuntimeEnvPageFactory
         $newAction = Action::create($this->url('nowo_runtime_env_new'), RuntimeEnvPages::label('runtime_env.action.new'));
 
         $actions = [];
+        $rows    = [];
         foreach ($variables as $variable) {
+            $rows[]       = self::row($variable);
             $id           = (int) $variable->getId();
             $actions[$id] = [Action::edit($this->url('nowo_runtime_env_edit', ['id' => $id]), RuntimeEnvPages::label('runtime_env.action.edit'))];
             if (isset($deleteForms[$id])) {
@@ -78,12 +97,13 @@ final readonly class RuntimeEnvPageFactory
             ),
             columns: [
                 new Column('name', RuntimeEnvPages::label('runtime_env.form.name'), required: true),
-                new Column('value', RuntimeEnvPages::label('runtime_env.form.value')),
+                // `masked_value` is not a row key: a default UiKit cell prints a muted dash, never the value.
+                new Column('masked_value', RuntimeEnvPages::label('runtime_env.form.value')),
                 new Column('description', RuntimeEnvPages::label('runtime_env.form.description'), priority: 2),
                 new Column('enabled', RuntimeEnvPages::label('runtime_env.form.enabled')),
             ],
-            rows: $variables,
-            rowActions: static fn (RuntimeEnvVariable $row): array => $actions[(int) $row->getId()] ?? [],
+            rows: $rows,
+            rowActions: static fn (array $row): array => $actions[(int) $row['id']] ?? [],
             pagination: $pagination,
             empty: new EmptyState(null, RuntimeEnvPages::label('runtime_env.index.empty'), $newAction),
             bundle: RuntimeEnvPages::BUNDLE,

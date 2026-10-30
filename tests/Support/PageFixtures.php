@@ -21,6 +21,7 @@ use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Validator\Validation;
 
+use function array_map;
 use function http_build_query;
 
 /**
@@ -53,7 +54,7 @@ final class PageFixtures
 
         return $factory->context([
             'page'               => $factory->index($variables, $pagination, $deleteForms),
-            'variables'          => $variables,
+            'variables'          => array_map(RuntimeEnvPageFactory::row(...), $variables),
             'delete_forms'       => $deleteForms,
             'path_prefix'        => '/_runtime_env',
             'translation_domain' => RuntimeEnvPages::DOMAIN,
@@ -72,7 +73,7 @@ final class PageFixtures
         return $factory->context([
             'page'               => $factory->form($form, $variable, $edit, $edit ? self::deleteForm(2) : null),
             'form'               => $form,
-            'variable'           => $variable,
+            'variable'           => RuntimeEnvPageFactory::row($variable),
             'is_edit'            => $edit,
             'path_prefix'        => '/_runtime_env',
             'translation_domain' => RuntimeEnvPages::DOMAIN,

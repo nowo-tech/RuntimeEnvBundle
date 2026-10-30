@@ -15,3 +15,9 @@
 /Makefile export-ignore
 /docker-compose.yml export-ignore
 /Dockerfile export-ignore
+/.specify export-ignore
+/.coderabbit.yaml export-ignore
+/.cursorignore export-ignore
+/.scripts export-ignore
+/igor.json export-ignore
+/composer.lock export-ignore

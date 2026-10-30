@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\RuntimeEnvBundle\Tests\Unit;
 
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\CsrfProtectionPass;
+use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\UnauthenticatedAccessPass;
 use Nowo\RuntimeEnvBundle\DependencyInjection\RuntimeEnvExtension;
 use Nowo\RuntimeEnvBundle\NowoRuntimeEnvBundle;
 use PHPUnit\Framework\TestCase;
@@ -32,9 +33,8 @@ final class NowoRuntimeEnvBundleTest extends TestCase
         (new NowoRuntimeEnvBundle())->build($container);
 
         self::assertNotEmpty($container->getCompilerPassConfig()->getPasses());
-        self::assertContains(
-            CsrfProtectionPass::class,
-            array_map(static fn (object $pass): string => $pass::class, $container->getCompilerPassConfig()->getPasses()),
-        );
+        $passes = array_map(static fn (object $pass): string => $pass::class, $container->getCompilerPassConfig()->getPasses());
+        self::assertContains(CsrfProtectionPass::class, $passes);
+        self::assertContains(UnauthenticatedAccessPass::class, $passes);
     }
 }

@@ -9,12 +9,16 @@ Alias: `nowo_runtime_env`
 | `database.entity_manager` | `default` | Doctrine EM name |
 | `security.access_roles` | `[ROLE_ADMIN]` | REQ-UI-002. An empty list is rejected unless `access_checker` or `allow_unauthenticated` is set. |
 | `security.access_checker` | `null` | Optional service id implementing `RuntimeEnvAccessCheckerInterface` |
-| `security.allow_unauthenticated` | `false` | Demo only |
+| `security.allow_unauthenticated` | `false` | Demo only: refused at compile time unless `kernel.debug` is true (manage UI enabled). |
 | `web_ui.enabled` | `true` | `false` removes the HTML manage UI (no routes, controller and access subscriber removed). The bag and Twig helpers keep working. |
 | `web_ui.path_prefix` | `null` → `/_runtime_env` | URL prefix of the manage routes (also the path the access subscriber guards). |
 | `web_ui.layout_template` | `null` | Layout the manage pages extend. `null` = `nowo_ui_kit.layouts.admin` (UiKit page contract, REQ-UI-003). A layout without the UiKit canonical blocks (pre-1.3: `title` + `body`) still works through a deprecated bridge. |
 | `web_ui.templates.<page>` | `{}` | Per-page template overrides: `index`, `form` (see [TEMPLATES.md](TEMPLATES.md#per-page-overrides)). Unknown page ids fail the container compilation. |
 | `web_ui.list_page_size` | `50` (1–500) | Rows per page of the manage list (REQ-PERF-001; `?page=N`). |
+
+`enabled`, `web_ui.enabled`, `panel.enabled` and `security.allow_unauthenticated` are security switches: they accept
+only literal `true` / `false`. An `%env(bool:…)%` placeholder is refused (`InvalidConfigurationException`) because it
+would read as true while the container is built.
 
 ### Deprecated keys (removed in 2.0)
 

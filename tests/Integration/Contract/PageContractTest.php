@@ -37,4 +37,21 @@ final class PageContractTest extends PageContractTestCase
             self::assertStringNotContainsString(PageFixtures::SECRET, $this->renderPage($fixture, $framework)->html);
         }
     }
+
+    /**
+     * A host `web_ui.templates.index` that extends the plain UiKit list scaffold (default cells, no bundle row
+     * override) still never prints a value: the rows are value-free and the value column key resolves to nothing.
+     */
+    public function testPlainUiKitListScaffoldNeverPrintsAStoredValue(): void
+    {
+        $html = $this->renderPage(new PageFixture('host/plain_list.html.twig', PageFixtures::index()), 'bootstrap5')->html;
+
+        self::assertStringContainsString('FEATURE_CHECKOUT_V2', $html);
+        self::assertStringNotContainsString(PageFixtures::SECRET, $html);
+    }
+
+    protected static function inlineTemplates(): array
+    {
+        return ['host/plain_list.html.twig' => "{% extends '@NowoUiKit/page/list.html.twig' %}"];
+    }
 }

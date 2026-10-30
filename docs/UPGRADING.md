@@ -6,6 +6,7 @@
   - [Manage pages on the UiKit page contract](#manage-pages-on-the-uikit-page-contract)
   - [Canonical configuration keys](#canonical-configuration-keys)
   - [Template contract](#template-contract)
+  - [Security hardening](#security-hardening)
 - [To 1.2.1](#to-121)
 - [To 1.2.0](#to-120)
   - [Manage panel requires form CSRF protection at compile time](#manage-panel-requires-form-csrf-protection-at-compile-time)
@@ -93,6 +94,16 @@ Keep your firewall / `access_control` path in sync with `web_ui.path_prefix`.
   `runtime_env_layout` and filled `body`) must be removed: theme the UiKit scaffolds once instead, or use
   `web_ui.templates.<page>` with `{% extends '@!NowoRuntimeEnvBundle/manage/<page>.html.twig' %}` and override one data
   block. Never print a variable value in an override. Page map: [TEMPLATES.md](TEMPLATES.md).
+- `page.rows`, `variables` (index) and `variable` (form) are value-free arrays (`id`, `name`, `description`,
+  `enabled`), not entities: `row.value` / `variable.value` no longer exist.
+
+### Security hardening
+
+- `enabled`, `web_ui.enabled`, `panel.enabled` and `security.allow_unauthenticated` must be literal booleans. Replace
+  `%env(bool:…)%` on these keys with per-environment config files (`when@prod:` / `config/packages/prod/`).
+- `security.allow_unauthenticated: true` now fails the container compilation unless `kernel.debug` is true. Keep it in
+  dev / demo config only.
+- After a failed submission the value field is printed empty (create and edit): the admin types the value again.
 
 ## To 1.2.1
 

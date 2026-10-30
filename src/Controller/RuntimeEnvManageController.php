@@ -81,15 +81,17 @@ final class RuntimeEnvManageController extends AbstractController
             $deleteForms[$id] = $this->deleteForm($id);
         }
 
-        $pages = $this->pages();
+        $pages    = $this->pages();
+        $listPage = $pages->index(
+            $variables,
+            Pagination::fromTotal($total, $page, $perPage, [$perPage], $perPage, 'nowo_runtime_env_index'),
+            $deleteForms,
+        );
 
+        // No entity reaches the template: `variables` are the same value-free rows as the list page.
         return $this->render($pages->template('index'), $pages->context([
-            'page' => $pages->index(
-                $variables,
-                Pagination::fromTotal($total, $page, $perPage, [$perPage], $perPage, 'nowo_runtime_env_index'),
-                $deleteForms,
-            ),
-            'variables'          => $variables,
+            'page'               => $listPage,
+            'variables'          => $listPage->rows,
             'delete_forms'       => $deleteForms,
             'path_prefix'        => $this->pathPrefix,
             'translation_domain' => RuntimeEnvPages::DOMAIN,
@@ -130,15 +132,18 @@ final class RuntimeEnvManageController extends AbstractController
             throw new NotFoundHttpException('Runtime env variable not found.');
         }
 
-        $form = $this->createForm(RuntimeEnvVariableType::class, $variable, ['is_edit' => true]);
+        // The form edits a detached copy: an invalid submission (e.g. a failed CSRF token) never modifies the managed
+        // entity, so a later flush of the same EntityManager in this request cannot persist it.
+        $draft = clone $variable;
+        $form  = $this->createForm(RuntimeEnvVariableType::class, $draft, ['is_edit' => true]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             $this->writer->update(
                 $variable,
-                $variable->getValue(),
-                $variable->getDescription(),
-                $variable->isEnabled(),
+                $draft->getValue(),
+                $draft->getDescription(),
+                $draft->isEnabled(),
             );
             $this->addFlash('success', $this->trans('runtime_env.flash.updated'));
 
@@ -177,7 +182,7 @@ final class RuntimeEnvManageController extends AbstractController
         return $this->render($pages->template('form'), $pages->context([
             'page'               => $pages->form($form, $variable, $isEdit, $deleteForm),
             'form'               => $form,
-            'variable'           => $variable,
+            'variable'           => RuntimeEnvPageFactory::row($variable),
             'is_edit'            => $isEdit,
             'path_prefix'        => $this->pathPrefix,
             'translation_domain' => RuntimeEnvPages::DOMAIN,
