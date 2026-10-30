@@ -1,0 +1,6 @@
+/* NowoRuntimeEnvBundle manage UI: mask what is typed in the value field of the edit form (the stored value is never
+   rendered back). Loaded by manage/form.html.twig in the nowo_ui_styles block (assets:install). */
+textarea.nowo-runtime-env-secret {
+    -webkit-text-security: disc;
+    font-family: monospace;
+}

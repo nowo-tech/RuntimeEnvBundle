@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace Nowo\RuntimeEnvBundle\Tests\Unit\Routing;
 
+use Nowo\RuntimeEnvBundle\Controller\RuntimeEnvManageController;
 use Nowo\RuntimeEnvBundle\Routing\RuntimeEnvRouteLoader;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 use RuntimeException;
+use Symfony\Component\Routing\Attribute\Route;
+
+use function array_keys;
 
 final class RuntimeEnvRouteLoaderTest extends TestCase
 {
@@ -37,6 +42,24 @@ final class RuntimeEnvRouteLoaderTest extends TestCase
         self::assertSame('\d+', $collection->get('nowo_runtime_env_edit')?->getRequirement('id'));
         self::assertSame('/admin/runtime-env/{id}/delete', $collection->get('nowo_runtime_env_delete')?->getPath());
         self::assertSame(['POST'], $collection->get('nowo_runtime_env_delete')?->getMethods());
+    }
+
+    public function testRoutesComeFromTheControllerRouteAttributes(): void
+    {
+        $collection = (new RuntimeEnvRouteLoader(true, '/x'))->load(null, 'nowo_runtime_env');
+
+        $declared = [];
+        foreach ((new ReflectionClass(RuntimeEnvManageController::class))->getMethods() as $method) {
+            foreach ($method->getAttributes(Route::class) as $attribute) {
+                $declared[(string) $attribute->newInstance()->name] = RuntimeEnvManageController::class . '::' . $method->getName();
+            }
+        }
+
+        self::assertSame(['nowo_runtime_env_index', 'nowo_runtime_env_new', 'nowo_runtime_env_edit', 'nowo_runtime_env_delete'], array_keys($declared));
+        self::assertSame(array_keys($declared), array_keys($collection->all()));
+        foreach ($declared as $name => $controller) {
+            self::assertSame($controller, $collection->get($name)?->getDefault('_controller'));
+        }
     }
 
     public function testLoadFallsBackToDefaultPrefixWhenConfiguredPrefixIsEmpty(): void

@@ -12,6 +12,7 @@ use LogicException;
 use Nowo\RuntimeEnvBundle\Entity\RuntimeEnvVariable;
 use Throwable;
 
+use function max;
 use function sprintf;
 
 /**
@@ -21,7 +22,7 @@ use function sprintf;
  * and a closed manager is replaced; reads use {@see Query::HINT_REFRESH} so managed entities are re-hydrated
  * (and decrypted again) from the database instead of being served stale from the identity map.
  */
-final class DoctrineOrmRuntimeEnvVariableRepository implements RuntimeEnvVariableRepositoryInterface
+final class DoctrineOrmRuntimeEnvVariableRepository implements PaginatedRuntimeEnvVariableRepositoryInterface
 {
     /**
      * @param EntityManagerInterface|null $entityManager legacy fixed manager, used only when no registry is given
@@ -31,7 +32,7 @@ final class DoctrineOrmRuntimeEnvVariableRepository implements RuntimeEnvVariabl
         private readonly ?ManagerRegistry $registry = null,
         private readonly ?string $entityManagerName = null,
     ) {
-        if ($entityManager === null && $registry === null) {
+        if (!$entityManager instanceof EntityManagerInterface && !$registry instanceof ManagerRegistry) {
             throw new InvalidArgumentException('Either an entity manager or a manager registry must be provided.');
         }
     }
@@ -60,6 +61,24 @@ final class DoctrineOrmRuntimeEnvVariableRepository implements RuntimeEnvVariabl
     {
         /** @var list<RuntimeEnvVariable> $rows */
         $rows = $this->createRefreshingQuery('SELECT v FROM %s v ORDER BY v.name ASC')->getResult();
+
+        return $rows;
+    }
+
+    public function countAll(): int
+    {
+        return (int) $this->getEntityManager()
+            ->createQuery(sprintf('SELECT COUNT(v.id) FROM %s v', RuntimeEnvVariable::class))
+            ->getSingleScalarResult();
+    }
+
+    public function findPageOrderedByName(int $limit, int $offset): array
+    {
+        /** @var list<RuntimeEnvVariable> $rows */
+        $rows = $this->createRefreshingQuery('SELECT v FROM %s v ORDER BY v.name ASC')
+            ->setFirstResult(max(0, $offset))
+            ->setMaxResults(max(1, $limit))
+            ->getResult();
 
         return $rows;
     }
@@ -105,7 +124,7 @@ final class DoctrineOrmRuntimeEnvVariableRepository implements RuntimeEnvVariabl
         try {
             $entityManager->flush();
         } catch (Throwable $e) {
-            if ($this->registry !== null && !$entityManager->isOpen()) {
+            if ($this->registry instanceof ManagerRegistry && !$entityManager->isOpen()) {
                 $this->registry->resetManager($this->entityManagerName);
             }
 
@@ -115,7 +134,7 @@ final class DoctrineOrmRuntimeEnvVariableRepository implements RuntimeEnvVariabl
 
     private function getEntityManager(): EntityManagerInterface
     {
-        if ($this->registry === null) {
+        if (!$this->registry instanceof ManagerRegistry) {
             /** @var EntityManagerInterface $entityManager guaranteed by the constructor */
             $entityManager = $this->entityManager;
 

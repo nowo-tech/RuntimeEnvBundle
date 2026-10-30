@@ -1,65 +1,34 @@
-{% extends runtime_env_layout|default('@NowoRuntimeEnvBundle/manage/layout.html.twig') %}
+{#
+  Runtime env variables (REQ-UI-003): UiKit list scaffold. Variable: page (View\ListPage from
+  RuntimeEnvPageFactory::index(): header runtime_env.index.title / subtitle with the action New variable; columns name,
+  value (always masked), description, enabled; rows = list<RuntimeEnvVariable>; row actions Edit / Delete (POST + CSRF
+  FormView behind a Confirm); Pagination (web_ui.list_page_size); EmptyState runtime_env.index.empty with New variable).
+  Data block filled: nowo_ui_list_row (cells). The stored value is never rendered: the value cell prints a fixed mask.
+#}
+{% extends '@NowoUiKit/page/list.html.twig' %}
+{% trans_default_domain 'NowoRuntimeEnvBundle' %}
 
-{% block title %}{{ 'runtime_env.index.title'|trans({}, translation_domain) }}{% endblock %}
-
-{% block body %}
-<section class="nowo-ui-page">
-    <header class="nowo-ui-page-header">
-        <h1>{{ 'runtime_env.index.title'|trans({}, translation_domain) }}</h1>
-        <p>{{ 'runtime_env.index.subtitle'|trans({}, translation_domain) }}</p>
-        <a class="nowo-ui-btn nowo-ui-btn-primary" href="{{ path('nowo_runtime_env_new') }}">
-            {{ 'runtime_env.action.new'|trans({}, translation_domain) }}
-        </a>
-    </header>
-
-    {% for label, messages in app.flashes %}
-        {% for message in messages %}
-            <div class="nowo-ui-flash nowo-ui-flash-{{ label }}" role="status">{{ message|trans({}, translation_domain) }}</div>
-        {% endfor %}
-    {% endfor %}
-
-    <table class="nowo-ui-table">
-        <thead>
-            <tr>
-                <th>{{ 'runtime_env.form.name'|trans({}, translation_domain) }}</th>
-                <th>{{ 'runtime_env.form.value'|trans({}, translation_domain) }}</th>
-                <th>{{ 'runtime_env.form.enabled'|trans({}, translation_domain) }}</th>
-                <th>{{ 'runtime_env.index.actions'|trans({}, translation_domain) }}</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for variable in variables %}
-                <tr>
-                    <td><code>{{ variable.name }}</code></td>
-                    <td><code>••••••••</code></td>
-                    <td>{{ variable.enabled ? '✓' : '—' }}</td>
-                    <td>
-                        <a href="{{ path('nowo_runtime_env_edit', {id: variable.id}) }}">{{ 'runtime_env.action.edit'|trans({}, translation_domain) }}</a>
-                        {% set delete_form = delete_forms[variable.id]|default(null) %}
-                        {% if delete_form %}
-                            {{ form_start(delete_form, {
-                                action: path('nowo_runtime_env_delete', {id: variable.id}),
-                                attr: {
-                                    style: 'display:inline',
-                                    onsubmit: "return confirm('" ~ ('runtime_env.action.delete_confirm'|trans({}, translation_domain)|e('js')) ~ "');"
-                                }
-                            }) }}
-                                {% for child in delete_form %}
-                                    {% if not child.rendered %}
-                                        {{ form_row(child) }}
-                                    {% endif %}
-                                {% endfor %}
-                                <button type="submit">{{ 'runtime_env.action.delete'|trans({}, translation_domain) }}</button>
-                            {{ form_end(delete_form) }}
-                        {% endif %}
-                    </td>
-                </tr>
-            {% else %}
-                <tr>
-                    <td colspan="4">{{ 'runtime_env.index.empty'|trans({}, translation_domain) }}</td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</section>
+{% block nowo_ui_list_row %}
+    {% set _b = page.bundle %}
+    {% set _cell = nowo_ui_class('table_cell', _b) %}
+    <td class="{{ _cell }}" data-label="{{ 'runtime_env.form.name'|trans }}" data-required="1">
+        <code class="{{ nowo_ui_class('code', _b) }}">{{ row.name }}</code>
+    </td>
+    <td class="{{ _cell }}" data-label="{{ 'runtime_env.form.value'|trans }}">
+        <code class="{{ nowo_ui_class('code', _b) }}" title="{{ 'runtime_env.index.value_masked'|trans }}" data-testid="runtime-env-masked-value">••••••••</code>
+    </td>
+    <td class="{{ _cell }}" data-label="{{ 'runtime_env.form.description'|trans }}" data-nowo-ui-priority="2">
+        {% if row.description is empty %}
+            <span class="{{ nowo_ui_class('muted', _b) }}">—</span>
+        {% else %}
+            {{ row.description }}
+        {% endif %}
+    </td>
+    <td class="{{ _cell }}" data-label="{{ 'runtime_env.form.enabled'|trans }}">
+        {% if row.enabled %}
+            <span class="{{ nowo_ui_class('badge_success', _b) }}">{{ 'runtime_env.index.enabled_yes'|trans }}</span>
+        {% else %}
+            <span class="{{ nowo_ui_class('badge_neutral', _b) }}">{{ 'runtime_env.index.enabled_no'|trans }}</span>
+        {% endif %}
+    </td>
 {% endblock %}

@@ -6,7 +6,7 @@ COMPOSE_BIN := $(shell docker compose version >/dev/null 2>&1 && echo "docker co
 COMPOSE     := $(COMPOSE_BIN) -f $(COMPOSE_FILE)
 SERVICE_PHP := php
 
-.PHONY: help up down build install shell logs setup db-schema key cache-clear update-bundle ensure-up test test-e2e demo-screenshots
+.PHONY: help up down build install shell logs setup db-schema seed key cache-clear update-bundle ensure-up test test-e2e demo-screenshots
 
 help:
 	@echo "Runtime Env Bundle Demo - Symfony 8"
@@ -19,6 +19,7 @@ help:
 	@echo "  make shell        Open shell in PHP container"
 	@echo "  make logs         Show container logs"
 	@echo "  make db-schema    Update schema"
+	@echo "  make seed         Seed demo variables (idempotent)"
 	@echo "  make key          Generate Halite encryption secret key"
 	@echo "  make cache-clear  Clear Symfony cache"
 	@echo "  make update-bundle Update bundle from path repo"
@@ -70,7 +71,7 @@ ensure-up:
 install: ensure-up
 	$(COMPOSE) exec -T -e COMPOSER_MEMORY_LIMIT=-1 $(SERVICE_PHP) composer install --no-interaction
 
-setup: install key db-schema
+setup: install key db-schema seed
 	@echo "Demo ready. App: http://localhost:$${PORT:-8026}  Panel: http://localhost:$${PORT:-8026}/_runtime_env"
 
 key: ensure-up
@@ -79,6 +80,9 @@ key: ensure-up
 db-schema: ensure-up
 	$(COMPOSE) exec -T $(SERVICE_PHP) php bin/console doctrine:database:create --if-not-exists --no-interaction || true
 	$(COMPOSE) exec -T $(SERVICE_PHP) php bin/console doctrine:schema:update --force --no-interaction
+
+seed: ensure-up
+	$(COMPOSE) exec -T $(SERVICE_PHP) php bin/console app:demo:seed --no-interaction
 
 shell: ensure-up
 	$(COMPOSE) exec $(SERVICE_PHP) sh
@@ -100,7 +104,7 @@ test: ensure-up
 # REQ-DEMO-013: Playwright e2e and README screenshots (official Playwright image, nothing to install on the host).
 PLAYWRIGHT_IMAGE ?= mcr.microsoft.com/playwright:v1.63.0-jammy
 
-test-e2e: ensure-up
+test-e2e: ensure-up seed
 	@mkdir -p e2e/node_modules
 	@PORT=$$(grep -E '^PORT=' .env 2>/dev/null | cut -d= -f2); PORT=$${PORT:-8026}; \
 	docker run --rm --network host \
@@ -109,7 +113,7 @@ test-e2e: ensure-up
 		$(PLAYWRIGHT_IMAGE) \
 		bash -lc 'npm install --no-fund --no-audit && npx playwright test --project=chromium'
 
-demo-screenshots: ensure-up
+demo-screenshots: ensure-up seed
 	@mkdir -p ../../docs/images/demo e2e/node_modules
 	@PORT=$$(grep -E '^PORT=' .env 2>/dev/null | cut -d= -f2); PORT=$${PORT:-8026}; \
 	docker run --rm --network host \

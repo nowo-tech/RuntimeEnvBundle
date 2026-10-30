@@ -4,6 +4,9 @@ runtime_env:
         subtitle: Os valores são encriptados em repouso (DoctrineEncryptBundle). As alterações aplicam-se no pedido seguinte sem reiniciar o worker FrankenPHP.
         empty: Ainda não há variáveis.
         actions: Ações
+        value_masked: "Oculto: os valores guardados nunca são mostrados"
+        enabled_yes: "Ativa"
+        enabled_no: "Inativa"
     form:
         name: Nome
         value: Valor
@@ -11,6 +14,7 @@ runtime_env:
         enabled: Ativa
         new_title: Nova variável
         edit_title: Editar variável
+        new_intro: "Os nomes são em maiúsculas (A-Z, 0-9, _). O valor é cifrado em repouso."
         value_keep_help: "Deixe em branco para manter o valor atual. O valor guardado nunca é mostrado."
         value_keep_placeholder: "Deixe em branco para manter o valor atual"
         clear_value: "Limpar o valor (cadeia vazia)"
@@ -21,6 +25,12 @@ runtime_env:
         delete_confirm: Eliminar esta variável?
         save: Guardar
         back: Voltar à lista
+        cancel: "Cancelar"
+    confirm:
+        delete_title: "Eliminar variável"
+        delete_message: "Eliminar a variável de ambiente %name%? O código que a lê não obterá valor no pedido seguinte."
+        delete_confirm: "Eliminar"
+        cancel: "Cancelar"
     flash:
         created: Variável criada.
         updated: Variável atualizada.

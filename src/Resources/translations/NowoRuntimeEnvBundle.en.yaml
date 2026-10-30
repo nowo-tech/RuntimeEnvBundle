@@ -4,6 +4,9 @@ runtime_env:
         subtitle: Values are encrypted at rest (DoctrineEncryptBundle). Changes apply on the next request without restarting the FrankenPHP worker.
         empty: No variables yet.
         actions: Actions
+        value_masked: "Hidden: stored values are never shown"
+        enabled_yes: "Enabled"
+        enabled_no: "Disabled"
     form:
         name: Name
         value: Value
@@ -11,6 +14,7 @@ runtime_env:
         enabled: Enabled
         new_title: New variable
         edit_title: Edit variable
+        new_intro: "Names are upper case (A-Z, 0-9, _). The value is encrypted at rest."
         value_keep_help: "Leave blank to keep the current value. The stored value is never shown."
         value_keep_placeholder: "Leave blank to keep current value"
         clear_value: "Clear the value (set it to an empty string)"
@@ -21,6 +25,12 @@ runtime_env:
         delete_confirm: Delete this variable?
         save: Save
         back: Back to list
+        cancel: "Cancel"
+    confirm:
+        delete_title: "Delete variable"
+        delete_message: "Delete the runtime env variable %name%? Code reading it gets no value on the next request."
+        delete_confirm: "Delete"
+        cancel: "Cancel"
     flash:
         created: Variable created.
         updated: Variable updated.

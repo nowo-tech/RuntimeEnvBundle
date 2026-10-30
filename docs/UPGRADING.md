@@ -3,6 +3,9 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+  - [Manage pages on the UiKit page contract](#manage-pages-on-the-uikit-page-contract)
+  - [Canonical configuration keys](#canonical-configuration-keys)
+  - [Template contract](#template-contract)
 - [To 1.2.1](#to-121)
 - [To 1.2.0](#to-120)
   - [Manage panel requires form CSRF protection at compile time](#manage-panel-requires-form-csrf-protection-at-compile-time)
@@ -24,6 +27,72 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+From **1.2.1**:
+
+```bash
+composer update nowo-tech/runtime-env-bundle nowo-tech/ui-kit-bundle
+php bin/console assets:install
+php bin/console cache:clear
+```
+
+### Manage pages on the UiKit page contract
+
+The manage pages now extend the UiKit list / form scaffolds (REQ-UI-003) and render inside
+`nowo_ui_kit.layouts.admin`. Requires `nowo-tech/ui-kit-bundle` **^2.17.3** (enable `NowoUiKitBundle` and run
+`assets:install`: the confirm dialog script and `bundles/noworuntimeenv/css/runtime-env.css` are bundle assets).
+
+- **Default setup (no layout configured):** point `nowo_ui_kit.layouts.admin` at your admin layout or at a one-file
+  bridge that renders the UiKit canonical blocks (see UiKit `layout/_bridge.html.twig`); until then the UiKit admin
+  layout is used.
+- **`web_ui.layout_template` set to your own layout:** it still works. A layout without the UiKit canonical blocks
+  (e.g. rendering `title` + `body` like the removed bundle layout) is wrapped in a deprecated bridge and triggers a
+  deprecation; migrate it to the canonical blocks or remove the key.
+- **`web_ui.layout_template: '@NowoRuntimeEnvBundle/manage/layout.html.twig'`:** that layout was removed; the value is
+  mapped to the UiKit layout.
+- The list is paginated (`web_ui.list_page_size`, default 50). Custom repositories may implement
+  `PaginatedRuntimeEnvVariableRepositoryInterface` to page in SQL; otherwise the full list is sliced in memory.
+- Access checks (REQ-UI-002), CSRF on every mutation and value masking are unchanged.
+
+### Canonical configuration keys
+
+Deprecated keys keep working until 2.0 (the canonical key wins when both are set):
+
+```yaml
+# Before (1.2)
+nowo_runtime_env:
+    panel:
+        enabled: true
+        path_prefix: /admin/env
+    templates:
+        index: 'admin/env/index.html.twig'
+    web_ui:
+        css_framework: bootstrap5
+        icon_set: bootstrap-icons
+
+# After (1.3)
+nowo_runtime_env:
+    web_ui:
+        enabled: true
+        path_prefix: /admin/env
+        templates:
+            index: 'admin/env/index.html.twig'
+nowo_ui_kit:
+    css_framework: bootstrap5
+    icon_set: bootstrap-icons
+```
+
+Keep your firewall / `access_control` path in sync with `web_ui.path_prefix`.
+
+### Template contract
+
+- `manage/index.html.twig` → `@NowoUiKit/page/list.html.twig` (`page: ListPage`, data block `nowo_ui_list_row`).
+- `manage/form.html.twig` → `@NowoUiKit/page/form.html.twig` (`page: FormPage`, block `nowo_ui_styles`).
+- Removed: `manage/layout.html.twig`, `manage/_form_fields.html.twig`, the `runtime_env_layout` variable.
+- Full-file overrides under `templates/bundles/NowoRuntimeEnvBundle/manage/` written for 1.2 (they extended
+  `runtime_env_layout` and filled `body`) must be removed: theme the UiKit scaffolds once instead, or use
+  `web_ui.templates.<page>` with `{% extends '@!NowoRuntimeEnvBundle/manage/<page>.html.twig' %}` and override one data
+  block. Never print a variable value in an override. Page map: [TEMPLATES.md](TEMPLATES.md).
 
 ## To 1.2.1
 

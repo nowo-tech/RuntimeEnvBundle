@@ -51,7 +51,7 @@ Allow selected application environment variables to be stored in the database (e
 | FR-CFG-002 | Extension registers parameters, services, and Doctrine mapping. |
 | FR-DI-001 | `services.yaml` wires form types and tagged services. |
 | FR-DI-002 | `TwigPathsPass` registers Twig namespace `NowoRuntimeEnvBundle`. |
-| FR-UI-001 | Admin CRUD controller at configurable `panel.path_prefix`. |
+| FR-UI-001 | Admin CRUD controller (`#[Route]` attributes) at configurable `web_ui.path_prefix`, paginated list (`web_ui.list_page_size`). |
 | FR-UI-002 | Create/edit form maps to `RuntimeEnvVariable`. |
 | FR-UI-003 | Twig templates use UiKit-friendly markup and form loops (REQ-TWIG-003/005). |
 | FR-UI-004 | Delete uses CSRF-only `RuntimeEnvDeleteType`. |

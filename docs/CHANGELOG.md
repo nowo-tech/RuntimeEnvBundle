@@ -24,6 +24,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+UiKit page contract for the manage UI (REQ-UI-003), paginated list (REQ-PERF-001), attribute routes (REQ-SF-004).
+See [UPGRADING](UPGRADING.md#unreleased).
+
+### Added
+
+- **UiKit page contract (REQ-UI-003).** The manage pages extend the UiKit list / form scaffolds and render inside
+  `nowo_ui_kit.layouts.admin`; view models come from `Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory`, the layout and
+  per-page overrides from `RuntimeEnvPages`. Deletes go through the UiKit confirm `<dialog>` (CSRF form unchanged); the
+  edit page gains a delete zone. Page map: [TEMPLATES.md](TEMPLATES.md).
+- `web_ui.path_prefix`, `web_ui.templates.<page>` (`index`, `form`; unknown ids fail the compilation) and
+  `web_ui.list_page_size` (default 50, 1–500).
+- **Paginated manage list (REQ-PERF-001):** `?page=N`, one `COUNT` + one bounded `SELECT` per page through the new
+  `PaginatedRuntimeEnvVariableRepositoryInterface` (implemented by the Doctrine repository); custom repositories that
+  only implement `RuntimeEnvVariableRepositoryInterface` are sliced in memory.
+- `src/Resources/public/css/runtime-env.css` (masks what is typed in the edit value field; `assets:install`).
+- New translation keys (`runtime_env.index.value_masked|enabled_yes|enabled_no`, `runtime_env.form.new_intro`,
+  `runtime_env.action.cancel`, `runtime_env.confirm.*`) in en, es, fr, it, pt, de, nl; flashes are translated in the
+  controller.
+- Tests: UiKit `PageContractTest` (every page, plus a check that no page prints a stored value), legacy layout bridge,
+  route attributes parity, paginated repository reads.
+
+### Changed
+
+- **Attribute routes (REQ-SF-004):** the four manage routes are declared with `#[Route]` on
+  `RuntimeEnvManageController`; `RuntimeEnvRouteLoader` reads them and prepends `web_ui.path_prefix`. Route names,
+  paths, methods and requirements are unchanged. The controller is not autoconfigured, so a host
+  `routing.controllers` import never mounts the routes without the prefix.
+- `web_ui.layout_template` defaults to `null` (= `nowo_ui_kit.layouts.admin`); requires `nowo-tech/ui-kit-bundle` ^2.17.3.
+- `make validate-translations` compares leaf keys (it only compared the top-level node before).
+
+### Deprecated
+
+- `panel.enabled`, `panel.path_prefix` → `web_ui.enabled`, `web_ui.path_prefix`.
+- `templates.index`, `templates.form` → `web_ui.templates.index`, `web_ui.templates.form` (`templates.layout` was
+  already deprecated).
+- `web_ui.css_framework`, `web_ui.icon_set` → `nowo_ui_kit.css_framework`, `nowo_ui_kit.icon_set` (still copied there
+  when the host did not set them).
+- Layouts without the UiKit canonical blocks are wrapped in `manage/_legacy_layout.html.twig` with a deprecation
+  (removed in 2.0).
+
+### Removed
+
+- `manage/layout.html.twig` (full HTML document with inline CSS) and `manage/_form_fields.html.twig`; the value
+  `@NowoRuntimeEnvBundle/manage/layout.html.twig` is mapped to the UiKit layout.
+- The `runtime_env_layout` template variable.
+
+### Template contract
+
+- `manage/index.html.twig` extends `@NowoUiKit/page/list.html.twig` (variable `page: ListPage`, data block
+  `nowo_ui_list_row`); `manage/form.html.twig` extends `@NowoUiKit/page/form.html.twig` (variable `page: FormPage`,
+  block `nowo_ui_styles`). Full-file overrides of these templates written for 1.2 must be redone (see UPGRADING).
+
 ## [1.2.1] - 2026-10-28
 
 Security: the manage UI access check also applies when the routes are mounted under another prefix. See [UPGRADING](UPGRADING.md#to-121).

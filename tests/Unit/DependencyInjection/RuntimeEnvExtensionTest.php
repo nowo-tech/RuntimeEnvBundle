@@ -6,10 +6,12 @@ namespace Nowo\RuntimeEnvBundle\Tests\Unit\DependencyInjection;
 
 use LogicException;
 use Nowo\RuntimeEnvBundle\Controller\RuntimeEnvManageController;
+use Nowo\RuntimeEnvBundle\DependencyInjection\Configuration;
 use Nowo\RuntimeEnvBundle\DependencyInjection\RuntimeEnvExtension;
 use Nowo\RuntimeEnvBundle\Doctrine\RuntimeEnvMetadataListener;
 use Nowo\RuntimeEnvBundle\EventSubscriber\RuntimeEnvAccessSubscriber;
 use Nowo\RuntimeEnvBundle\Repository\DoctrineOrmRuntimeEnvVariableRepository;
+use Nowo\RuntimeEnvBundle\Repository\PaginatedRuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Routing\RuntimeEnvRouteLoader;
 use Nowo\RuntimeEnvBundle\Security\AllowAllRuntimeEnvAccessChecker;
@@ -18,6 +20,8 @@ use Nowo\RuntimeEnvBundle\Security\RuntimeEnvAccessCheckerInterface;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvBag;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
 use Nowo\RuntimeEnvBundle\Twig\RuntimeEnvTwigExtension;
+use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory;
+use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
 use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
@@ -133,6 +137,7 @@ final class RuntimeEnvExtensionTest extends TestCase
         self::assertTrue($container->getParameter('nowo_runtime_env.security.allow_unauthenticated'));
     }
 
+    #[IgnoreDeprecations]
     public function testLoadWithPanelDisabledRemovesUiServicesAndNormalizesConfig(): void
     {
         $container = new ContainerBuilder();
@@ -178,46 +183,105 @@ final class RuntimeEnvExtensionTest extends TestCase
         self::assertTrue($container->hasDefinition(RuntimeEnvBag::class));
     }
 
-    public function testWebUiLayoutTemplateIsPassedToTheController(): void
+    public function testManageUiServicesAreWiredWithTheCanonicalKeys(): void
     {
         $container = new ContainerBuilder();
         $container->registerExtension($this->dummyExtension('security'));
 
-        $this->extension->load([['web_ui' => ['layout_template' => '@App/admin/base.html.twig']]], $container);
+        $this->extension->load([['web_ui' => [
+            'path_prefix'     => '/admin/env',
+            'layout_template' => '@App/admin/base.html.twig',
+            'templates'       => ['form' => 'admin/env/form.html.twig'],
+            'list_page_size'  => 20,
+        ]]], $container);
 
-        /** @var array<string, string> $templates */
-        $templates = $container->getDefinition(RuntimeEnvManageController::class)->getArgument('$templates');
-        self::assertSame('@App/admin/base.html.twig', $templates['layout']);
+        $pages = $container->getDefinition(RuntimeEnvPages::class);
+        self::assertSame('@App/admin/base.html.twig', $pages->getArgument('$layoutTemplate'));
+        self::assertSame(['form' => 'admin/env/form.html.twig'], $pages->getArgument('$templates'));
+        self::assertSame('twig', (string) $pages->getArgument('$twig'));
+
+        $factory = $container->getDefinition(RuntimeEnvPageFactory::class);
+        self::assertSame('router', (string) $factory->getArgument('$urlGenerator'));
+        self::assertSame(RuntimeEnvPages::class, (string) $factory->getArgument('$pages'));
+
+        $controller = $container->getDefinition(RuntimeEnvManageController::class);
+        self::assertFalse($controller->isAutoconfigured(), 'No routing.controller tag: routes only come from the prefixed loader.');
+        self::assertTrue($controller->hasTag('container.service_subscriber'));
+        self::assertTrue($controller->hasTag('controller.service_arguments'));
+        self::assertSame('/admin/env', $controller->getArgument('$pathPrefix'));
+        self::assertSame(20, $controller->getArgument('$listPageSize'));
+        self::assertSame(RuntimeEnvPageFactory::class, (string) $controller->getArgument('$pageFactory'));
+        self::assertSame('translator', (string) $controller->getArgument('$translator'));
+
+        self::assertSame('/admin/env', $container->getDefinition(RuntimeEnvAccessSubscriber::class)->getArgument('$pathPrefix'));
+        self::assertSame('/admin/env', $container->getDefinition(RuntimeEnvRouteLoader::class)->getArgument('$pathPrefix'));
+        self::assertSame('/admin/env', $container->getParameter('nowo_runtime_env.web_ui.path_prefix'));
+        self::assertSame('/admin/env', $container->getParameter('nowo_runtime_env.panel.path_prefix'));
+        self::assertSame(20, $container->getParameter('nowo_runtime_env.web_ui.list_page_size'));
+        self::assertSame([
+            'index'  => '@NowoRuntimeEnvBundle/manage/index.html.twig',
+            'form'   => 'admin/env/form.html.twig',
+            'layout' => '@App/admin/base.html.twig',
+        ], $container->getParameter('nowo_runtime_env.templates'));
+        self::assertSame(DoctrineOrmRuntimeEnvVariableRepository::class, (string) $container->getAlias(PaginatedRuntimeEnvVariableRepositoryInterface::class));
     }
 
-    public function testDefaultLayoutIsUsedWhenNothingIsConfigured(): void
+    public function testUiKitLayoutIsUsedWhenNothingIsConfigured(): void
     {
         $container = new ContainerBuilder();
         $container->registerExtension($this->dummyExtension('security'));
 
-        $this->extension->load([], $container);
+        $this->extension->load([['web_ui' => ['layout_template' => Configuration::LEGACY_DEFAULT_LAYOUT]]], $container);
 
-        /** @var array<string, string> $templates */
-        $templates = $container->getDefinition(RuntimeEnvManageController::class)->getArgument('$templates');
-        self::assertSame('@NowoRuntimeEnvBundle/manage/layout.html.twig', $templates['layout']);
+        self::assertNull($container->getDefinition(RuntimeEnvPages::class)->getArgument('$layoutTemplate'));
+        self::assertSame([], $container->getDefinition(RuntimeEnvPages::class)->getArgument('$templates'));
+        self::assertNull($container->getParameter('nowo_runtime_env.web_ui.layout_template'));
     }
 
     #[IgnoreDeprecations]
-    public function testDeprecatedTemplatesLayoutStillWinsWhenChanged(): void
+    public function testDeprecatedKeysAreTheFallbacksOfTheCanonicalOnes(): void
     {
         $container = new ContainerBuilder();
         $container->registerExtension($this->dummyExtension('security'));
 
         $this->extension->load([[
-            'web_ui'    => ['layout_template' => '@App/admin/base.html.twig'],
-            'templates' => ['layout' => '@App/legacy/layout.html.twig'],
+            'panel'     => ['path_prefix' => '/legacy/env'],
+            'templates' => [
+                'layout' => '@App/legacy/layout.html.twig',
+                'index'  => '@App/legacy/index.html.twig',
+                'form'   => '@NowoRuntimeEnvBundle/manage/form.html.twig',
+            ],
         ]], $container);
 
-        /** @var array<string, string> $templates */
-        $templates = $container->getDefinition(RuntimeEnvManageController::class)->getArgument('$templates');
-        self::assertSame('@App/legacy/layout.html.twig', $templates['layout']);
+        $pages = $container->getDefinition(RuntimeEnvPages::class);
+        self::assertSame('@App/legacy/layout.html.twig', $pages->getArgument('$layoutTemplate'));
+        self::assertSame(['index' => '@App/legacy/index.html.twig'], $pages->getArgument('$templates'));
+        self::assertSame('/legacy/env', $container->getDefinition(RuntimeEnvManageController::class)->getArgument('$pathPrefix'));
     }
 
+    #[IgnoreDeprecations]
+    public function testCanonicalKeysWinOverTheDeprecatedOnes(): void
+    {
+        $container = new ContainerBuilder();
+        $container->registerExtension($this->dummyExtension('security'));
+
+        $this->extension->load([[
+            'panel'     => ['path_prefix' => '/legacy/env'],
+            'templates' => ['layout' => '@App/legacy/layout.html.twig', 'index' => '@App/legacy/index.html.twig'],
+            'web_ui'    => [
+                'path_prefix'     => '/admin/env',
+                'layout_template' => '@App/admin/base.html.twig',
+                'templates'       => ['index' => '@App/admin/index.html.twig'],
+            ],
+        ]], $container);
+
+        $pages = $container->getDefinition(RuntimeEnvPages::class);
+        self::assertSame('@App/admin/base.html.twig', $pages->getArgument('$layoutTemplate'));
+        self::assertSame(['index' => '@App/admin/index.html.twig'], $pages->getArgument('$templates'));
+        self::assertSame('/admin/env', $container->getDefinition(RuntimeEnvManageController::class)->getArgument('$pathPrefix'));
+    }
+
+    #[IgnoreDeprecations]
     public function testPrependAddsDoctrineMappingAndUiKitDefaults(): void
     {
         $container = new ContainerBuilder();
@@ -254,6 +318,7 @@ final class RuntimeEnvExtensionTest extends TestCase
         self::assertSame([], $container->getExtensionConfig('doctrine'));
     }
 
+    #[IgnoreDeprecations]
     public function testPrependDoesNotOverrideHostUiKitChoices(): void
     {
         $container = new ContainerBuilder();
@@ -278,12 +343,13 @@ final class RuntimeEnvExtensionTest extends TestCase
         self::assertCount(1, $uiKitConfig);
     }
 
+    #[IgnoreDeprecations]
     public function testPrependSkipsNonArrayUiKitConfigEntries(): void
     {
         $container = new ContainerBuilder();
         $container->registerExtension($this->extension);
         $container->registerExtension($this->dummyExtension('nowo_ui_kit'));
-        $container->loadFromExtension('nowo_runtime_env', []);
+        $container->loadFromExtension('nowo_runtime_env', ['web_ui' => ['css_framework' => 'custom', 'icon_set' => 'none']]);
 
         $ref                      = new ReflectionProperty(ContainerBuilder::class, 'extensionConfigs');
         $configs                  = $ref->getValue($container);
@@ -296,6 +362,18 @@ final class RuntimeEnvExtensionTest extends TestCase
         self::assertContains('invalid', $uiKitConfig);
         self::assertSame('custom', $uiKitConfig[0]['css_framework']);
         self::assertSame('none', $uiKitConfig[0]['icon_set']);
+    }
+
+    public function testPrependLeavesUiKitAloneWhenTheDeprecatedKeysAreNotSet(): void
+    {
+        $container = new ContainerBuilder();
+        $container->registerExtension($this->extension);
+        $container->registerExtension($this->dummyExtension('nowo_ui_kit'));
+        $container->loadFromExtension('nowo_runtime_env', []);
+
+        $this->extension->prepend($container);
+
+        self::assertSame([], $container->getExtensionConfig('nowo_ui_kit'));
     }
 
     private function dummyExtension(string $alias): Extension
