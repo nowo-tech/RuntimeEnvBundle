@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.3.0](#to-130)
   - [Manage pages on the UiKit page contract](#manage-pages-on-the-uikit-page-contract)
   - [Canonical configuration keys](#canonical-configuration-keys)
   - [Template contract](#template-contract)
@@ -28,6 +29,14 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+## To 1.3.0
+
+From **1.2.1**:
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
 
 From **1.2.1**:
 

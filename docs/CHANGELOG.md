@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.3.0] - 2026-10-30](#130---2026-10-30)
 - [[1.2.1] - 2026-10-28](#121---2026-10-28)
 - [[1.2.0] - 2026-10-28](#120---2026-10-28)
 - [[1.1.3] - 2026-10-22](#113---2026-10-22)
@@ -23,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-09-16](#100---2026-09-16)
 
 ## [Unreleased]
+
+## [1.3.0] - 2026-10-30
+
+RuntimeEnv: UiKit page contract (list/form scaffolds, confirm dialog), #[Route] with prefix loader, paginated list; SEC-004 BM: value-free view models, literal-boolean switches, allow_unauthenticated debug-only, secrets never re-rendered See [UPGRADING](UPGRADING.md#to-130).
 
 UiKit page contract for the manage UI (REQ-UI-003), paginated list (REQ-PERF-001), attribute routes (REQ-SF-004).
 See [UPGRADING](UPGRADING.md#unreleased).
@@ -95,6 +100,8 @@ Fixes of the REQ-SEC-004 re-audit 2026-10-30 (Appendix BM, Pass (good) / Low); s
   block `nowo_ui_styles`). Full-file overrides of these templates written for 1.2 must be redone (see UPGRADING).
 - List rows (`page.rows`, `variables`) and the form `variable` are value-free arrays `{id, name, description, enabled}`,
   not `RuntimeEnvVariable` entities; the value column key is `masked_value`.
+
+[1.3.0]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.3.0
 
 ## [1.2.1] - 2026-10-28
 
