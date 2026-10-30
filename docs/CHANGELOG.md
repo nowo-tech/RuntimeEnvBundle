@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Integration test `HostControllersRoutesTest`: a host whose routing is only `routing.controllers` (Symfony >= 7.3 default) gets no bundle route; the manage controller is already registered with `setAutoconfigured(false)` (REQ-SF-004 rule 7).
+
 ## [1.3.0] - 2026-10-30
 
 RuntimeEnv: UiKit page contract (list/form scaffolds, confirm dialog), #[Route] with prefix loader, paginated list; SEC-004 BM: value-free view models, literal-boolean switches, allow_unauthenticated debug-only, secrets never re-rendered See [UPGRADING](UPGRADING.md#to-130).
