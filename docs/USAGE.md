@@ -53,6 +53,10 @@ Open `/_runtime_env` (or your `web_ui.path_prefix`). Names must match `^[A-Z][A-
 The list is paginated (`web_ui.list_page_size`, default 50; `?page=N`) and always **masks** values. Deleting a
 variable opens the UiKit confirm dialog (no inline `confirm()`); the delete is a CSRF-protected POST. The pages follow
 the UiKit page contract (layout `nowo_ui_kit.layouts.admin`, list / form scaffolds) — see [TEMPLATES.md](TEMPLATES.md).
+The create / edit and delete forms are Symfony Forms and **FormKit Types** (`RuntimeEnvVariableType`, `RuntimeEnvDeleteType`;
+profile `nowo_form_kit.profiles.runtime_env`, see [CONFIGURATION](CONFIGURATION.md#formkit-profile)) rendered with
+`form_start` / the `{% for child in form %}{% if not child.rendered %}{{ form_row(child) }}{% endif %}{% endfor %}` loop /
+`form_end`; overrides must not reintroduce raw `<form>` / `<input>` (REQ-TWIG-005).
  The edit form never renders the stored (decrypted) value: the value field starts empty and masked; leave it blank to keep the current value, type a new one to replace it, or tick **Clear the value** to store an empty string. Empty values are allowed (also when creating a variable).
 
 ## What stays in `.env`

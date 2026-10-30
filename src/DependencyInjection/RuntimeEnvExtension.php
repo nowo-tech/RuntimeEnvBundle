@@ -8,6 +8,7 @@ use LogicException;
 use Nowo\RuntimeEnvBundle\Controller\RuntimeEnvManageController;
 use Nowo\RuntimeEnvBundle\Doctrine\RuntimeEnvMetadataListener;
 use Nowo\RuntimeEnvBundle\EventSubscriber\RuntimeEnvAccessSubscriber;
+use Nowo\RuntimeEnvBundle\NowoRuntimeEnvBundle;
 use Nowo\RuntimeEnvBundle\Repository\DoctrineOrmRuntimeEnvVariableRepository;
 use Nowo\RuntimeEnvBundle\Repository\PaginatedRuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
@@ -50,6 +51,7 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
     {
         $this->prependDoctrineMappings($container);
         $this->prependUiKitDefaults($container);
+        $this->prependFormKitProfile($container);
     }
 
     public function load(array $configs, ContainerBuilder $container): void
@@ -246,6 +248,50 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
                     ],
                 ],
             ],
+        ]);
+    }
+
+    /**
+     * Default FormKit profile of the bundle forms: translation domain, no auto help / placeholder convention keys.
+     * REQ-UI-003: no framework classes here — the UiKit form scaffold theme paints the fields through its slots.
+     *
+     * @return array<string, mixed>
+     */
+    public static function formKitProfile(): array
+    {
+        return [
+            'alias'              => NowoRuntimeEnvBundle::FORM_KIT_PROFILE,
+            'translation_domain' => NowoRuntimeEnvBundle::TRANSLATION_DOMAIN,
+            'auto_help'          => false,
+            'auto_placeholder'   => false,
+            'defaults'           => [
+                'attr'     => [],
+                'row_attr' => [],
+            ],
+            'field_types' => [],
+        ];
+    }
+
+    /**
+     * Registers the FormKit profile {@see NowoRuntimeEnvBundle::FORM_KIT_PROFILE} used by every bundle form type
+     * (#[FormKitConfig]). A host overrides it by defining `nowo_form_kit.profiles.runtime_env` itself (nothing is
+     * prepended then). Does not change the host `default_profile`.
+     */
+    private function prependFormKitProfile(ContainerBuilder $container): void
+    {
+        if (!$container->hasExtension('nowo_form_kit')) {
+            return;
+        }
+
+        foreach ($container->getExtensionConfig('nowo_form_kit') as $config) {
+            $profiles = $config['profiles'] ?? null;
+            if (is_array($profiles) && array_key_exists(NowoRuntimeEnvBundle::FORM_KIT_PROFILE, $profiles)) {
+                return;
+            }
+        }
+
+        $container->prependExtensionConfig('nowo_form_kit', [
+            'profiles' => [NowoRuntimeEnvBundle::FORM_KIT_PROFILE => self::formKitProfile()],
         ]);
     }
 

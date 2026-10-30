@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Nowo\RuntimeEnvBundle\Form;
 
+use Nowo\FormKitBundle\Attribute\FormKitConfig;
+use Nowo\FormKitBundle\Form\FormOptionsTrait;
 use Nowo\RuntimeEnvBundle\Entity\RuntimeEnvVariable;
+use Nowo\RuntimeEnvBundle\NowoRuntimeEnvBundle;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
@@ -30,45 +33,47 @@ use function is_string;
  *
  * @extends AbstractType<RuntimeEnvVariable>
  */
+#[FormKitConfig(NowoRuntimeEnvBundle::FORM_KIT_PROFILE)]
 final class RuntimeEnvVariableType extends AbstractType
 {
+    use FormKitFieldTrait;
+    use FormOptionsTrait;
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $isEdit = (bool) ($options['is_edit'] ?? false);
 
-        $builder
-            ->add('name', TextType::class, [
-                'label'       => 'runtime_env.form.name',
-                'disabled'    => $isEdit,
-                'constraints' => [
-                    new NotBlank(),
-                    new Regex(
-                        pattern: RuntimeEnvWriter::NAME_PATTERN,
-                        message: 'Name must match ^[A-Z][A-Z0-9_]*$.',
-                    ),
-                ],
-            ]);
+        $this->addKitField($builder, 'name', TextType::class, [
+            'label'       => 'runtime_env.form.name',
+            'disabled'    => $isEdit,
+            'constraints' => [
+                new NotBlank(),
+                new Regex(
+                    pattern: RuntimeEnvWriter::NAME_PATTERN,
+                    message: 'Name must match ^[A-Z][A-Z0-9_]*$.',
+                ),
+            ],
+        ]);
 
         if ($isEdit) {
-            $builder
-                ->add('value', TextareaType::class, [
-                    'label'    => 'runtime_env.form.value',
-                    'mapped'   => false,
-                    'required' => false,
-                    'help'     => 'runtime_env.form.value_keep_help',
-                    'attr'     => [
-                        'rows'         => 3,
-                        'autocomplete' => 'off',
-                        'spellcheck'   => 'false',
-                        'class'        => 'nowo-runtime-env-secret',
-                        'placeholder'  => 'runtime_env.form.value_keep_placeholder',
-                    ],
-                ])
-                ->add('clear_value', CheckboxType::class, [
-                    'label'    => 'runtime_env.form.clear_value',
-                    'mapped'   => false,
-                    'required' => false,
-                ]);
+            $this->addKitField($builder, 'value', TextareaType::class, [
+                'label'    => 'runtime_env.form.value',
+                'mapped'   => false,
+                'required' => false,
+                'help'     => 'runtime_env.form.value_keep_help',
+                'attr'     => [
+                    'rows'         => 3,
+                    'autocomplete' => 'off',
+                    'spellcheck'   => 'false',
+                    'class'        => 'nowo-runtime-env-secret',
+                    'placeholder'  => 'runtime_env.form.value_keep_placeholder',
+                ],
+            ]);
+            $this->addKitField($builder, 'clear_value', CheckboxType::class, [
+                'label'    => 'runtime_env.form.clear_value',
+                'mapped'   => false,
+                'required' => false,
+            ]);
 
             $builder->addEventListener(FormEvents::POST_SUBMIT, static function (FormEvent $event): void {
                 $form     = $event->getForm();
@@ -89,7 +94,7 @@ final class RuntimeEnvVariableType extends AbstractType
                 }
             });
         } else {
-            $builder->add('value', TextareaType::class, [
+            $this->addKitField($builder, 'value', TextareaType::class, [
                 'label'      => 'runtime_env.form.value',
                 'required'   => false,
                 'empty_data' => '',
@@ -102,15 +107,14 @@ final class RuntimeEnvVariableType extends AbstractType
             ]);
         }
 
-        $builder
-            ->add('description', TextType::class, [
-                'label'    => 'runtime_env.form.description',
-                'required' => false,
-            ])
-            ->add('enabled', CheckboxType::class, [
-                'label'    => 'runtime_env.form.enabled',
-                'required' => false,
-            ]);
+        $this->addKitField($builder, 'description', TextType::class, [
+            'label'    => 'runtime_env.form.description',
+            'required' => false,
+        ]);
+        $this->addKitField($builder, 'enabled', CheckboxType::class, [
+            'label'    => 'runtime_env.form.enabled',
+            'required' => false,
+        ]);
     }
 
     /**
@@ -128,7 +132,7 @@ final class RuntimeEnvVariableType extends AbstractType
     {
         $resolver->setDefaults([
             'data_class'         => RuntimeEnvVariable::class,
-            'translation_domain' => 'NowoRuntimeEnvBundle',
+            'translation_domain' => NowoRuntimeEnvBundle::TRANSLATION_DOMAIN,
             'is_edit'            => false,
         ]);
         $resolver->setAllowedTypes('is_edit', 'bool');

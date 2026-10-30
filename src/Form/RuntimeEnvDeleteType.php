@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Nowo\RuntimeEnvBundle\Form;
 
+use Nowo\FormKitBundle\Attribute\FormKitConfig;
+use Nowo\FormKitBundle\Form\FormOptionsTrait;
+use Nowo\RuntimeEnvBundle\NowoRuntimeEnvBundle;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -13,8 +16,11 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
  *
  * @extends AbstractType<null>
  */
+#[FormKitConfig(NowoRuntimeEnvBundle::FORM_KIT_PROFILE)]
 final class RuntimeEnvDeleteType extends AbstractType
 {
+    use FormOptionsTrait;
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
     }
@@ -25,7 +31,7 @@ final class RuntimeEnvDeleteType extends AbstractType
             'csrf_protection'    => true,
             'csrf_field_name'    => '_token',
             'csrf_token_id'      => 'runtime_env_delete',
-            'translation_domain' => 'NowoRuntimeEnvBundle',
+            'translation_domain' => NowoRuntimeEnvBundle::TRANSLATION_DOMAIN,
         ]);
         $resolver->setAllowedTypes('csrf_token_id', 'string');
     }

@@ -6,10 +6,10 @@ namespace Nowo\RuntimeEnvBundle\Tests\Unit\Form;
 
 use Nowo\RuntimeEnvBundle\Entity\RuntimeEnvVariable;
 use Nowo\RuntimeEnvBundle\Form\RuntimeEnvVariableType;
+use Nowo\RuntimeEnvBundle\Tests\Support\FormKitTestSupport;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Validator\ValidatorExtension;
-use Symfony\Component\Form\PreloadedExtension;
 use Symfony\Component\Form\Test\TypeTestCase;
 use Symfony\Component\OptionsResolver\Exception\InvalidOptionsException;
 use Symfony\Component\Validator\Constraints\NotBlank;
@@ -21,10 +21,7 @@ final class RuntimeEnvVariableTypeTest extends TypeTestCase
     protected function getExtensions(): array
     {
         return [
-            new PreloadedExtension(
-                [new RuntimeEnvVariableType()],
-                [],
-            ),
+            FormKitTestSupport::extension(),
             new ValidatorExtension(Validation::createValidator()),
         ];
     }

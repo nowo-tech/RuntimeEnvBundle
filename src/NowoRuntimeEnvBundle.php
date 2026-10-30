@@ -16,6 +16,9 @@ final class NowoRuntimeEnvBundle extends Bundle
 {
     public const TRANSLATION_DOMAIN = 'NowoRuntimeEnvBundle';
 
+    /** FormKit profile (nowo_form_kit.profiles.runtime_env) used by every bundle form type (REQ-TWIG-005 rule 11). */
+    public const FORM_KIT_PROFILE = 'runtime_env';
+
     public function build(ContainerBuilder $container): void
     {
         parent::build($container);
