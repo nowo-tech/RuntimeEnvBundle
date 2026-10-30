@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.4.0](#to-140)
 - [To 1.3.0](#to-130)
   - [Manage pages on the UiKit page contract](#manage-pages-on-the-uikit-page-contract)
   - [Canonical configuration keys](#canonical-configuration-keys)
@@ -29,6 +30,14 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+## To 1.4.0
+
+From **1.3.0**:
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
 
 - **New required dependency `nowo-tech/form-kit-bundle` (`^2.16`, REQ-TWIG-005 rule 11):** register `Nowo\FormKitBundle\NowoFormKitBundle::class => ['all' => true]` in `config/bundles.php` (Symfony Flex does it on `composer update`). The manage form types get their field options from FormKit; without the FormKit bundle registered they fail with an uninitialized `FormOptionsMerger`.
 - **Form theme through the FormKit profile:** field defaults of the manage forms come from `nowo_form_kit.profiles.runtime_env` (prepended by the bundle; see [CONFIGURATION](CONFIGURATION.md#formkit-profile)) — define that profile instead of a `form_themes` override to add classes or change the domain. Field names, CSRF token ids (`runtime_env_delete_<id>`) and markup are unchanged.

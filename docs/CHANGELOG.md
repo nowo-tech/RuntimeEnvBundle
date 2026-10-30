@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.4.0] - 2026-10-30](#140---2026-10-30)
 - [[1.3.0] - 2026-10-30](#130---2026-10-30)
 - [[1.2.1] - 2026-10-28](#121---2026-10-28)
 - [[1.2.0] - 2026-10-28](#120---2026-10-28)
@@ -25,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-30
+
+Page forms are FormKit types with a bundle FormKit profile; requires nowo-tech/form-kit-bundle (REQ-TWIG-005 rule 11). See [UPGRADING](UPGRADING.md#to-140).
+
 ### Changed
 
 - **Forms are FormKit Types (REQ-TWIG-005 rule 11):** `nowo-tech/form-kit-bundle` (`^2.16`) is now a required dependency. `RuntimeEnvVariableType` and the CSRF-only `RuntimeEnvDeleteType` carry `#[FormKitConfig('runtime_env')]` + `FormOptionsTrait` (fields added through FormKit), themed by the FormKit profile `nowo_form_kit.profiles.runtime_env` the bundle prepends (translation domain `NowoRuntimeEnvBundle`, no auto help / placeholder keys, no framework classes: the UiKit form scaffold paints the fields). Host override: define `nowo_form_kit.profiles.runtime_env` yourself. Field names, CSRF token ids and the rendered markup are unchanged.
@@ -32,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Integration test `HostControllersRoutesTest`: a host whose routing is only `routing.controllers` (Symfony >= 7.3 default) gets no bundle route; the manage controller is already registered with `setAutoconfigured(false)` (REQ-SF-004 rule 7).
+
+[1.4.0]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.4.0
 
 ## [1.3.0] - 2026-10-30
 
