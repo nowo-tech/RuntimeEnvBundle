@@ -36,14 +36,13 @@ use function is_string;
 #[FormKitConfig(NowoRuntimeEnvBundle::FORM_KIT_PROFILE)]
 final class RuntimeEnvVariableType extends AbstractType
 {
-    use FormKitFieldTrait;
     use FormOptionsTrait;
 
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $isEdit = (bool) ($options['is_edit'] ?? false);
 
-        $this->addKitField($builder, 'name', TextType::class, [
+        $this->addWithDefaults($builder, 'name', TextType::class, [
             'label'       => 'runtime_env.form.name',
             'disabled'    => $isEdit,
             'constraints' => [
@@ -56,7 +55,7 @@ final class RuntimeEnvVariableType extends AbstractType
         ]);
 
         if ($isEdit) {
-            $this->addKitField($builder, 'value', TextareaType::class, [
+            $this->addWithDefaults($builder, 'value', TextareaType::class, [
                 'label'    => 'runtime_env.form.value',
                 'mapped'   => false,
                 'required' => false,
@@ -69,7 +68,7 @@ final class RuntimeEnvVariableType extends AbstractType
                     'placeholder'  => 'runtime_env.form.value_keep_placeholder',
                 ],
             ]);
-            $this->addKitField($builder, 'clear_value', CheckboxType::class, [
+            $this->addWithDefaults($builder, 'clear_value', CheckboxType::class, [
                 'label'    => 'runtime_env.form.clear_value',
                 'mapped'   => false,
                 'required' => false,
@@ -94,7 +93,7 @@ final class RuntimeEnvVariableType extends AbstractType
                 }
             });
         } else {
-            $this->addKitField($builder, 'value', TextareaType::class, [
+            $this->addWithDefaults($builder, 'value', TextareaType::class, [
                 'label'      => 'runtime_env.form.value',
                 'required'   => false,
                 'empty_data' => '',
@@ -107,11 +106,11 @@ final class RuntimeEnvVariableType extends AbstractType
             ]);
         }
 
-        $this->addKitField($builder, 'description', TextType::class, [
+        $this->addWithDefaults($builder, 'description', TextType::class, [
             'label'    => 'runtime_env.form.description',
             'required' => false,
         ]);
-        $this->addKitField($builder, 'enabled', CheckboxType::class, [
+        $this->addWithDefaults($builder, 'enabled', CheckboxType::class, [
             'label'    => 'runtime_env.form.enabled',
             'required' => false,
         ]);
