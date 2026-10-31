@@ -15,7 +15,7 @@
 - Doctrine ORM + DoctrineBundle
 - [`nowo-tech/doctrine-encrypt-bundle`](https://github.com/nowo-tech/DoctrineEncryptBundle) `^2.2` (hard dependency)
 - [`nowo-tech/ui-kit-bundle`](https://github.com/nowo-tech/UiKitBundle) `^1.4`
-- [`nowo-tech/form-kit-bundle`](https://github.com/nowo-tech/FormKitBundle) `^2.16` (hard dependency: the manage forms are FormKit Types; register `Nowo\FormKitBundle\NowoFormKitBundle` — Flex does it)
+- [`nowo-tech/form-kit-bundle`](https://github.com/nowo-tech/FormKitBundle) `^2.17` (hard dependency: the manage forms are FormKit Types; register `Nowo\FormKitBundle\NowoFormKitBundle` — Flex does it)
 
 ## Composer
 
