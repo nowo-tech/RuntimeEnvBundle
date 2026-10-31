@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.4.1](#to-141)
 - [To 1.4.0](#to-140)
 - [To 1.3.0](#to-130)
   - [Manage pages on the UiKit page contract](#manage-pages-on-the-uikit-page-contract)
@@ -30,6 +31,14 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+## To 1.4.1
+
+From **1.4.0**:
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
 
 `nowo-tech/form-kit-bundle` is now required at `^2.17` (was `^2.16`); update both packages together:
 

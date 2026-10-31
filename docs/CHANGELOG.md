@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.4.1] - 2026-10-31](#141---2026-10-31)
 - [[1.4.0] - 2026-10-30](#140---2026-10-30)
 - [[1.3.0] - 2026-10-30](#130---2026-10-30)
 - [[1.2.1] - 2026-10-28](#121---2026-10-28)
@@ -26,9 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-31
+
+Requires FormKit ^2.17; local label:false workaround removed (forms render identically). See [UPGRADING](UPGRADING.md#to-141).
+
 ### Changed
 
 - **`nowo-tech/form-kit-bundle` `^2.17`:** FormKit 2.17 keeps an explicit `'label' => false` through `FormOptionsMerger`, so the local `FormKitFieldTrait::addKitField()` workaround is removed and `RuntimeEnvVariableType` add their fields with FormKit's own `FormOptionsTrait::addWithDefaults()` (same options). The rendered forms are unchanged (hidden labels, translations, field names, ids and CSRF tokens). Demo lock updated.
+
+[1.4.1]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.4.1
 
 ## [1.4.0] - 2026-10-30
 
