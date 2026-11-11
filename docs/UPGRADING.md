@@ -3,7 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
-  - [To 1.5.0](#to-150)
+- [To 1.5.0](#to-150)
 - [To 1.4.1](#to-141)
 - [To 1.4.0](#to-140)
 - [To 1.3.0](#to-130)
@@ -33,7 +33,7 @@
 
 ## Unreleased
 
-### To 1.5.0
+## To 1.5.0
 
 Standard hosts (`database.entity_manager: default`, the default): **no configuration change**. The writer keeps
 flushing your default manager.

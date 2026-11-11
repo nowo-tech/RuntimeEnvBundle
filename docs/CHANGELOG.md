@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.5.0] - 2026-11-11](#150---2026-11-11)
 - [[1.4.1] - 2026-10-31](#141---2026-10-31)
 - [[1.4.0] - 2026-10-30](#140---2026-10-30)
 - [[1.3.0] - 2026-10-30](#130---2026-10-30)
@@ -27,7 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Target 1.5.0 (architecture bar W1: standard Symfony and DDD hosts, rules 1, 3, 4, 6 and 7).
+## [1.5.0] - 2026-11-11
+
+database.entity_manager really applies; database.transaction bundle|host; RuntimeEnvVariableChangedEvent after the outermost commit, never carrying the value; reader and writer ports; host managers are never reset. See [UPGRADING](https://github.com/nowo-tech/RuntimeEnvBundle/blob/v1.5.0/docs/UPGRADING.md#to-150).
+
 
 ### Fixed
 
@@ -50,6 +54,8 @@ Target 1.5.0 (architecture bar W1: standard Symfony and DDD hosts, rules 1, 3, 4
   (`createVariable()`, `updateByName()`, `renameByName()`, `deleteByName()`; implemented by `RuntimeEnvWriter`), both
   autowirable, no entity in the signatures. The entity-based writer methods stay.
 - CI runs `composer igor` (worker-state audit, REQ-CS-008).
+
+[1.5.0]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.5.0
 
 ## [1.4.1] - 2026-10-31
 
