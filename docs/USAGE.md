@@ -4,6 +4,7 @@
 
 - [Read variables in PHP](#read-variables-in-php)
 - [Twig](#twig)
+- [Standard Symfony and DDD / hexagonal hosts](#standard-symfony-and-ddd--hexagonal-hosts)
 - [Admin CRUD](#admin-crud)
 - [What stays in `.env`](#what-stays-in-env)
 - [FrankenPHP worker](#frankenphp-worker)
@@ -35,6 +36,67 @@ final class SomeService
 - `has(string $name): bool`
 - `get(string $name, ?string $default = null): ?string`
 - `all(): array<string, string>` — enabled variables only
+
+## Standard Symfony and DDD / hexagonal hosts
+
+Both paths are supported (1.5); the standard one is the zero-config default.
+
+**Standard host.** Inject `RuntimeEnvBag` (or `RuntimeEnvReaderInterface`) to read and `RuntimeEnvWriter` (or
+`RuntimeEnvWriterInterface`) to write; the variables live on your default entity manager and each write is flushed
+right away. React to changes (never the value) with the event:
+
+```php
+use Nowo\RuntimeEnvBundle\Event\RuntimeEnvVariableChangedEvent;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+
+#[AsEventListener]
+final class AuditRuntimeEnv
+{
+    public function __invoke(RuntimeEnvVariableChangedEvent $event): void
+    {
+        // $event->name, $event->action (created|updated|renamed|deleted), $event->at, $event->previousName
+    }
+}
+```
+
+**DDD / hexagonal host.** Depend on the ports only and keep the variables off your domain manager:
+
+```yaml
+doctrine:
+    orm:
+        default_entity_manager: default
+        entity_managers:
+            default: { connection: default, mappings: { App: { type: xml, dir: '%kernel.project_dir%/config/doctrine', prefix: 'App\\Domain' } } }
+            runtime_env: { connection: default }   # or its own connection
+nowo_runtime_env:
+    database:
+        entity_manager: runtime_env   # mapped there only; your managers are never flushed, reset or cleared
+        transaction: host             # optional: the writer does not flush, your use case commits
+```
+
+```php
+use Nowo\RuntimeEnvBundle\Service\RuntimeEnvReaderInterface;
+use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriterInterface;
+
+final readonly class RotateApiToken
+{
+    public function __construct(private RuntimeEnvWriterInterface $writer)
+    {
+    }
+
+    public function __invoke(string $token): void
+    {
+        $this->writer->updateByName('EXTERNAL_API_TOKEN', $token, 'Rotated by the domain', true);
+    }
+}
+```
+
+- With a dedicated manager the bundle owns it: reset at the next request / message when a failed write closed it,
+  cleared at the end of every request, message and command. Your default manager is never reset by the bundle.
+- With `transaction: host` the event waits for your commit: dispatched on the next `postFlush` outside a transaction,
+  at the end of the request / message / command, or by `RuntimeEnvPendingEventsInterface::dispatchPending()`.
+  Events of writes never flushed are discarded.
+- XML-mapped hosts: the bundle entity keeps its own attribute mapping (prepended by the bundle); nothing to extend.
 
 ## Twig
 
@@ -72,7 +134,7 @@ Anything required to boot the kernel / connect to the DB / decrypt fields:
 Safe with or without `kernel.reset` / `services_resetter` (`resetKernel=false`):
 
 - `RuntimeEnvBag` binds its memoized map to the current main HTTP request (`RequestStack` + `WeakReference`). A new main request always reloads from the database.
-- Repository reads use `Query::HINT_REFRESH` and resolve the EntityManager via `ManagerRegistry` (closed managers are replaced).
+- Repository reads use `Query::HINT_REFRESH` and resolve the EntityManager via `ManagerRegistry`. 1.5: a closed manager is replaced (and the manager cleared at every boundary) only when it is the bundle's own `database.entity_manager`, never your default one.
 - `RuntimeEnvBag` remains tagged `kernel.reset` for classic Symfony resets.
 - After CRUD writes, the bag cache is invalidated immediately for the current process; other workers pick up changes on their next request.
 

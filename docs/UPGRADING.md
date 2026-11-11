@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+  - [To 1.5.0](#to-150)
 - [To 1.4.1](#to-141)
 - [To 1.4.0](#to-140)
 - [To 1.3.0](#to-130)
@@ -31,6 +32,21 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+### To 1.5.0
+
+Standard hosts (`database.entity_manager: default`, the default): **no configuration change**. The writer keeps
+flushing your default manager.
+
+- Behaviour change for kept-alive workers without the services resetter: the repository no longer resets your default
+  entity manager when it is closed (the host owns it). Keep Symfony's services resetter, or move the bundle to its own
+  manager.
+- `database.entity_manager: <other>` now really maps the entity on that manager only. Declare it under
+  `doctrine.orm.entity_managers` (no mappings needed) and keep `default_entity_manager` on your own default; create or
+  migrate `{table_prefix}_variables` on its connection. An undeclared name fails the container build.
+- New, optional: `database.transaction: host`, `RuntimeEnvVariableChangedEvent`, `RuntimeEnvReaderInterface`,
+  `RuntimeEnvWriterInterface`. If you construct `RuntimeEnvWriter` yourself, its new optional arguments
+  (`$transaction`, `$clock`) can stay out: it then flushes as before and dispatches no events.
 
 ## To 1.4.1
 

@@ -28,6 +28,14 @@ final class RuntimeEnvWriterTest extends TestCase
         $this->writer     = new RuntimeEnvWriter($this->repository, $this->bag);
     }
 
+    public function testNameBasedMethodsRejectAnUnknownVariable(): void
+    {
+        $this->repository->method('findOneByName')->willReturn(null);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('"MISSING" does not exist');
+        $this->writer->deleteByName('MISSING');
+    }
+
     public function testCreateRejectsInvalidName(): void
     {
         $this->expectException(InvalidArgumentException::class);
