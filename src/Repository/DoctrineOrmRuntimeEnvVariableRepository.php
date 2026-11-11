@@ -19,18 +19,21 @@ use function sprintf;
  * Doctrine ORM storage for runtime env variables.
  *
  * Worker-safe without {@code kernel.reset}: when a {@see ManagerRegistry} is given the manager is resolved per call
- * and a closed manager is replaced; reads use {@see Query::HINT_REFRESH} so managed entities are re-hydrated
+ * and a closed manager is replaced only when the bundle owns it (1.5: `database.entity_manager` is not the host's
+ * default manager; the host's managers are never reset by the bundle); reads use {@see Query::HINT_REFRESH} so managed entities are re-hydrated
  * (and decrypted again) from the database instead of being served stale from the identity map.
  */
 final class DoctrineOrmRuntimeEnvVariableRepository implements PaginatedRuntimeEnvVariableRepositoryInterface
 {
     /**
      * @param EntityManagerInterface|null $entityManager legacy fixed manager, used only when no registry is given
+     * @param bool $ownsManager whether the named manager belongs to the bundle (may be reset when closed)
      */
     public function __construct(
         private readonly ?EntityManagerInterface $entityManager = null,
         private readonly ?ManagerRegistry $registry = null,
         private readonly ?string $entityManagerName = null,
+        private readonly bool $ownsManager = true,
     ) {
         if (!$entityManager instanceof EntityManagerInterface && !$registry instanceof ManagerRegistry) {
             throw new InvalidArgumentException('Either an entity manager or a manager registry must be provided.');
@@ -124,7 +127,7 @@ final class DoctrineOrmRuntimeEnvVariableRepository implements PaginatedRuntimeE
         try {
             $entityManager->flush();
         } catch (Throwable $e) {
-            if ($this->registry instanceof ManagerRegistry && !$entityManager->isOpen()) {
+            if ($this->ownsManager && $this->registry instanceof ManagerRegistry && !$entityManager->isOpen()) {
                 $this->registry->resetManager($this->entityManagerName);
             }
 
@@ -142,7 +145,7 @@ final class DoctrineOrmRuntimeEnvVariableRepository implements PaginatedRuntimeE
         }
 
         $entityManager = $this->registry->getManager($this->entityManagerName);
-        if ($entityManager instanceof EntityManagerInterface && !$entityManager->isOpen()) {
+        if ($this->ownsManager && $entityManager instanceof EntityManagerInterface && !$entityManager->isOpen()) {
             $entityManager = $this->registry->resetManager($this->entityManagerName);
         }
 

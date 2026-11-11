@@ -21,7 +21,7 @@ use function array_key_exists;
  *
  * Does **not** mutate {@code $_ENV} / {@code putenv()} (REQ-CS-005).
  */
-final class RuntimeEnvBag implements ResetInterface
+final class RuntimeEnvBag implements RuntimeEnvReaderInterface, ResetInterface
 {
     /** @var array<string, string>|null */
     private ?array $values = null;

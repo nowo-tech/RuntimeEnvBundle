@@ -13,6 +13,7 @@ declare(strict_types=1);
 use Rector\CodeQuality\Rector\Concat\DirnameDirConcatStringToDirectStringPathRector;
 use Rector\CodeQuality\Rector\Identical\FlipTypeControlToUseExclusiveTypeRector;
 use Rector\Config\RectorConfig;
+use Rector\Symfony\CodeQuality\Rector\Class_\EventSubscriberToAttributeRector;
 use Rector\Symfony\Symfony72\Rector\StmtsAwareInterface\PushRequestToRequestStackConstructorRector;
 use Rector\TypeDeclaration\Rector\Class_\TypedPropertyFromCreateMockAssignRector;
 use Rector\TypeDeclaration\Rector\Closure\AddClosureNeverReturnTypeRector;
@@ -43,4 +44,7 @@ return RectorConfig::configure()
         PushRequestToRequestStackConstructorRector::class,
         // Keep void callbacks that throw without never (PHPUnit stubs)
         AddClosureNeverReturnTypeRector::class,
+        // 1.5: the persistence subscribers are registered explicitly (kernel.event_subscriber) and listen to optional
+        // symfony/messenger events by name; keep getSubscribedEvents() there.
+        EventSubscriberToAttributeRector::class => [__DIR__ . '/src/Persistence'],
     ]);

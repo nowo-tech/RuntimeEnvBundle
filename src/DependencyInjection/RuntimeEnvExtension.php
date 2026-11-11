@@ -9,6 +9,10 @@ use Nowo\RuntimeEnvBundle\Controller\RuntimeEnvManageController;
 use Nowo\RuntimeEnvBundle\Doctrine\RuntimeEnvMetadataListener;
 use Nowo\RuntimeEnvBundle\EventSubscriber\RuntimeEnvAccessSubscriber;
 use Nowo\RuntimeEnvBundle\NowoRuntimeEnvBundle;
+use Nowo\RuntimeEnvBundle\Persistence\AfterCommitMiddleware;
+use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvOutbox;
+use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvPendingEventsInterface;
+use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvTransaction;
 use Nowo\RuntimeEnvBundle\Repository\DoctrineOrmRuntimeEnvVariableRepository;
 use Nowo\RuntimeEnvBundle\Repository\PaginatedRuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
@@ -17,7 +21,9 @@ use Nowo\RuntimeEnvBundle\Security\AllowAllRuntimeEnvAccessChecker;
 use Nowo\RuntimeEnvBundle\Security\ConfigurableRuntimeEnvAccessChecker;
 use Nowo\RuntimeEnvBundle\Security\RuntimeEnvAccessCheckerInterface;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvBag;
+use Nowo\RuntimeEnvBundle\Service\RuntimeEnvReaderInterface;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
+use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriterInterface;
 use Nowo\RuntimeEnvBundle\Twig\RuntimeEnvTwigExtension;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
@@ -32,6 +38,7 @@ use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 use Symfony\Component\DependencyInjection\Reference;
 
 use function array_key_exists;
+use function array_key_first;
 use function array_values;
 use function dirname;
 use function is_array;
@@ -125,10 +132,36 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
             ->setArgument('$requestStack', new Reference('request_stack', ContainerInterface::NULL_ON_INVALID_REFERENCE))
             ->addTag('kernel.reset', ['method' => 'reset']));
 
+        // 1.5: unit of work boundary + write events (rules 6/7), on database.entity_manager.
+        $container->setDefinition(RuntimeEnvTransaction::class, (new Definition(RuntimeEnvTransaction::class))
+            ->setAutowired(false)
+            ->setArgument('$entityManager', new Reference(sprintf('doctrine.orm.%s_entity_manager', $emName)))
+            ->setArgument('$eventDispatcher', new Reference('event_dispatcher', ContainerInterface::NULL_ON_INVALID_REFERENCE))
+            ->setArgument('$hostControlsTransaction', $config['database']['transaction'] === 'host')
+            ->setArgument('$logger', new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE))
+            ->setArgument('$requestStack', new Reference('request_stack', ContainerInterface::NULL_ON_INVALID_REFERENCE))
+            ->setArgument('$outbox', new Reference(RuntimeEnvOutbox::class))
+            ->addTag('kernel.event_subscriber')
+            ->addTag('kernel.reset', ['method' => 'reset'])
+            ->addTag('doctrine.event_listener', ['event' => 'postFlush']));
+        $container->setAlias(RuntimeEnvPendingEventsInterface::class, RuntimeEnvTransaction::class);
+        // LH-RE-M1: the real transactions of the bundle's connection (AfterCommitMiddlewarePass sets the connection).
+        $container->setDefinition(RuntimeEnvOutbox::class, (new Definition(RuntimeEnvOutbox::class))
+            ->setAutowired(false)
+            ->addTag('kernel.reset', ['method' => 'reset']));
+        $container->setDefinition(AfterCommitMiddleware::class, (new Definition(AfterCommitMiddleware::class))
+            ->setAutowired(false)
+            ->setArguments([new Reference(RuntimeEnvOutbox::class)])
+            ->addTag('doctrine.middleware'));
+
         $container->setDefinition(RuntimeEnvWriter::class, (new Definition(RuntimeEnvWriter::class))
             ->setAutowired(false)
             ->setArgument('$repository', new Reference(RuntimeEnvVariableRepositoryInterface::class))
-            ->setArgument('$bag', new Reference(RuntimeEnvBag::class)));
+            ->setArgument('$bag', new Reference(RuntimeEnvBag::class))
+            ->setArgument('$transaction', new Reference(RuntimeEnvTransaction::class))
+            ->setArgument('$clock', new Reference('clock', ContainerInterface::NULL_ON_INVALID_REFERENCE)));
+        $container->setAlias(RuntimeEnvWriterInterface::class, RuntimeEnvWriter::class);
+        $container->setAlias(RuntimeEnvReaderInterface::class, RuntimeEnvBag::class);
 
         $this->registerAccessChecker($container, $config['security']);
         $this->configurePanel($container, $config);
@@ -236,19 +269,73 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
             return;
         }
 
-        $container->prependExtensionConfig('doctrine', [
-            'orm' => [
-                'mappings' => [
-                    'RuntimeEnvBundle' => [
-                        'type'      => 'attribute',
-                        'dir'       => dirname(__DIR__) . '/Entity',
-                        'prefix'    => 'Nowo\RuntimeEnvBundle\Entity',
-                        'alias'     => 'RuntimeEnvBundle',
-                        'is_bundle' => false,
-                    ],
+        $mappings = [
+            'mappings' => [
+                'RuntimeEnvBundle' => [
+                    'type'      => 'attribute',
+                    'dir'       => dirname(__DIR__) . '/Entity',
+                    'prefix'    => 'Nowo\RuntimeEnvBundle\Entity',
+                    'alias'     => 'RuntimeEnvBundle',
+                    'is_bundle' => false,
                 ],
             ],
-        ]);
+        ];
+
+        // 1.5: on database.entity_manager when the host declares it under entity_managers (and pin the host's own
+        // default so the prepended entry never becomes the default manager); else the default manager as before.
+        // RuntimeEnvEntityManagerPass keeps the mapping on that manager only and fails on an undeclared one.
+        $name        = $this->configuredEntityManager($container);
+        $hostDefault = $this->hostDefaultEntityManager($container, $name);
+        if ($hostDefault !== null) {
+            $container->prependExtensionConfig('doctrine', ['orm' => [
+                'default_entity_manager' => $hostDefault,
+                'entity_managers'        => [$name => $mappings],
+            ]]);
+
+            return;
+        }
+
+        $container->prependExtensionConfig('doctrine', ['orm' => $mappings]);
+    }
+
+    /**
+     * `database.entity_manager` from the raw configs (prepend runs before the configuration is processed).
+     */
+    private function configuredEntityManager(ContainerBuilder $container): string
+    {
+        $name = 'default';
+        foreach ($container->getExtensionConfig($this->getAlias()) as $config) {
+            $value = $config['database']['entity_manager'] ?? null;
+            if (is_string($value) && $value !== '') {
+                $name = $value;
+            }
+        }
+
+        return $name;
+    }
+
+    /**
+     * The host's default entity manager (its `default_entity_manager`, else the first declared one) when the host
+     * declares `$name` under `doctrine.orm.entity_managers`; null otherwise.
+     */
+    private function hostDefaultEntityManager(ContainerBuilder $container, string $name): ?string
+    {
+        $declared = false;
+        $default  = null;
+        $first    = null;
+        foreach ($container->getExtensionConfig('doctrine') as $config) {
+            $orm = is_array($config['orm'] ?? null) ? $config['orm'] : [];
+            if (is_string($orm['default_entity_manager'] ?? null)) {
+                $default = $orm['default_entity_manager'];
+            }
+            $managers = $orm['entity_managers'] ?? null;
+            if (is_array($managers) && $managers !== []) {
+                $first ??= (string) array_key_first($managers);
+                $declared = $declared || isset($managers[$name]);
+            }
+        }
+
+        return $declared ? ($default ?? $first) : null;
     }
 
     /**

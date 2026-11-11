@@ -27,6 +27,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Target 1.5.0 (architecture bar W1: standard Symfony and DDD hosts, rules 1, 3, 4, 6 and 7).
+
+### Fixed
+
+- `database.entity_manager` was half-wired: the mapping was always prepended to the default manager, so another
+  manager name did not map the entity, and the repository reset ANY closed manager it used, including the host's
+  default one. Now the entity is mapped on that manager ONLY (`RuntimeEnvEntityManagerPass`, also off an
+  `auto_mapping: true` default), every read and write uses it, the host's `default_entity_manager` stays the host's,
+  and the build fails clearly when the manager is not declared. The bundle resets / clears a manager only when it owns
+  it (it is not the host's default manager): reset when closed, cleared at every request / message / command boundary.
+
+### Added
+
+- `database.transaction: bundle|host` (default `bundle`). `host` (DDD hosts): when your code calls the writer it does
+  not flush; your use case commits. The admin UI keeps flushing its own writes.
+- `RuntimeEnvVariableChangedEvent` (name, action, at, previous name; never the value), dispatched after the real
+  commit, never inside a flush or an open transaction, and never for a rolled-back write: `AfterCommitMiddleware` on
+  the bundle connection reports commits, rollbacks and savepoints to a per-transaction outbox. `RuntimeEnvPendingEventsInterface::dispatchPending()` for hosts that
+  commit mid-process.
+- `RuntimeEnvReaderInterface` (implemented by `RuntimeEnvBag`) and the name-based `RuntimeEnvWriterInterface`
+  (`createVariable()`, `updateByName()`, `renameByName()`, `deleteByName()`; implemented by `RuntimeEnvWriter`), both
+  autowirable, no entity in the signatures. The entity-based writer methods stay.
+- CI runs `composer igor` (worker-state audit, REQ-CS-008).
+
 ## [1.4.1] - 2026-10-31
 
 Requires FormKit ^2.17; local label:false workaround removed (forms render identically). See [UPGRADING](UPGRADING.md#to-141).

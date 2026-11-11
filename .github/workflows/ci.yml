@@ -129,6 +129,10 @@ jobs:
       - name: Run PHPStan (REQ-CS-006)
         run: composer phpstan
 
+      # FrankenPHP worker-state audit (REQ-CS-008): shared services must not keep request state.
+      - name: Igor (worker-state audit)
+        run: composer igor
+
       - name: Validate translations (leaf-key parity, REQ-I18N-002)
         run: php .scripts/validate-translations.php
 
