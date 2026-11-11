@@ -42,8 +42,9 @@ Target 1.5.0 (architecture bar W1: standard Symfony and DDD hosts, rules 1, 3, 4
 
 - `database.transaction: bundle|host` (default `bundle`). `host` (DDD hosts): when your code calls the writer it does
   not flush; your use case commits. The admin UI keeps flushing its own writes.
-- `RuntimeEnvVariableChangedEvent` (name, action, at, previous name; never the value), dispatched after the commit,
-  never inside a flush or an open transaction. `RuntimeEnvPendingEventsInterface::dispatchPending()` for hosts that
+- `RuntimeEnvVariableChangedEvent` (name, action, at, previous name; never the value), dispatched after the real
+  commit, never inside a flush or an open transaction, and never for a rolled-back write: `AfterCommitMiddleware` on
+  the bundle connection reports commits, rollbacks and savepoints to a per-transaction outbox. `RuntimeEnvPendingEventsInterface::dispatchPending()` for hosts that
   commit mid-process.
 - `RuntimeEnvReaderInterface` (implemented by `RuntimeEnvBag`) and the name-based `RuntimeEnvWriterInterface`
   (`createVariable()`, `updateByName()`, `renameByName()`, `deleteByName()`; implemented by `RuntimeEnvWriter`), both

@@ -43,7 +43,9 @@ flushing your default manager.
   manager.
 - `database.entity_manager: <other>` now really maps the entity on that manager only. Declare it under
   `doctrine.orm.entity_managers` (no mappings needed) and keep `default_entity_manager` on your own default; create or
-  migrate `{table_prefix}_variables` on its connection. An undeclared name fails the container build.
+  migrate `{table_prefix}_variables` on its connection. An undeclared name fails the container build. If you restrict
+  `nowo_doctrine_encrypt.connections`, add that connection (or leave the list empty), or the values are stored in
+  plaintext.
 - New, optional: `database.transaction: host`, `RuntimeEnvVariableChangedEvent`, `RuntimeEnvReaderInterface`,
   `RuntimeEnvWriterInterface`. If you construct `RuntimeEnvWriter` yourself, its new optional arguments
   (`$transaction`, `$clock`) can stay out: it then flushes as before and dispatches no events.

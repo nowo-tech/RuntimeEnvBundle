@@ -14,13 +14,20 @@ use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvPendingEventsInterface;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvReaderInterface;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriterInterface;
 use Nowo\RuntimeEnvBundle\Tests\Fixtures\Host\HostNote;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\HttpKernel;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\HttpKernel\KernelEvents;
 
+use function array_map;
 use function dirname;
 use function memory_get_usage;
 
@@ -122,6 +129,84 @@ final class RuntimeEnvPersistenceKernelTest extends TestCase
         self::assertSame(1, $pending->dispatchPending());
         self::assertSame('DRAFT', $this->events[0]->name);
         self::assertSame(1, (int) $default->getConnection()->fetchOne('SELECT COUNT(*) FROM runtime_env_variables'));
+    }
+
+    /**
+     * @return iterable<string, array{bool, string}>
+     */
+    public static function modesAndLayouts(): iterable
+    {
+        yield 'bundle, single' => [false, 'bundle'];
+        yield 'bundle, ddd' => [true, 'bundle'];
+        yield 'host, single' => [false, 'host'];
+        yield 'host, ddd' => [true, 'host'];
+    }
+
+    #[DataProvider('modesAndLayouts')]
+    public function testARolledBackWriteNeverDispatchesItsEvent(bool $dedicated, string $mode): void
+    {
+        $container = $dedicated
+            ? $this->boot(self::twoManagers(autoMapping: true), ['entity_manager' => 'runtime_env', 'transaction' => $mode])
+            : $this->boot(self::singleManager(), ['transaction' => $mode]);
+        $bundle     = $this->manager($container, $dedicated ? 'runtime_env' : 'default');
+        $connection = $bundle->getConnection();
+        $writer     = $this->writer($container);
+
+        $connection->beginTransaction();
+        $writer->createVariable('ROLLED_BACK', 'x');
+        $bundle->flush(); // host mode: the host's own flush inside its transaction
+        $connection->rollBack();
+        $bundle->clear();
+
+        $this->terminate($container);
+        $writer->createVariable('NEXT', 'y');
+        $bundle->flush();
+        $this->terminate($container);
+
+        self::assertSame(['NEXT'], $connection->fetchFirstColumn('SELECT name FROM runtime_env_variables'));
+        self::assertSame(['NEXT'], array_map(static fn (RuntimeEnvVariableChangedEvent $e): string => $e->name, $this->events), 'LH-RE-M1');
+        self::assertNotContains(true, $this->inTransaction);
+    }
+
+    public function testSavepointRollbackDropsOnlyItsEvent(): void
+    {
+        $container  = $this->boot(self::singleManager(), []);
+        $connection = $this->manager($container, 'default')->getConnection();
+        $writer     = $this->writer($container);
+        $pending    = $container->get(RuntimeEnvPendingEventsInterface::class);
+        self::assertInstanceOf(RuntimeEnvPendingEventsInterface::class, $pending);
+
+        $connection->beginTransaction();
+        $writer->createVariable('KEPT', 'x');
+        $connection->beginTransaction(); // savepoint
+        $writer->createVariable('DROPPED', 'y');
+        $connection->rollBack();
+        $connection->commit();
+        self::assertSame(1, $pending->dispatchPending());
+
+        self::assertSame(['KEPT'], array_map(static fn (RuntimeEnvVariableChangedEvent $e): string => $e->name, $this->events));
+    }
+
+    public function testACommittedWriteKeepsItsEventWhenTheRequestFailsLater(): void
+    {
+        $container  = $this->boot(self::singleManager(), ['transaction' => 'host']);
+        $default    = $this->manager($container, 'default');
+        $dispatcher = $container->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+
+        $default->getConnection()->beginTransaction();
+        $this->writer($container)->createVariable('COMMITTED', 'x');
+        $default->flush();
+        $default->getConnection()->commit();
+        $dispatcher->dispatch(new ExceptionEvent($this->httpKernel($container), Request::create('/'), HttpKernelInterface::MAIN_REQUEST, new RuntimeException('later')), KernelEvents::EXCEPTION);
+        $this->terminate($container); // the error listener answered the request; the kernel terminates
+
+        self::assertSame(['COMMITTED'], array_map(static fn (RuntimeEnvVariableChangedEvent $e): string => $e->name, $this->events));
+    }
+
+    private function terminate(ContainerInterface $container): void
+    {
+        $this->httpKernel($container)->terminate(Request::create('/'), new Response());
     }
 
     public function testKeptAliveKernelRecoversTheOwnManagerAndKeepsMemoryFlat(): void

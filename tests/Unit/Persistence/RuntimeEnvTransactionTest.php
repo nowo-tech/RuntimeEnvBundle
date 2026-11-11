@@ -9,12 +9,15 @@ use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\PostFlushEventArgs;
 use Nowo\RuntimeEnvBundle\Event\RuntimeEnvVariableChangedEvent;
+use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvOutbox;
 use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvTransaction;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
+use stdClass;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -26,8 +29,6 @@ final class RuntimeEnvTransactionTest extends TestCase
     private array $dispatched = [];
 
     private bool $transactionActive = false;
-
-    private bool $open = true;
 
     #[Test]
     public function bundleModeFlushesThenDispatchesAfterCommit(): void
@@ -43,20 +44,79 @@ final class RuntimeEnvTransactionTest extends TestCase
     }
 
     #[Test]
-    public function bundleModeWaitsForAnOpenHostTransaction(): void
+    public function bundleModeInsideAHostTransactionFollowsItsCommitOrRollback(): void
     {
-        $this->transactionActive = true;
-        $transaction             = new RuntimeEnvTransaction($this->manager(), $this->dispatcher());
-        $transaction->commit(new RuntimeEnvVariableChangedEvent('k', 'u', new DateTimeImmutable()));
-        $transaction->commit();
+        $outbox      = new RuntimeEnvOutbox();
+        $driver      = new stdClass();
+        $transaction = new RuntimeEnvTransaction($this->manager(), $this->dispatcher(), outbox: $outbox);
 
-        self::assertSame([], $this->dispatched);
+        // Host transaction rolled back: the event is dropped, also at the next boundary (LG-PBK-M1).
+        $outbox->transactionStarted($driver);
+        $this->transactionActive = true;
+        $transaction->record(true, new RuntimeEnvVariableChangedEvent('rolled', 'back', new DateTimeImmutable()));
+        $transaction->commit();
         self::assertSame(1, $transaction->countPending());
         self::assertSame(0, $transaction->dispatchPending());
+        $outbox->transactionEnded($driver, false);
+        $this->transactionActive = false;
+        $transaction->onBoundary();
+        self::assertSame([], $this->dispatched);
+        self::assertSame(0, $transaction->countPending());
 
+        // Host transaction committed: dispatched once DBAL reports no open transaction.
+        $outbox->transactionStarted($driver);
+        $this->transactionActive = true;
+        $transaction->record(true, $event = new RuntimeEnvVariableChangedEvent('k', 'u', new DateTimeImmutable()));
+        $outbox->transactionEnded($driver, true);
+        self::assertSame(0, $transaction->dispatchPending(), 'DBAL still inside its commit');
         $this->transactionActive = false;
         self::assertSame(1, $transaction->dispatchPending());
-        self::assertCount(1, $this->dispatched);
+        self::assertSame([$event], $this->dispatched);
+    }
+
+    #[Test]
+    public function aFailedRequestKeepsTheEventsOfCommittedWritesAndDropsTheUnflushedOnes(): void
+    {
+        $outbox      = new RuntimeEnvOutbox();
+        $driver      = new stdClass();
+        $em          = $this->manager();
+        $transaction = new RuntimeEnvTransaction($em, $this->dispatcher(), true, outbox: $outbox);
+
+        // Host use case: write, flush inside its transaction, commit.
+        $transaction->commit($committed = new RuntimeEnvVariableChangedEvent('committed', 'u', new DateTimeImmutable()));
+        $outbox->transactionStarted($driver);
+        $this->transactionActive = true;
+        $transaction->postFlush(new PostFlushEventArgs($this->createStub(EntityManagerInterface::class)));
+        self::assertSame(1, $transaction->countPending(), 'another manager flushed: still unflushed');
+        $transaction->postFlush(new PostFlushEventArgs($em));
+        $outbox->transactionEnded($driver, true);
+        $this->transactionActive = false;
+
+        // A later write never flushed, then the request fails (kernel.exception, LG-PBK-L1).
+        $transaction->commit(new RuntimeEnvVariableChangedEvent('never', 'flushed', new DateTimeImmutable()));
+        $transaction->onBoundary();
+        self::assertSame([$committed], $this->dispatched);
+        self::assertSame(0, $transaction->countPending());
+    }
+
+    #[Test]
+    public function aThrowingListenerIsLoggedAndTheOtherEventsAreStillDispatched(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects(self::once())->method('error');
+        $dispatcher = $this->createStub(EventDispatcherInterface::class);
+        $dispatcher->method('dispatch')->willReturnCallback(function (object $event): object {
+            if ($event instanceof RuntimeEnvVariableChangedEvent && $event->name === 'boom') {
+                throw new RuntimeException('listener');
+            }
+            $this->dispatched[] = $event;
+
+            return $event;
+        });
+        $transaction = new RuntimeEnvTransaction($this->manager(), $dispatcher, logger: $logger);
+
+        $transaction->record(true, new RuntimeEnvVariableChangedEvent('boom', 'u', new DateTimeImmutable()), $ok = new RuntimeEnvVariableChangedEvent('ok', 'u', new DateTimeImmutable()));
+        self::assertSame([$ok], $this->dispatched);
     }
 
     #[Test]
@@ -64,7 +124,6 @@ final class RuntimeEnvTransactionTest extends TestCase
     {
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::never())->method('flush');
-        $em->method('isOpen')->willReturn(true);
         $connection = $this->createStub(Connection::class);
         $connection->method('isTransactionActive')->willReturn(false);
         $em->method('getConnection')->willReturn($connection);
@@ -97,7 +156,7 @@ final class RuntimeEnvTransactionTest extends TestCase
         $stack->pop();
 
         $adminRequest = Request::create('/admin/runtime-env');
-        $adminRequest->attributes->set('_controller', 'Nowo\\RuntimeEnvBundle\\Controller\\Admin\\PageDocumentApiController::publish');
+        $adminRequest->attributes->set('_controller', 'Nowo\\RuntimeEnvBundle\\Controller\\RuntimeEnvManageController::create');
         $stack->push($adminRequest);
         self::assertTrue($transaction->flushesItself());
 
@@ -113,7 +172,7 @@ final class RuntimeEnvTransactionTest extends TestCase
         $transaction = new RuntimeEnvTransaction($this->manager(), $this->dispatcher(), true, $logger);
 
         $transaction->onBoundary();
-        $transaction->discardPending();
+        $transaction->discardUnflushed();
         $transaction->commit(new RuntimeEnvVariableChangedEvent('never', 'flushed', new DateTimeImmutable()));
         $transaction->onBoundary();
 
@@ -122,18 +181,17 @@ final class RuntimeEnvTransactionTest extends TestCase
     }
 
     #[Test]
-    public function closedManagerAndResetKeepNothing(): void
+    public function resetKeepsNothing(): void
     {
-        $this->open  = false;
-        $transaction = new RuntimeEnvTransaction($this->manager());
+        $this->transactionActive = true;
+        $transaction             = new RuntimeEnvTransaction($this->manager());
         $transaction->commit(new RuntimeEnvVariableChangedEvent('k', 'u', new DateTimeImmutable()));
-        self::assertSame(0, $transaction->dispatchPending());
         self::assertSame(1, $transaction->countPending());
 
         $transaction->reset();
         self::assertSame(0, $transaction->countPending());
 
-        $this->open = true;
+        $this->transactionActive = false;
         $transaction->commit(new RuntimeEnvVariableChangedEvent('k', 'u', new DateTimeImmutable()));
         self::assertSame(0, $transaction->countPending(), 'no dispatcher: dispatched to nobody');
     }
@@ -143,7 +201,7 @@ final class RuntimeEnvTransactionTest extends TestCase
     {
         $events = RuntimeEnvTransaction::getSubscribedEvents();
         self::assertSame(['onBoundary', 1024], $events[KernelEvents::TERMINATE]);
-        self::assertSame(['discardPending', -1024], $events[KernelEvents::EXCEPTION]);
+        self::assertSame(['onBoundary', -1024], $events[KernelEvents::EXCEPTION]);
         self::assertCount(6, $events);
     }
 
@@ -158,7 +216,6 @@ final class RuntimeEnvTransactionTest extends TestCase
             $em = $this->createStub(EntityManagerInterface::class);
         }
         $em->method('getConnection')->willReturn($connection);
-        $em->method('isOpen')->willReturnCallback(fn (): bool => $this->open);
 
         return $em;
     }

@@ -93,9 +93,13 @@ final readonly class RotateApiToken
 
 - With a dedicated manager the bundle owns it: reset at the next request / message when a failed write closed it,
   cleared at the end of every request, message and command. Your default manager is never reset by the bundle.
-- With `transaction: host` the event waits for your commit: dispatched on the next `postFlush` outside a transaction,
-  at the end of the request / message / command, or by `RuntimeEnvPendingEventsInterface::dispatchPending()`.
-  Events of writes never flushed are discarded.
+- In both modes the event follows the real transaction: dropped when your transaction (or a savepoint) rolls back,
+  dispatched after your outermost commit, on the next `postFlush` outside a transaction, at the end of the request /
+  message / command, or by `RuntimeEnvPendingEventsInterface::dispatchPending()`. With `transaction: host`, events
+  of writes never flushed are discarded.
+- Values stay encrypted by DoctrineEncryptBundle on the bundle's connection. If you put the bundle manager on its own
+  connection and restrict `nowo_doctrine_encrypt.connections`, list that connection too (or leave the list empty):
+  otherwise the values are stored in plaintext.
 - XML-mapped hosts: the bundle entity keeps its own attribute mapping (prepended by the bundle); nothing to extend.
 
 ## Twig

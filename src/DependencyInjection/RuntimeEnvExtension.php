@@ -9,6 +9,8 @@ use Nowo\RuntimeEnvBundle\Controller\RuntimeEnvManageController;
 use Nowo\RuntimeEnvBundle\Doctrine\RuntimeEnvMetadataListener;
 use Nowo\RuntimeEnvBundle\EventSubscriber\RuntimeEnvAccessSubscriber;
 use Nowo\RuntimeEnvBundle\NowoRuntimeEnvBundle;
+use Nowo\RuntimeEnvBundle\Persistence\AfterCommitMiddleware;
+use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvOutbox;
 use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvPendingEventsInterface;
 use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvTransaction;
 use Nowo\RuntimeEnvBundle\Repository\DoctrineOrmRuntimeEnvVariableRepository;
@@ -138,10 +140,19 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
             ->setArgument('$hostControlsTransaction', $config['database']['transaction'] === 'host')
             ->setArgument('$logger', new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE))
             ->setArgument('$requestStack', new Reference('request_stack', ContainerInterface::NULL_ON_INVALID_REFERENCE))
+            ->setArgument('$outbox', new Reference(RuntimeEnvOutbox::class))
             ->addTag('kernel.event_subscriber')
             ->addTag('kernel.reset', ['method' => 'reset'])
             ->addTag('doctrine.event_listener', ['event' => 'postFlush']));
         $container->setAlias(RuntimeEnvPendingEventsInterface::class, RuntimeEnvTransaction::class);
+        // LH-RE-M1: the real transactions of the bundle's connection (AfterCommitMiddlewarePass sets the connection).
+        $container->setDefinition(RuntimeEnvOutbox::class, (new Definition(RuntimeEnvOutbox::class))
+            ->setAutowired(false)
+            ->addTag('kernel.reset', ['method' => 'reset']));
+        $container->setDefinition(AfterCommitMiddleware::class, (new Definition(AfterCommitMiddleware::class))
+            ->setAutowired(false)
+            ->setArguments([new Reference(RuntimeEnvOutbox::class)])
+            ->addTag('doctrine.middleware'));
 
         $container->setDefinition(RuntimeEnvWriter::class, (new Definition(RuntimeEnvWriter::class))
             ->setAutowired(false)
