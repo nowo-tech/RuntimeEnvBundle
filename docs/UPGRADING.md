@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.5.1](#to-151)
 - [To 1.5.0](#to-150)
 - [To 1.4.1](#to-141)
 - [To 1.4.0](#to-140)
@@ -32,6 +33,23 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+## To 1.5.1
+
+From **1.5.0**: patch, no configuration change.
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
+
+- With `database.transaction: host`, the events of writes your use case has not flushed yet are no longer discarded by
+  a nested boundary (a command run in-process from another command, a handler or a controller; an unknown nested
+  command; a request handled inside a command; a failed sub-request or nested main request): they are dispatched after
+  your flush. Only the outermost request, message or command discards events of writes that were never flushed (same
+  warning as before); a failed request discards them at `kernel.terminate` (no longer at `kernel.exception`).
+- `Persistence\RuntimeEnvTransaction` is `@internal`: its boundary methods changed (new `onRequest`,
+  `onFinishRequest`, `onHttpException`, `onHttpTerminate`, console and Messenger handlers). New internal
+  `Worker\UnitOfWorkFrames` (not a service).
 
 ## To 1.5.0
 
