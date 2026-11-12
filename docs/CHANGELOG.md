@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Demo uses the UiKit base style (REQ-DEMO-014)
+
 ## [1.5.1] - 2026-11-12
 
 Next patch: 1.5.1.
