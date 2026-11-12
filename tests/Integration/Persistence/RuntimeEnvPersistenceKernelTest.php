@@ -11,13 +11,25 @@ use Nowo\RuntimeEnvBundle\Entity\RuntimeEnvVariable;
 use Nowo\RuntimeEnvBundle\Event\RuntimeEnvVariableChangedEvent;
 use Nowo\RuntimeEnvBundle\Persistence\OwnEntityManagerSubscriber;
 use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvPendingEventsInterface;
+use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvTransaction;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvReaderInterface;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriterInterface;
 use Nowo\RuntimeEnvBundle\Tests\Fixtures\Host\HostNote;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use stdClass;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
+use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\CommandLoader\FactoryCommandLoader;
+use Symfony\Component\Console\ConsoleEvents;
+use Symfony\Component\Console\Event\ConsoleCommandEvent;
+use Symfony\Component\Console\Event\ConsoleTerminateEvent;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\NullOutput;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,10 +38,14 @@ use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\HttpKernel;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
+use Throwable;
 
 use function array_map;
+use function count;
 use function dirname;
 use function memory_get_usage;
+
+use const PHP_INT_MIN;
 
 /**
  * Rule 6/7 through a real kernel (1.5): `database.entity_manager` is real, the host's managers are never flushed or
@@ -241,6 +257,215 @@ final class RuntimeEnvPersistenceKernelTest extends TestCase
         self::assertTrue($default->getUnitOfWork()->isScheduledForInsert($note), 'the host manager is never reset nor cleared');
         self::assertCount(300, $this->events);
         self::assertLessThan(4 * 1024 * 1024, memory_get_usage() - $baseline, 'memory stays flat');
+    }
+
+    /**
+     * Audits NM / NL2-v / NL2-v2 with `transaction: host`, through a real console Application in the kept-alive kernel
+     * (no services resetter): a nested command whose terminate listener throws, an unknown nested command and a nested
+     * command whose console.command is stopped above 4096 never discard the outer command's unflushed write events
+     * (the host flush later dispatches them); after each probe (also a self-recursive command whose error listener
+     * throws, an error listener at PHP_INT_MIN that throws, a throwing WorkerMessageReceivedEvent listener inside a
+     * command, a failing command inside a message then the worker stop) the next main request is the outermost unit
+     * again and discards its own unflushed events at kernel.terminate.
+     */
+    public function testConsoleProbesNeverDiscardTheOuterUnitAndNeverStickTheProcessInsideAUnit(): void
+    {
+        $container  = $this->boot($this->singleManager(), ['transaction' => 'host']);
+        $default    = $this->manager($container, 'default');
+        $pending    = $container->get(RuntimeEnvPendingEventsInterface::class);
+        $dispatcher = $container->get('event_dispatcher');
+        self::assertInstanceOf(RuntimeEnvPendingEventsInterface::class, $pending);
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        $writer   = $this->writer($container);
+        $throwing = static function (): never {
+            throw new RuntimeException('listener failed');
+        };
+
+        $application = new Application('runtime-env-test');
+        $application->setAutoExit(false);
+        $application->setCatchExceptions(false);
+        $application->setDispatcher($dispatcher);
+        $nested   = 'app:inner';
+        $seen     = [];
+        $depth    = 0;
+        $runs     = 0;
+        $commands = [
+            'app:inner' => (new Command('app:inner'))->setCode(static fn (): int => Command::SUCCESS),
+            'app:outer' => (new Command('app:outer'))->setCode(static function (InputInterface $input, OutputInterface $output) use ($application, $writer, $default, $pending, &$nested, &$seen, &$runs): int {
+                $writer->createVariable('OUTER_' . ++$runs, 'x');
+                try {
+                    $application->doRun(new ArrayInput(['command' => $nested]), $output);
+                } catch (Throwable) {
+                    // The nested run failed (throwing listener, unknown command); the outer use case goes on.
+                }
+                $seen[] = $pending->countPending();
+                $default->flush();
+
+                return Command::SUCCESS;
+            }),
+            'app:rec' => (new Command('app:rec'))->setCode(static function (InputInterface $input, OutputInterface $output) use ($application, $dispatcher, $throwing, &$depth): int {
+                if (++$depth > 1) {
+                    throw new RuntimeException('inner run failed');
+                }
+                $dispatcher->addListener(ConsoleEvents::ERROR, $throwing);
+                try {
+                    $application->run(new ArrayInput(['command' => 'app:rec']), $output);
+                } catch (Throwable) {
+                } finally {
+                    $dispatcher->removeListener(ConsoleEvents::ERROR, $throwing);
+                }
+
+                return Command::SUCCESS;
+            }),
+            'app:fail' => (new Command('app:fail'))->setCode(static function (): never {
+                throw new RuntimeException('command failed');
+            }),
+            // symfony/messenger is not installed here: the worker events go by name (the bundle subscribes by name).
+            'app:consume' => (new Command('app:consume'))->setCode(static function () use ($dispatcher, $throwing): int {
+                $dispatcher->addListener(RuntimeEnvTransaction::MESSENGER_WORKER_MESSAGE_RECEIVED, $throwing);
+                try {
+                    $dispatcher->dispatch(new stdClass(), RuntimeEnvTransaction::MESSENGER_WORKER_MESSAGE_RECEIVED);
+                } catch (RuntimeException) {
+                } finally {
+                    $dispatcher->removeListener(RuntimeEnvTransaction::MESSENGER_WORKER_MESSAGE_RECEIVED, $throwing);
+                }
+
+                return Command::SUCCESS;
+            }),
+        ];
+        $application->setCommandLoader(new FactoryCommandLoader(array_map(static fn (Command $command): callable => static fn (): Command => $command, $commands)));
+
+        $throwingInnerTerminate = static function (ConsoleTerminateEvent $event): void {
+            if ($event->getCommand()?->getName() === 'app:inner') {
+                throw new RuntimeException('terminate listener failed');
+            }
+        };
+        $stoppingInnerCommand = static function (ConsoleCommandEvent $event): void {
+            if ($event->getCommand()?->getName() === 'app:inner') {
+                $event->stopPropagation();
+            }
+        };
+        $nestedCases = [
+            'throwing terminate listener' => [ConsoleEvents::TERMINATE, $throwingInnerTerminate, 0, 'app:inner'],
+            'unknown nested command'      => [ConsoleEvents::COMMAND, null, 0, 'app:does-not-exist'],
+            'stopped console.command'     => [ConsoleEvents::COMMAND, $stoppingInnerCommand, 10000, 'app:inner'],
+        ];
+        foreach ($nestedCases as $case => [$event, $listener, $priority, $nestedName]) {
+            $nested = $nestedName;
+            if ($listener !== null) {
+                $dispatcher->addListener($event, $listener, $priority);
+            }
+            try {
+                for ($run = 0; $run < 2; ++$run) {
+                    $before = count($this->events);
+                    $seen   = [];
+                    self::assertSame(Command::SUCCESS, $application->run(new ArrayInput(['command' => 'app:outer']), new NullOutput()), $case);
+                    self::assertSame([1], $seen, $case . ': the nested run kept the outer unflushed event');
+                    self::assertCount($before + 1, $this->events, $case . ': the host flush dispatched the outer event');
+                    $this->assertNextRequestDiscards($container, $writer, $pending, $case);
+                }
+            } finally {
+                if ($listener !== null) {
+                    $dispatcher->removeListener($event, $listener);
+                }
+            }
+        }
+
+        $probes = [
+            'self-recursive command, throwing error listener' => static function () use ($application): void {
+                $application->run(new ArrayInput(['command' => 'app:rec']), new NullOutput());
+            },
+            'error listener at PHP_INT_MIN throwing' => static function () use ($application, $dispatcher, $throwing): void {
+                $dispatcher->addListener(ConsoleEvents::ERROR, $throwing, PHP_INT_MIN);
+                try {
+                    $application->run(new ArrayInput(['command' => 'app:fail']), new NullOutput());
+                } catch (RuntimeException) {
+                } finally {
+                    $dispatcher->removeListener(ConsoleEvents::ERROR, $throwing);
+                }
+            },
+            'throwing received listener inside a command' => static function () use ($application): void {
+                $application->run(new ArrayInput(['command' => 'app:consume']), new NullOutput());
+            },
+            'failing command inside a message, worker stopped' => static function () use ($application, $dispatcher, $throwing): void {
+                $dispatcher->dispatch(new stdClass(), RuntimeEnvTransaction::MESSENGER_WORKER_MESSAGE_RECEIVED);
+                $dispatcher->addListener(ConsoleEvents::ERROR, $throwing);
+                try {
+                    $application->run(new ArrayInput(['command' => 'app:fail']), new NullOutput());
+                } catch (RuntimeException) {
+                } finally {
+                    $dispatcher->removeListener(ConsoleEvents::ERROR, $throwing);
+                }
+                $dispatcher->dispatch(new stdClass(), RuntimeEnvTransaction::MESSENGER_WORKER_MESSAGE_FAILED);
+                $dispatcher->dispatch(new stdClass(), RuntimeEnvTransaction::MESSENGER_WORKER_STOPPED);
+            },
+        ];
+        foreach ($probes as $probe => $run) {
+            $depth = 0;
+            $run();
+            $this->assertNextRequestDiscards($container, $writer, $pending, $probe);
+        }
+    }
+
+    /**
+     * Audit NR-c F1 (`transaction: host`): a kernel.exception listener throws, so `kernel.finish_request` never comes
+     * (with and without the front controller's `kernel.terminate` afterwards). The next main requests are still the
+     * outermost unit: each one discards its unflushed events at kernel.terminate (no phantom event after a later flush).
+     */
+    public function testThrowingExceptionListenerNeverLeavesARequestInFlight(): void
+    {
+        foreach ([true, false] as $terminateAfterFailure) {
+            $this->events = [];
+            $container    = $this->boot($this->singleManager(), ['transaction' => 'host']);
+            $pending      = $container->get(RuntimeEnvPendingEventsInterface::class);
+            $dispatcher   = $container->get('event_dispatcher');
+            self::assertInstanceOf(RuntimeEnvPendingEventsInterface::class, $pending);
+            self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+            $throwing = static function (): never {
+                throw new RuntimeException('exception listener failed');
+            };
+            $dispatcher->addListener(KernelEvents::EXCEPTION, $throwing, 512);
+
+            $kernel  = $this->httpKernel($container);
+            $request = Request::create('/t/missing'); // 404: kernel.exception runs, then the listener throws
+            try {
+                $kernel->handle($request);
+                self::fail('the exception listener throws');
+            } catch (RuntimeException $e) {
+                self::assertSame('exception listener failed', $e->getMessage());
+            } finally {
+                $dispatcher->removeListener(KernelEvents::EXCEPTION, $throwing);
+            }
+            if ($terminateAfterFailure) {
+                $kernel->terminate($request, new Response('', 500));
+            }
+
+            $label = $terminateAfterFailure ? 'terminate after the failure' : 'no terminate after the failure';
+            $this->assertNextRequestDiscards($container, $this->writer($container), $pending, $label . ', first request');
+            $this->assertNextRequestDiscards($container, $this->writer($container), $pending, $label . ', second request');
+
+            $this->manager($container, 'default')->flush();
+            self::assertSame([], $this->events, $label . ': no phantom event after a later host flush');
+            $this->kernel?->shutdown();
+            $this->kernel = null;
+        }
+    }
+
+    /**
+     * A host write left unflushed, then a main request through `http_kernel` (its own write unflushed too): the
+     * request is the outermost unit, so kernel.terminate discards every unflushed event.
+     */
+    private function assertNextRequestDiscards(ContainerInterface $container, RuntimeEnvWriterInterface $writer, RuntimeEnvPendingEventsInterface $pending, string $label): void
+    {
+        static $i = 0;
+        $writer->createVariable('LEFT_' . ++$i, 'x');
+        $kernel   = $this->httpKernel($container);
+        $request  = Request::create('/t/set/REQ_' . $i);
+        $response = $kernel->handle($request);
+        self::assertSame(200, $response->getStatusCode(), $label);
+        $kernel->terminate($request, $response);
+        self::assertSame(0, $pending->countPending(), $label . ': the next main request is the outermost unit');
+        $this->manager($container, 'default')->clear();
     }
 
     public function testDefaultManagerIsNeverResetByTheBundle(): void

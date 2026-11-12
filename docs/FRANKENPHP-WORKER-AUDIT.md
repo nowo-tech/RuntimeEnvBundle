@@ -3,8 +3,8 @@
 | Field | Value |
 |-------|-------|
 | Package | `nowo-tech/runtime-env-bundle` (`symfony-bundle`) |
-| Audited revision | `v1.0.2` |
-| Audit date | 2026-09-25 |
+| Audited revision | `v1.0.2`; unit-of-work boundaries of `RuntimeEnvTransaction` re-audited for 1.5.1 (audits NM, NL2-v, NL2-v2) |
+| Audit date | 2026-09-25; 2026-11-12 (write-event boundaries) |
 | Method | Manual review of every PHP file under `src/` (bag, writer, repository, Doctrine listener, subscriber, access checkers, controller, forms, Twig extension, route loader, DI extension, compiler pass, `Resources/config/services.yaml`); listener order checked in the compiled demo container |
 | **Verdict** | ✅ **Viable under scenario B** — the bag reloads per main request, the repository re-hydrates from the database and recovers a closed EntityManager, and the access check never reuses a stale token (was: ⚠️ viable with conditions) |
 | Remediation (2026-09-23) | W-01, W-02, W-03 resolved (`RuntimeEnvBag`, `DoctrineOrmRuntimeEnvVariableRepository`, `RuntimeEnvExtension`, `RuntimeEnvAccessSubscriber`); regression tests simulate consecutive requests / two workers without `reset()` (`tests/Unit/Service/RuntimeEnvBagTest.php`, `tests/Unit/EventSubscriber/RuntimeEnvAccessSubscriberTest.php`, `tests/Unit/Repository/…`, `tests/Integration/Repository/DoctrineOrmRuntimeEnvVariableRepositoryWorkerTest.php` on SQLite) |
@@ -63,6 +63,7 @@ A worker demo exists: `demo/symfony8/docker/frankenphp/Caddyfile:17` declares a 
 | `Nowo\RuntimeEnvBundle\Twig\RuntimeEnvTwigExtension` | yes | none; delegates to the bag | ✅ | ✅ via bag |
 | `RuntimeEnvVariableType`, `RuntimeEnvDeleteType` (form types) | yes | stateless | ✅ | ✅ |
 | `Nowo\RuntimeEnvBundle\Routing\RuntimeEnvRouteLoader` | yes | `bool $loaded` (build/warmup-time guard, standard Symfony loader pattern) | ✅ | ✅ |
+| `Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvTransaction` (1.5; outermost boundaries since 1.5.1) | yes, `kernel.reset` | unflushed write events + outbox (dropped by `reset()`), and a private `Worker\UnitOfWorkFrames` (console frames keyed by Command + input, main-request depth, message flag; process-lifetime, NOT dropped by `kernel.reset`) | ✅ | ✅ committed events dispatched at every boundary; unflushed events discarded at the OUTERMOST `kernel.terminate` / console run / message only (audits NM, NL2-v, NL2-v2); `kernel.exception` only dispatches committed events |
 
 `RuntimeEnvVariable` is a Doctrine entity; it is never stored in a service property (the bag keeps only `name => value` strings).
 

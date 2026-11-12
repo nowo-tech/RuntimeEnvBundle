@@ -28,6 +28,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Next patch: 1.5.1.
+
+### Fixed
+
+- **Unflushed write events discarded mid-unit, and console boundaries that could leak (REQ-RUNTIME-002, audits NM,
+  NL2-v and NL2-v2).** `Persistence\RuntimeEnvTransaction` discarded the events of unflushed writes at every
+  `kernel.terminate`, `kernel.exception`, `console.error`, `console.terminate` and Messenger handled / failed. With
+  `database.transaction: host`, a nested command, an unknown nested command (`console.error` without a command), a
+  command run from a handler or a controller, a request handled inside a command, or a sub-request / nested main
+  request that failed dropped the outer unit's write events: the host's later flush wrote the variables but no
+  `RuntimeEnvVariableChangedEvent` was dispatched. Unflushed events are now discarded at the OUTERMOST boundary only;
+  nested boundaries still dispatch what was committed. Which unit is outermost is tracked by the new internal
+  `Worker\UnitOfWorkFrames` (same design as PageBuilderKitBundle), fed at `PHP_INT_MAX` so a listener that throws or
+  stops propagation cannot unbalance it: one frame per console run keyed by the Command AND its input, saving the
+  outer Messenger / main-request state and restoring it when the frame is removed; a terminate without a frame never
+  removes another run's frame; `console.error` marks the frame as failing and a frame left failing by a throwing error
+  listener is dropped at the next main request, message, command or worker stop (before the handler writes its own
+  flag); a main-request depth (`kernel.request` → `kernel.finish_request`). `kernel.exception` (which may never run:
+  FrameworkBundle's error listener stops propagation at -128) now only dispatches committed events; `kernel.terminate`
+  is the HTTP boundary. `WorkerMessageSkipEvent` (only dispatched by `messenger:failed:retry`) ends the message in
+  flight. The frames are not dropped by `kernel.reset` (only the pending events are). The top-level `kernel.terminate`
+  (`PHP_INT_MAX`) forgets a main-request depth left behind when `kernel.finish_request` never came (a
+  `kernel.exception` listener that threw), so the next requests stay the outermost unit and keep discarding their
+  unflushed events (audit NR-c F1).
+
+### Tests
+
+- `RuntimeEnvTransactionTest`: nested command (succeeding and failing), unknown nested command, request inside a
+  command, message inside a command, command inside a request, worker stop, a failed run healed at the next request,
+  `kernel.reset` keeps the frames.
+- `RuntimeEnvPersistenceKernelTest::testConsoleProbesNeverDiscardTheOuterUnitAndNeverStickTheProcessInsideAUnit`
+  (`transaction: host`, real console `Application`, kept-alive kernel without the services resetter): throwing
+  terminate listener of a nested command, unknown nested command, nested `console.command` stopped above 4096 keep the
+  outer unflushed event (the host flush dispatches it); after those and a self-recursive command with a throwing error
+  listener, an error listener at `PHP_INT_MIN`, a throwing message-received listener inside a command and a failing
+  command inside a message then the worker stop, the next main request is the outermost unit again.
+- `RuntimeEnvPersistenceKernelTest::testThrowingExceptionListenerNeverLeavesARequestInFlight`: a throwing
+  `kernel.exception` listener (with and without `kernel.terminate` afterwards), then two normal requests that discard
+  their unflushed events and no phantom event after a later host flush.
+- Unit tests for `UnitOfWorkFrames`.
+
 ## [1.5.0] - 2026-11-11
 
 database.entity_manager really applies; database.transaction bundle|host; RuntimeEnvVariableChangedEvent after the outermost commit, never carrying the value; reader and writer ports; host managers are never reset. See [UPGRADING](https://github.com/nowo-tech/RuntimeEnvBundle/blob/v1.5.0/docs/UPGRADING.md#to-150).
