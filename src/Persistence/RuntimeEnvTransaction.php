@@ -103,7 +103,7 @@ final class RuntimeEnvTransaction implements RuntimeEnvPendingEventsInterface, E
             // kernel.terminate is the HTTP boundary; kernel.exception at -1024 may never run (FrameworkBundle's error
             // listener at -128 sets a response and stops propagation): it only dispatches what was committed.
             KernelEvents::EXCEPTION  => ['onHttpException', -1024],
-            KernelEvents::TERMINATE  => ['onHttpTerminate', 1024],
+            KernelEvents::TERMINATE  => [['onHttpTerminateStarted', PHP_INT_MAX], ['onHttpTerminate', 1024]],
             ConsoleEvents::COMMAND   => ['onConsoleCommand', PHP_INT_MAX],
             ConsoleEvents::ERROR     => [['onConsoleErrorStarted', PHP_INT_MAX], ['onConsoleError', -1024]],
             ConsoleEvents::TERMINATE => [['onConsoleTerminateStarted', PHP_INT_MAX], ['onConsoleTerminate', 1024]],
@@ -141,6 +141,15 @@ final class RuntimeEnvTransaction implements RuntimeEnvPendingEventsInterface, E
     public function onHttpException(ExceptionEvent $event): void
     {
         $this->dispatchPending();
+    }
+
+    /**
+     * Top-level `kernel.terminate` (bookkeeping): forgets a request depth left behind when `kernel.finish_request`
+     * never came (a throwing `kernel.exception` listener), so the boundary below stays the outermost one.
+     */
+    public function onHttpTerminateStarted(): void
+    {
+        $this->frames->requestTerminated();
     }
 
     /**

@@ -46,7 +46,8 @@ composer update nowo-tech/runtime-env-bundle
   a nested boundary (a command run in-process from another command, a handler or a controller; an unknown nested
   command; a request handled inside a command; a failed sub-request or nested main request): they are dispatched after
   your flush. Only the outermost request, message or command discards events of writes that were never flushed (same
-  warning as before); a failed request discards them at `kernel.terminate` (no longer at `kernel.exception`).
+  warning as before); a failed request discards them at `kernel.terminate` (no longer at `kernel.exception`), also
+  after a `kernel.exception` listener of yours threw.
 - `Persistence\RuntimeEnvTransaction` is `@internal`: its boundary methods changed (new `onRequest`,
   `onFinishRequest`, `onHttpException`, `onHttpTerminate`, console and Messenger handlers). New internal
   `Worker\UnitOfWorkFrames` (not a service).

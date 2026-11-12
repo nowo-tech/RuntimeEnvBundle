@@ -408,6 +408,50 @@ final class RuntimeEnvPersistenceKernelTest extends TestCase
     }
 
     /**
+     * Audit NR-c F1 (`transaction: host`): a kernel.exception listener throws, so `kernel.finish_request` never comes
+     * (with and without the front controller's `kernel.terminate` afterwards). The next main requests are still the
+     * outermost unit: each one discards its unflushed events at kernel.terminate (no phantom event after a later flush).
+     */
+    public function testThrowingExceptionListenerNeverLeavesARequestInFlight(): void
+    {
+        foreach ([true, false] as $terminateAfterFailure) {
+            $this->events = [];
+            $container    = $this->boot($this->singleManager(), ['transaction' => 'host']);
+            $pending      = $container->get(RuntimeEnvPendingEventsInterface::class);
+            $dispatcher   = $container->get('event_dispatcher');
+            self::assertInstanceOf(RuntimeEnvPendingEventsInterface::class, $pending);
+            self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+            $throwing = static function (): never {
+                throw new RuntimeException('exception listener failed');
+            };
+            $dispatcher->addListener(KernelEvents::EXCEPTION, $throwing, 512);
+
+            $kernel  = $this->httpKernel($container);
+            $request = Request::create('/t/missing'); // 404: kernel.exception runs, then the listener throws
+            try {
+                $kernel->handle($request);
+                self::fail('the exception listener throws');
+            } catch (RuntimeException $e) {
+                self::assertSame('exception listener failed', $e->getMessage());
+            } finally {
+                $dispatcher->removeListener(KernelEvents::EXCEPTION, $throwing);
+            }
+            if ($terminateAfterFailure) {
+                $kernel->terminate($request, new Response('', 500));
+            }
+
+            $label = $terminateAfterFailure ? 'terminate after the failure' : 'no terminate after the failure';
+            $this->assertNextRequestDiscards($container, $this->writer($container), $pending, $label . ', first request');
+            $this->assertNextRequestDiscards($container, $this->writer($container), $pending, $label . ', second request');
+
+            $this->manager($container, 'default')->flush();
+            self::assertSame([], $this->events, $label . ': no phantom event after a later host flush');
+            $this->kernel?->shutdown();
+            $this->kernel = null;
+        }
+    }
+
+    /**
      * A host write left unflushed, then a main request through `http_kernel` (its own write unflushed too): the
      * request is the outermost unit, so kernel.terminate discards every unflushed event.
      */

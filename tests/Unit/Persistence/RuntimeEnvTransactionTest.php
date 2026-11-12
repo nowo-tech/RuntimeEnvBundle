@@ -215,7 +215,7 @@ final class RuntimeEnvTransactionTest extends TestCase
         $events = RuntimeEnvTransaction::getSubscribedEvents();
         self::assertSame(['onRequest', PHP_INT_MAX], $events[KernelEvents::REQUEST]);
         self::assertSame(['onFinishRequest', PHP_INT_MAX], $events[KernelEvents::FINISH_REQUEST]);
-        self::assertSame(['onHttpTerminate', 1024], $events[KernelEvents::TERMINATE]);
+        self::assertSame([['onHttpTerminateStarted', PHP_INT_MAX], ['onHttpTerminate', 1024]], $events[KernelEvents::TERMINATE]);
         self::assertSame(['onHttpException', -1024], $events[KernelEvents::EXCEPTION]);
         self::assertSame(['onConsoleCommand', PHP_INT_MAX], $events[ConsoleEvents::COMMAND]);
         self::assertSame([['onConsoleErrorStarted', PHP_INT_MAX], ['onConsoleError', -1024]], $events[ConsoleEvents::ERROR]);

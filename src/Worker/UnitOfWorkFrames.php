@@ -76,6 +76,20 @@ final class UnitOfWorkFrames
         $this->requestDepth = max(0, $this->requestDepth - 1);
     }
 
+    /**
+     * Top-level `kernel.terminate`: no main request can still be in flight unless a console run or a message handles it
+     * in-process. Heals a failed run first, then forgets a request depth left behind when `kernel.finish_request` never
+     * came (a `kernel.exception` listener that threw; audit NR-c F1).
+     */
+    public function requestTerminated(): void
+    {
+        $this->dropFailedFrames();
+        if ($this->frames === [] && !$this->messageInFlight) {
+            // @igor-ignore - Main-request nesting depth, healed at the top-level kernel.terminate (no request data).
+            $this->requestDepth = 0;
+        }
+    }
+
     /** Messenger message received: heals a failed run, then a message is in flight. */
     public function messageReceived(): void
     {

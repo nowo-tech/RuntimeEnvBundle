@@ -48,7 +48,10 @@ Next patch: 1.5.1.
   flag); a main-request depth (`kernel.request` → `kernel.finish_request`). `kernel.exception` (which may never run:
   FrameworkBundle's error listener stops propagation at -128) now only dispatches committed events; `kernel.terminate`
   is the HTTP boundary. `WorkerMessageSkipEvent` (only dispatched by `messenger:failed:retry`) ends the message in
-  flight. The frames are not dropped by `kernel.reset` (only the pending events are).
+  flight. The frames are not dropped by `kernel.reset` (only the pending events are). The top-level `kernel.terminate`
+  (`PHP_INT_MAX`) forgets a main-request depth left behind when `kernel.finish_request` never came (a
+  `kernel.exception` listener that threw), so the next requests stay the outermost unit and keep discarding their
+  unflushed events (audit NR-c F1).
 
 ### Tests
 
@@ -61,6 +64,9 @@ Next patch: 1.5.1.
   outer unflushed event (the host flush dispatches it); after those and a self-recursive command with a throwing error
   listener, an error listener at `PHP_INT_MIN`, a throwing message-received listener inside a command and a failing
   command inside a message then the worker stop, the next main request is the outermost unit again.
+- `RuntimeEnvPersistenceKernelTest::testThrowingExceptionListenerNeverLeavesARequestInFlight`: a throwing
+  `kernel.exception` listener (with and without `kernel.terminate` afterwards), then two normal requests that discard
+  their unflushed events and no phantom event after a later host flush.
 - Unit tests for `UnitOfWorkFrames`.
 
 ## [1.5.0] - 2026-11-11

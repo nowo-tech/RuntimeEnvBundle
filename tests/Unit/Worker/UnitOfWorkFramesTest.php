@@ -165,6 +165,30 @@ final class UnitOfWorkFramesTest extends TestCase
         self::assertTrue($frames->isIdle());
     }
 
+    /**
+     * Audit NR-c F1: a kernel.exception listener threw, so kernel.finish_request never came; the top-level
+     * kernel.terminate forgets the request depth, unless a console run or a message handles the request in-process.
+     */
+    public function testRequestTerminatedForgetsALeftoverRequestDepth(): void
+    {
+        $frames = new UnitOfWorkFrames();
+        $frames->requestStarted(); // finish_request never dispatched
+        $frames->requestTerminated();
+        self::assertTrue($frames->isIdle());
+
+        $command = $this->start($frames, new Command('app:outer'));
+        $frames->requestStarted();
+        $frames->requestTerminated();
+        self::assertTrue($frames->isRequestInFlight(), 'a request handled inside a command keeps its depth');
+        $frames->commandTerminated($this->terminate($command[0]));
+        self::assertTrue($frames->isIdle(), 'the frame restores the outer state');
+
+        $frames->messageReceived();
+        $frames->requestStarted();
+        $frames->requestTerminated();
+        self::assertTrue($frames->isRequestInFlight(), 'a request handled inside a message keeps its depth');
+    }
+
     public function testNestedMainRequestsKeepTheOuterOneInFlight(): void
     {
         $frames = new UnitOfWorkFrames();
