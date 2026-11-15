@@ -65,6 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - QT-L-5 (previous value not covered by DoctrineEncrypt key rotation) and QT-L-6 (admin delete of a registered
   setting writes no actor audit line): see [UPGRADING](UPGRADING.md#known-issues-fixed-in-a-16x-patch), fixed in a
   1.6.x patch.
+- QT-D-I-1: on MySQL / MariaDB with `database.transaction: host`, the version-row `ensure()` of the 1.5 writer's
+  bumper may hit a transient deadlock (503) with a concurrent store write of the same variable; fixed in a 1.6.x patch.
+- QT-D-I-2: with a very long `table_prefix`, the name of the `previous_expires_at` index may exceed MySQL's 64
+  characters.
 
 ### Changed
 

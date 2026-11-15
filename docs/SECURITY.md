@@ -58,7 +58,8 @@ Info items also addressed: dev files export-ignored from the dist; embedded sub-
 |-------|--------|
 | **Head** | `bdf2dc0` |
 | **Method** | Claude Code review of `v1.5.1..bdf2dc0` plus PoCs on MySQL 8.4, MariaDB 11.4 and PostgreSQL 17 |
-| **Result** | No High / Medium. Low findings fixed before the tag: QT-L-1 (rotation expiry UTC), QT-L-2 (write purges only its row; index), QT-L-3 (version row without insert race), QT-L-4 (collation listener only with the feature on), QT-I-4 (`unset` empties a secret). QT-L-5 / QT-L-6: known issues for 1.6.x. Delta re-audit pending |
+| **Result** | No High / Medium. Low findings fixed before the tag: QT-L-1 (rotation expiry UTC), QT-L-2 (write purges only its row; index), QT-L-3 (version row without insert race), QT-L-4 (collation listener only with the feature on), QT-I-4 (`unset` empties a secret). QT-L-5 / QT-L-6: known issues for 1.6.x |
+| **Status** | Audited (QT + Delta QT, 2026-11-16, `85701e0`): taggable, no open High/Medium; QT-L-5/L-6 known issues for 1.6.x |
 | **GHSA** | None (≤ 1.5.1 not affected) |
 
 This subsection is the in-package REQ-SEC-004 record (date, method, grade, residuals).

@@ -96,6 +96,11 @@ PostgreSQL and SQLite compare exactly already; nothing to do.
 - **Admin delete of a registered setting** (audit QT-L-6) goes through the 1.5 writer: the version changes and
   `RuntimeEnvVariableChangedEvent` is dispatched, but no runtime-setting audit line with the actor is written. Use
   `nowo:runtime-setting:unset` (audited) for registered settings until then.
+- **Bumper deadlock with `database.transaction: host`** (Delta QT, QT-D-I-1): on MySQL / MariaDB, the version-row
+  `ensure()` that the 1.5 writer's bumper runs inside your transaction may meet a concurrent store write of the same
+  variable in a transient deadlock (503 on the admin routes; retry). Fixed in a 1.6.x patch.
+- **Long table prefix** (Delta QT, QT-D-I-2): the index `idx_{prefix}_variables_prev_exp` may exceed MySQL's 64
+  characters with a very long `table_prefix` (more than 37 characters); keep the prefix shorter.
 
 ## To 1.5.1
 
