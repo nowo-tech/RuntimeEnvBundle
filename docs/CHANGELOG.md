@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.6.0] - 2026-11-15](#160---2026-11-15)
 - [[1.5.1] - 2026-11-12](#151---2026-11-12)
 - [[1.5.0] - 2026-11-11](#150---2026-11-11)
 - [[1.4.1] - 2026-10-31](#141---2026-10-31)
@@ -28,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [[1.0.0] - 2026-09-16](#100---2026-09-16)
 
 ## [Unreleased]
+
+## [1.6.0] - 2026-11-15
 
 ### Added
 
@@ -76,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Requires `nowo-tech/runtime-setting-contract ^1.0`, `nowo-tech/transaction-contract ^1.0` and
   `nowo-tech/transaction-doctrine ^1.1` (interfaces and a small DBAL runner; nothing changes unless
   `runtime_setting.enabled` is true).
+
+[1.6.0]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.6.0
 
 ## [1.5.1] - 2026-11-12
 

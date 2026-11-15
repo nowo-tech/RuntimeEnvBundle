@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.6.0](#to-160)
   - [Exact key collation (MySQL / MariaDB, with `runtime_setting.enabled` only)](#exact-key-collation-mysql--mariadb-with-runtime_settingenabled-only)
   - [Opt in: runtime settings (`runtime_setting.enabled`)](#opt-in-runtime-settings-runtime_settingenabled)
   - [Known issues (fixed in a 1.6.x patch)](#known-issues-fixed-in-a-16x-patch)
@@ -36,6 +37,14 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+## To 1.6.0
+
+From **1.5.1**:
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
 
 Target 1.6.0. Nothing changes until you opt in; RuntimeEnvBag, `runtime_env()` and the admin UI behave as in 1.5.
 
