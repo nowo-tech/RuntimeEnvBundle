@@ -6,6 +6,7 @@
 - [Twig](#twig)
 - [Standard Symfony and DDD / hexagonal hosts](#standard-symfony-and-ddd--hexagonal-hosts)
 - [Admin CRUD](#admin-crud)
+- [Runtime settings (1.6)](#runtime-settings-16)
 - [What stays in `.env`](#what-stays-in-env)
 - [FrankenPHP worker](#frankenphp-worker)
 - [Overriding templates (REQ-TWIG-001)](#overriding-templates-req-twig-001)
@@ -124,6 +125,44 @@ profile `nowo_form_kit.profiles.runtime_env`, see [CONFIGURATION](CONFIGURATION.
 `form_start` / the `{% for child in form %}{% if not child.rendered %}{{ form_row(child) }}{% endif %}{% endfor %}` loop /
 `form_end`; overrides must not reintroduce raw `<form>` / `<input>` (REQ-TWIG-005).
  The edit form never renders the stored (decrypted) value: the value field starts empty and masked; leave it blank to keep the current value, type a new one to replace it, or tick **Clear the value** to store an empty string. Empty values are allowed (also when creating a variable).
+
+## Runtime settings (1.6)
+
+With `runtime_setting.enabled: true` this table is the database backend of
+[nowo-tech/runtime-setting-contract](https://github.com/nowo-tech/runtime-setting-contract): a bundle setting that lives
+in `.env` (for example ChatKit's `retention_days`) can come from here, change live and rotate without downtime.
+
+```yaml
+nowo_runtime_env:
+    runtime_setting: { enabled: true }
+nowo_runtime_setting:            # NowoRuntimeSettingBundle (register it in config/bundles.php)
+    cache_pool: cache.app        # recommended in production; secrets never go there
+    version_ttl: 5
+nowo_chat_kit:
+    retention_days: '%env(int:CHAT_RETENTION_DAYS)%'
+    runtime:
+        retention_days: { source: db_then_env, key: CHAT_RETENTION_DAYS, on_error: fail_closed }
+```
+
+- **Key** = the environment variable name. `namespace.key` ids are not stored here (bind another source for them).
+- **Reads** (`RuntimeSettingResolver`) see enabled variables only; a disabled variable is unset (the configured env value
+  applies with `db_then_env`). `RuntimeEnvBag` and `runtime_env()` keep reading the same table as before.
+- **Writes** through `nowo:runtime-setting:set|unset|rotate|purge`, through `RuntimeSettingUpdater`, or through the
+  admin UI. For a variable that a bundle registered as a writable setting, the admin UI uses the updater too: the
+  bundle's validator refuses invalid values (shown on the value field), secrets are never echoed, and the audit actor is
+  `user:<identifier>`. `unset` disables the variable (its row and description stay).
+- **Rotation**: `rotate` keeps the old value encrypted in `previous_value` until `--keep-previous` expires;
+  `RuntimeSettingResolver::candidates()` returns both inside the window. Expired previous values are deleted by every
+  write and by `nowo:runtime-setting:purge` (schedule it).
+- **Live change**: every write (store, 1.5 writer, admin UI, purge; also a write that changes nothing) changes the `env`
+  version token in the same transaction, so every worker sees the change within `version_ttl`, without a restart.
+- **Transactions**: the store writes through DBAL in its own transaction on the connection of
+  `database.entity_manager`, never flushing your entity manager; called inside a transaction you opened, it refuses
+  (`RuntimeSettingNotWritable`). A deadlock on the admin routes answers 503 with `Retry-After`; a duplicate name 409.
+- **Audit**: after the commit, an `info` log line (actor, name, action, fingerprints; none for secrets) and
+  `RuntimeEnvVariableChangedEvent`, as for 1.5 writes.
+- **Encryption**: values use DoctrineEncryptBundle's default profile (the entity's `#[Encrypted]` format). Replace
+  `RuntimeEnvValueCipherInterface` to change that.
 
 ## What stays in `.env`
 

@@ -34,6 +34,50 @@
 
 ## Unreleased
 
+Target 1.6.0. Nothing changes until you opt in; RuntimeEnvBag, `runtime_env()` and the admin UI behave as in 1.5.
+
+### Optional: exact key collation (MySQL / MariaDB)
+
+The generated schema now gives `name` a binary NO PAD collation (MariaDB `utf8mb4_nopad_bin`, MySQL 8.0+
+`utf8mb4_0900_bin`; MySQL 5.7 keeps the PAD SPACE `utf8mb4_bin` with a warning). `doctrine:migrations:diff` /
+`schema:update --dump-sql` will propose it. Existing tables keep working without it (every lookup is re-checked in PHP);
+apply it when convenient:
+
+```sql
+-- MySQL 8.0+
+ALTER TABLE runtime_env_variables MODIFY name VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL;
+-- MariaDB
+ALTER TABLE runtime_env_variables MODIFY name VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL;
+```
+
+PostgreSQL and SQLite compare exactly already; nothing to do.
+
+### Opt in: runtime settings (`runtime_setting.enabled`)
+
+1. Enable it and register the contract's Symfony bundle (for the commands, the resolver and the updater):
+
+   ```yaml
+   nowo_runtime_env:
+       runtime_setting:
+           enabled: true
+   nowo_runtime_setting:
+       cache_pool: cache.app      # recommended in production
+       version_ttl: 5
+       command:
+           enabled: false         # turn on deliberately
+   ```
+
+2. Generate and run a migration: two nullable columns on `{prefix}_variables` (`previous_value` TEXT,
+   `previous_expires_at` DATETIME) and the table `{prefix}_versions` (`namespace` VARCHAR(64) primary key, `token`
+   VARCHAR(128)). Without the feature they are not mapped, so `migrations:diff` neither adds nor drops them.
+3. In the adopting bundles, set `runtime.<setting>.key` to the environment variable name (e.g. `CHAT_RETENTION_DAYS`)
+   and `source: db_then_env` (or `db`).
+4. Values written while the feature is off still change through the 1.5 writer; once it is on, every write changes the
+   version token, so running workers pick the change up within `version_ttl`.
+5. The first write ever inserts the version row; two first writes at the same instant may meet the primary key (a 409
+   on the admin routes, retry). Seeding it in your migration (`INSERT INTO runtime_env_versions VALUES ('env', '0')`)
+   avoids that.
+
 ## To 1.5.1
 
 From **1.5.0**: patch, no configuration change.

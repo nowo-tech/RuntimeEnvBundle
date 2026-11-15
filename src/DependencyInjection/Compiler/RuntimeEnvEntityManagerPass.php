@@ -6,6 +6,7 @@ namespace Nowo\RuntimeEnvBundle\DependencyInjection\Compiler;
 
 use Nowo\RuntimeEnvBundle\Persistence\OwnEntityManagerSubscriber;
 use Nowo\RuntimeEnvBundle\Repository\DoctrineOrmRuntimeEnvVariableRepository;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvVersionBumper;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -89,6 +90,9 @@ final class RuntimeEnvEntityManagerPass implements CompilerPassInterface
         $owned = $container->hasParameter('doctrine.default_entity_manager') && $container->getParameter('doctrine.default_entity_manager') !== $name;
         if ($container->hasDefinition(DoctrineOrmRuntimeEnvVariableRepository::class)) {
             $container->getDefinition(DoctrineOrmRuntimeEnvVariableRepository::class)->setArgument('$ownsManager', $owned);
+        }
+        if ($container->hasDefinition(RuntimeEnvVersionBumper::class)) {
+            $container->getDefinition(RuntimeEnvVersionBumper::class)->setArgument('$ownsManager', $owned);
         }
 
         if ($owned) {

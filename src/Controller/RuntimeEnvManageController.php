@@ -12,11 +12,14 @@ use Nowo\RuntimeEnvBundle\Form\RuntimeEnvVariableType;
 use Nowo\RuntimeEnvBundle\Repository\PaginatedRuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Routing\RuntimeEnvRouteLoader;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvAdminSettings;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
+use Nowo\RuntimeSettingContract\Contract\Exception\RuntimeSettingExceptionInterface;
 use Nowo\UiKitBundle\View\Pagination;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormView;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,6 +32,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use function array_slice;
 use function ceil;
 use function count;
+use function is_string;
 use function max;
 use function min;
 
@@ -51,6 +55,7 @@ final class RuntimeEnvManageController extends AbstractController
         private readonly int $listPageSize = self::DEFAULT_LIST_PAGE_SIZE,
         private readonly ?RuntimeEnvPageFactory $pageFactory = null,
         private readonly ?TranslatorInterface $translator = null,
+        private readonly ?RuntimeEnvAdminSettings $settings = null,
     ) {
     }
 
@@ -106,6 +111,20 @@ final class RuntimeEnvManageController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            if ($this->settings instanceof RuntimeEnvAdminSettings && $this->settings->manages($variable->getName())) {
+                // 1.6: a registered runtime setting is written through RuntimeSettingUpdater (same rules as the command).
+                try {
+                    $this->settings->create($variable->getName(), $variable->getValue(), $variable->getDescription(), $variable->isEnabled(), $this->actor());
+                    $this->addFlash('success', $this->trans('runtime_env.flash.created'));
+
+                    return $this->redirectToRoute('nowo_runtime_env_index');
+                } catch (RuntimeSettingExceptionInterface $e) {
+                    $form->get('value')->addError(new FormError($e->getMessage()));
+
+                    return $this->renderFormPage($form->createView(), $variable, false, true);
+                }
+            }
+
             try {
                 $this->writer->create(
                     $variable->getName(),
@@ -137,6 +156,22 @@ final class RuntimeEnvManageController extends AbstractController
         $draft = clone $variable;
         $form  = $this->createForm(RuntimeEnvVariableType::class, $draft, ['is_edit' => true]);
         $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid() && $this->settings instanceof RuntimeEnvAdminSettings && $this->settings->manages($variable->getName())) {
+            // 1.6: a registered runtime setting is written through RuntimeSettingUpdater (same rules as the command).
+            $typed    = $form->get('value')->getData();
+            $newValue = $form->get('clear_value')->getData() === true ? '' : (is_string($typed) && $typed !== '' ? $typed : null);
+            try {
+                $this->settings->update($variable->getName(), $newValue, $draft->isEnabled(), $variable->isEnabled(), $variable->getValue(), $draft->getDescription(), $this->actor());
+                $this->addFlash('success', $this->trans('runtime_env.flash.updated'));
+
+                return $this->redirectToRoute('nowo_runtime_env_index');
+            } catch (RuntimeSettingExceptionInterface $e) {
+                $form->get('value')->addError(new FormError($e->getMessage()));
+
+                return $this->renderFormPage($form->createView(), $variable, true, true, $this->deleteForm($id));
+            }
+        }
 
         if ($form->isSubmitted() && $form->isValid()) {
             $this->writer->update(
@@ -173,6 +208,14 @@ final class RuntimeEnvManageController extends AbstractController
         $this->addFlash('success', $this->trans('runtime_env.flash.deleted'));
 
         return $this->redirectToRoute('nowo_runtime_env_index');
+    }
+
+    /**
+     * 1.6: the audit actor of an admin change (`user:<identifier>`).
+     */
+    private function actor(): string
+    {
+        return RuntimeEnvAdminSettings::actor($this->container->has('security.token_storage') ? $this->getUser()?->getUserIdentifier() : null);
     }
 
     private function renderFormPage(FormView $form, RuntimeEnvVariable $variable, bool $isEdit, bool $submitted, ?FormView $deleteForm = null): Response

@@ -7,6 +7,7 @@ namespace Nowo\RuntimeEnvBundle;
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\AfterCommitMiddlewarePass;
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\CsrfProtectionPass;
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\RuntimeEnvEntityManagerPass;
+use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\RuntimeSettingPortsPass;
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\TwigPathsPass;
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\UnauthenticatedAccessPass;
 use Nowo\RuntimeEnvBundle\DependencyInjection\RuntimeEnvExtension;
@@ -33,6 +34,8 @@ final class NowoRuntimeEnvBundle extends Bundle
         // 1.5: database.entity_manager is real (fail fast, then the mapping on that manager only).
         $container->addCompilerPass(new RuntimeEnvEntityManagerPass(checkOnly: true), PassConfig::TYPE_BEFORE_OPTIMIZATION, 10);
         $container->addCompilerPass(new RuntimeEnvEntityManagerPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, -10);
+        // 1.6: runtime-setting-contract ports bound to the store only when nothing else is (before the contract's default).
+        $container->addCompilerPass(new RuntimeSettingPortsPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, RuntimeSettingPortsPass::PRIORITY);
     }
 
     public function getContainerExtension(): ?ExtensionInterface

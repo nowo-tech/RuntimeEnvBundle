@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Nowo\RuntimeEnvBundle\DependencyInjection;
 
 use LogicException;
+use Nowo\DoctrineEncryptBundle\Util\EncryptUtil;
 use Nowo\RuntimeEnvBundle\Controller\RuntimeEnvManageController;
+use Nowo\RuntimeEnvBundle\Doctrine\KeyCollationListener;
 use Nowo\RuntimeEnvBundle\Doctrine\RuntimeEnvMetadataListener;
 use Nowo\RuntimeEnvBundle\EventSubscriber\RuntimeEnvAccessSubscriber;
 use Nowo\RuntimeEnvBundle\NowoRuntimeEnvBundle;
@@ -17,6 +19,10 @@ use Nowo\RuntimeEnvBundle\Repository\DoctrineOrmRuntimeEnvVariableRepository;
 use Nowo\RuntimeEnvBundle\Repository\PaginatedRuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Routing\RuntimeEnvRouteLoader;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\DoctrineEncryptValueCipher;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvSettingStore;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvValueCipherInterface;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvVersionBumper;
 use Nowo\RuntimeEnvBundle\Security\AllowAllRuntimeEnvAccessChecker;
 use Nowo\RuntimeEnvBundle\Security\ConfigurableRuntimeEnvAccessChecker;
 use Nowo\RuntimeEnvBundle\Security\RuntimeEnvAccessCheckerInterface;
@@ -24,6 +30,7 @@ use Nowo\RuntimeEnvBundle\Service\RuntimeEnvBag;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvReaderInterface;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriterInterface;
+use Nowo\RuntimeEnvBundle\Transaction\StorageFailureListener;
 use Nowo\RuntimeEnvBundle\Twig\RuntimeEnvTwigExtension;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
@@ -36,6 +43,7 @@ use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\HttpKernel\KernelEvents;
 
 use function array_key_exists;
 use function array_key_first;
@@ -120,10 +128,25 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
         $container->setAlias(RuntimeEnvVariableRepositoryInterface::class, DoctrineOrmRuntimeEnvVariableRepository::class);
         $container->setAlias(PaginatedRuntimeEnvVariableRepositoryInterface::class, DoctrineOrmRuntimeEnvVariableRepository::class);
 
+        $runtimeSettings = (bool) $config['runtime_setting']['enabled'];
+        $versionsTable   = $prefix . '_versions';
+        $container->setParameter('nowo_runtime_env.runtime_setting.enabled', $runtimeSettings);
+        $container->setParameter('nowo_runtime_env.versions_table', $versionsTable);
+
         $container->setDefinition(RuntimeEnvMetadataListener::class, (new Definition(RuntimeEnvMetadataListener::class))
             ->setAutowired(false)
             ->setArgument('$variablesTableName', $variablesTable)
+            ->setArgument('$runtimeSettings', $runtimeSettings)
+            ->setArgument('$versionsTableName', $versionsTable)
             ->addTag('doctrine.event_listener', ['event' => 'loadClassMetadata']));
+        // 1.6: exact (binary NO PAD) collation of the key columns on MySQL / MariaDB, in the generated schema.
+        $container->setDefinition(KeyCollationListener::class, (new Definition(KeyCollationListener::class, [
+            new Reference('doctrine'),
+            new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE),
+        ]))->addTag('doctrine.event_listener', ['event' => 'postGenerateSchemaTable']));
+        // 1.6: 503 / 409 instead of 500 for storage failures on the bundle's routes.
+        $container->setDefinition(StorageFailureListener::class, (new Definition(StorageFailureListener::class))
+            ->addTag('kernel.event_listener', ['event' => KernelEvents::EXCEPTION, 'method' => 'onException', 'priority' => StorageFailureListener::PRIORITY]));
 
         $container->setDefinition(RuntimeEnvBag::class, (new Definition(RuntimeEnvBag::class))
             ->setAutowired(false)
@@ -161,12 +184,46 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
             ->setArgument('$transaction', new Reference(RuntimeEnvTransaction::class))
             ->setArgument('$clock', new Reference('clock', ContainerInterface::NULL_ON_INVALID_REFERENCE)));
         $container->setAlias(RuntimeEnvWriterInterface::class, RuntimeEnvWriter::class);
+
+        if ($runtimeSettings) {
+            $this->configureRuntimeSettings($container, $emName, $variablesTable, $versionsTable);
+        }
         $container->setAlias(RuntimeEnvReaderInterface::class, RuntimeEnvBag::class);
 
         $this->registerAccessChecker($container, $config['security']);
         $this->configurePanel($container, $config);
         $this->configureTwig($container);
         $this->configureRouteLoader($container, $config);
+    }
+
+    /**
+     * 1.6: nowo-tech/runtime-setting-contract source and writer on the variables table, the version bump of the 1.5
+     * writer, and the cipher. The contract ports are bound by RuntimeSettingPortsPass only when nothing else is.
+     */
+    private function configureRuntimeSettings(ContainerBuilder $container, string $emName, string $variablesTable, string $versionsTable): void
+    {
+        $container->setDefinition(DoctrineEncryptValueCipher::class, new Definition(DoctrineEncryptValueCipher::class, [
+            new Reference(EncryptUtil::UTIL_NAME),
+        ]));
+        $container->setAlias(RuntimeEnvValueCipherInterface::class, DoctrineEncryptValueCipher::class);
+
+        $container->setDefinition(RuntimeEnvSettingStore::class, new Definition(RuntimeEnvSettingStore::class, [
+            '$registry'          => new Reference('doctrine'),
+            '$entityManagerName' => $emName,
+            '$variablesTable'    => $variablesTable,
+            '$versionsTable'     => $versionsTable,
+            '$cipher'            => new Reference(RuntimeEnvValueCipherInterface::class),
+            '$eventDispatcher'   => new Reference('event_dispatcher', ContainerInterface::NULL_ON_INVALID_REFERENCE),
+            '$logger'            => new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE),
+            '$clock'             => new Reference('clock', ContainerInterface::NULL_ON_INVALID_REFERENCE),
+            '$bag'               => new Reference(RuntimeEnvBag::class),
+        ]));
+
+        $container->setDefinition(RuntimeEnvVersionBumper::class, new Definition(RuntimeEnvVersionBumper::class, [
+            '$registry'          => new Reference('doctrine'),
+            '$entityManagerName' => $emName,
+        ]));
+        $container->getDefinition(RuntimeEnvWriter::class)->setArgument('$versions', new Reference(RuntimeEnvVersionBumper::class));
     }
 
     /**
@@ -280,6 +337,16 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
                 ],
             ],
         ];
+        // 1.6: the version table is mapped only when runtime_setting.enabled (no migration otherwise).
+        if ($this->configuredRuntimeSettings($container)) {
+            $mappings['mappings']['RuntimeEnvBundleRuntimeSetting'] = [
+                'type'      => 'attribute',
+                'dir'       => dirname(__DIR__) . '/RuntimeSetting/Entity',
+                'prefix'    => 'Nowo\RuntimeEnvBundle\RuntimeSetting\Entity',
+                'alias'     => 'RuntimeEnvBundleRuntimeSetting',
+                'is_bundle' => false,
+            ];
+        }
 
         // 1.5: on database.entity_manager when the host declares it under entity_managers (and pin the host's own
         // default so the prepended entry never becomes the default manager); else the default manager as before.
@@ -296,6 +363,23 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
         }
 
         $container->prependExtensionConfig('doctrine', ['orm' => $mappings]);
+    }
+
+    /**
+     * `runtime_setting.enabled` from the raw configs (prepend runs before the configuration is processed); the last
+     * literal true or false wins.
+     */
+    private function configuredRuntimeSettings(ContainerBuilder $container): bool
+    {
+        $enabled = false;
+        foreach ($container->getExtensionConfig($this->getAlias()) as $config) {
+            $value = $config['runtime_setting']['enabled'] ?? null;
+            if (is_bool($value)) {
+                $enabled = $value;
+            }
+        }
+
+        return $enabled;
     }
 
     /**
@@ -490,6 +574,7 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
             'panel.enabled'                  => $config['panel']['enabled'] ?? null,
             'web_ui.enabled'                 => $config['web_ui']['enabled'] ?? null,
             'security.allow_unauthenticated' => $config['security']['allow_unauthenticated'] ?? null,
+            'runtime_setting.enabled'        => $config['runtime_setting']['enabled'] ?? null,
         ];
         foreach ($switches as $path => $value) {
             if (!is_bool($value)) {

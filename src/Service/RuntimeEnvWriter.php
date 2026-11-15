@@ -10,6 +10,7 @@ use Nowo\RuntimeEnvBundle\Entity\RuntimeEnvVariable;
 use Nowo\RuntimeEnvBundle\Event\RuntimeEnvVariableChangedEvent;
 use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvTransaction;
 use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvVersionBumper;
 use Psr\Clock\ClockInterface;
 
 use function preg_match;
@@ -31,6 +32,7 @@ final class RuntimeEnvWriter implements RuntimeEnvWriterInterface
         private readonly RuntimeEnvBag $bag,
         private readonly ?RuntimeEnvTransaction $transaction = null,
         private readonly ?ClockInterface $clock = null,
+        private readonly ?RuntimeEnvVersionBumper $versions = null,
     ) {
     }
 
@@ -53,6 +55,10 @@ final class RuntimeEnvWriter implements RuntimeEnvWriterInterface
             ->setValue($value)
             ->setDescription($description)
             ->setEnabled($enabled);
+        if ($this->versions instanceof RuntimeEnvVersionBumper) {
+            // 1.6: a plain write replaces the value; a rotated-out previous value is no longer accepted.
+            $variable->clearPrevious();
+        }
         $this->save($variable, RuntimeEnvVariableChangedEvent::UPDATED);
 
         return $variable;
@@ -77,6 +83,8 @@ final class RuntimeEnvWriter implements RuntimeEnvWriterInterface
     public function delete(RuntimeEnvVariable $variable): void
     {
         $flush = $this->flushes();
+        // 1.6: the version token changes in the same flush as the write (runtime_setting.enabled).
+        $this->versions?->bump();
         // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
         $this->repository->remove($variable, $flush);
         // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
@@ -107,6 +115,8 @@ final class RuntimeEnvWriter implements RuntimeEnvWriterInterface
     private function save(RuntimeEnvVariable $variable, string $action, ?string $previousName = null): void
     {
         $flush = $this->flushes();
+        // 1.6: the version token changes in the same flush as the write (runtime_setting.enabled).
+        $this->versions?->bump();
         $this->repository->save($variable, $flush);
         // @igor-ignore - Service coordinates I/O or request-scoped work; not unsafe worker singleton state.
         $this->bag->clearRuntimeCache();

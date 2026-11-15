@@ -65,6 +65,14 @@ A worker demo exists: `demo/symfony8/docker/frankenphp/Caddyfile:17` declares a 
 | `Nowo\RuntimeEnvBundle\Routing\RuntimeEnvRouteLoader` | yes | `bool $loaded` (build/warmup-time guard, standard Symfony loader pattern) | ✅ | ✅ |
 | `Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvTransaction` (1.5; outermost boundaries since 1.5.1) | yes, `kernel.reset` | unflushed write events + outbox (dropped by `reset()`), and a private `Worker\UnitOfWorkFrames` (console frames keyed by Command + input, main-request depth, message flag; process-lifetime, NOT dropped by `kernel.reset`) | ✅ | ✅ committed events dispatched at every boundary; unflushed events discarded at the OUTERMOST `kernel.terminate` / console run / message only (audits NM, NL2-v, NL2-v2); `kernel.exception` only dispatches committed events |
 
+| `Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvSettingStore` (1.6) | yes | none (`final readonly`); DBAL reads on every call, writes in their own transaction; clears the bag after a commit | ✅ | ✅ a change reaches every worker within the contract's `version_ttl` (kept-alive kernel test with a shared pool) |
+| `RuntimeEnvVersionBumper`, `RuntimeEnvAdminSettings`, `DoctrineEncryptValueCipher` (1.6) | yes | none (`final readonly`) | ✅ | ✅ |
+| `Doctrine\KeyCollationListener`, `Transaction\StorageFailureListener` (1.6) | yes | none (`final readonly`) | ✅ | ✅ |
+
+The per-request memo of runtime settings lives in nowo-tech/runtime-setting-contract's `RuntimeSettingResolver`,
+cleared by its boundary listener (main request, terminate, console, Messenger) and `kernel.reset`.
+`tests/Integration/RuntimeSetting/RuntimeSettingKernelTest.php` runs a kept-alive kernel without the services resetter.
+
 `RuntimeEnvVariable` is a Doctrine entity; it is never stored in a service property (the bag keeps only `name => value` strings).
 
 ## Findings

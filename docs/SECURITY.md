@@ -21,6 +21,7 @@
 | Edit form | Secret rendered back into HTML | Since 1.1.0 the edit form never renders the stored (decrypted) value: the field starts empty, blank keeps the value, `clear_value` empties it. Since 1.3.0 a typed value is never re-rendered after a failed submission (create and edit) |
 | List / templates | Secret printed by a template | Since 1.3.0 no entity reaches the templates: list rows are value-free arrays, the value column key resolves to nothing |
 | Configuration | Fail-open switches | Since 1.3.0 security switches accept only literal booleans; `allow_unauthenticated: true` is refused unless `kernel.debug` |
+| Runtime settings (1.6, opt-in) | Invalid or hostile values written live; secrets echoed; stale values; look-alike names | Admin edits of registered settings and the commands go through `RuntimeSettingUpdater` (registered ids, bundle validator first, secrets only via STDIN and never fingerprinted); values encrypted as in 1.5 (previous values too, as stored ciphertext); version token changed in the write transaction; DBAL reads re-checked with `===`; binary NO PAD key collation on MySQL / MariaDB; storage failures answer 503 / 409 with fixed messages on the bundle's routes |
 | FrankenPHP worker | Cross-request leak / stale config | Request-scoped bag memoization; repository `HINT_REFRESH` + `ManagerRegistry`; access subscriber priority 7 + `_firewall_context`; no `$_ENV`/`putenv` |
 
 ## Defaults
@@ -58,7 +59,8 @@ This subsection is the in-package REQ-SEC-004 record (date, method, grade, resid
 - Host owns firewall `access_control` on `web_ui.path_prefix` (soft gate alone is not enough)
 - Empty `security.access_roles` is **rejected** at compile time (fail-closed) unless `allow_unauthenticated` or a custom `access_checker` is set
 - Demo may set `allow_unauthenticated: true` — refused at compile time outside `kernel.debug` since 1.3.0
-- Host owns retention / audit of who changed which key
+- Host owns retention / audit of who changed which key (1.6: runtime-setting writes log an `info` audit line with the actor; route that channel where you keep audit logs)
+- 1.6 (runtime settings): REQ-SEC-004 audit of the adapter pending before the 1.6.0 tag
 - Multi-worker: after save, other workers see updates on their next request (request-scoped bag + refreshed Doctrine reads; no shared in-memory cache by design)
 - Encryptor key material remains an application secret (DoctrineEncryptBundle configuration)
 - Twig `runtime_env('KEY')` returns decrypted strings — do not expose secrets in public HTML

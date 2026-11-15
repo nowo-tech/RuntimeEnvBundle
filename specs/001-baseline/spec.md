@@ -71,6 +71,13 @@ Allow selected application environment variables to be stored in the database (e
 | FR-WORKER-001 | Bag memoization is bound to the current main request so scenario B (`resetKernel=false`) never serves a previous request’s map. |
 | FR-WORKER-002 | Repository does not depend on DoctrineBundle’s `kernel.reset` for freshness or closed-EM recovery. |
 | FR-WORKER-003 | Access subscriber never reuses another request’s security token when no firewall matched the current request. |
+| FR-ORM-003 | 1.5: `database.entity_manager` / `database.transaction`, after-commit `RuntimeEnvVariableChangedEvent`. |
+| FR-RS-001 | 1.6 (`runtime_setting.enabled`, off by default): `RuntimeEnvSettingStore` implements nowo-tech/runtime-setting-contract's source and writer on the variables table (env-variable ids only), bound to the ports only when nothing else is. |
+| FR-RS-002 | 1.6: values encrypted in the entity's `#[Encrypted]` format; reads through DBAL on every call (no identity map). |
+| FR-RS-003 | 1.6: a never-reused `env` version token in `{prefix}_versions`, changed in the same transaction as every write (store, 1.5 writer, admin UI, purge), also for an identical write; rotation with current + previous + expiry; conditional purge. |
+| FR-RS-004 | 1.6: admin edits of registered writable settings go through `RuntimeSettingUpdater` (same validator and rules as the command; actor `user:<identifier>`). |
+| FR-RS-005 | 1.6: key columns get a binary NO PAD collation on MySQL / MariaDB in the generated schema; fetched rows re-checked with `===`. |
+| FR-RS-006 | 1.6: storage failures on the bundle's routes answer 503 (transient) or 409 (unique conflict). |
 
 ## Acceptance (v1)
 

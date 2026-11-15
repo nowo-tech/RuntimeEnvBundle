@@ -29,9 +29,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Runtime settings backend (nowo-tech/runtime-setting-contract 1.0, opt-in: `runtime_setting.enabled`, default
+  `false`).** A bundle setting that lives in `.env` can come from this table instead, change live through
+  `nowo:runtime-setting:*` or the admin UI, and rotate without downtime.
+  - `RuntimeSetting\RuntimeEnvSettingStore` implements `RuntimeValueSourceInterface` and `RuntimeSettingWriterInterface`
+    on `{prefix}_variables`: the key is the environment variable name, values are encrypted in the entity's
+    `#[Encrypted]` format, reads go through DBAL on every call (no identity map), writes run in their own transaction
+    through transaction-doctrine (never flushing, clearing or resetting an entity manager; refused inside a caller's
+    transaction), rotation keeps the previous value with an expiry, `purgeExpired()` is one conditional `UPDATE`, and
+    every write (also an identical one) changes a never-reused version token of the `env` namespace in
+    `{prefix}_versions` in the same transaction. After the commit: an audit log line (actor, name, action,
+    fingerprints, none for secrets) and `RuntimeEnvVariableChangedEvent`.
+  - The 1.5 writer (`RuntimeEnvWriter`: admin UI and host code) changes the version token in the same flush as its
+    write and drops the previous value of a rotation on a plain update.
+  - The contract ports are bound to the store only when nothing else is (`RuntimeSettingPortsPass`, before
+    NowoRuntimeSettingBundle's default).
+  - With NowoRuntimeSettingBundle registered, admin edits of a registered writable setting go through
+    `RuntimeSettingUpdater`: same validator, bounds and secret rules as the command, audit actor `user:<identifier>`.
+    Other variables keep the free-form path.
+- **Binary NO PAD collation of the key columns on MySQL / MariaDB** (`Doctrine\KeyCollationListener`, REQ-SEC-006):
+  `name` (and `namespace` of the versions table) in the generated schema; existing tables keep theirs until the
+  optional `ALTER` of UPGRADING.
+- **503 / 409 on the bundle's routes** (`Transaction\StorageFailureListener`): a transient storage failure answers
+  503 with `Retry-After`, a unique-key conflict 409, instead of 500.
+
 ### Changed
 
 - Demo uses the UiKit base style (REQ-DEMO-014)
+- Requires `nowo-tech/runtime-setting-contract ^1.0`, `nowo-tech/transaction-contract ^1.0` and
+  `nowo-tech/transaction-doctrine ^1.1` (interfaces and a small DBAL runner; nothing changes unless
+  `runtime_setting.enabled` is true).
 
 ## [1.5.1] - 2026-11-12
 

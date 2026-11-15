@@ -2,7 +2,7 @@
 
 **Baseline spec**: [`spec.md`](spec.md)  
 **Package**: `nowo-tech/runtime-env-bundle`  
-**Last audited**: 2026-09-25
+**Last audited**: 2026-11-16
 
 This file proves that **every production source artifact** under `src/` is inventoried. PHPUnit under `tests/` is out of scope unless promoted in the spec.
 
@@ -33,6 +33,30 @@ This file proves that **every production source artifact** under `src/` is inven
 | `Twig/RuntimeEnvTwigExtension.php` | `runtime_env()` Twig function | FR-TWIG-001 |
 | `Ui/RuntimeEnvPages.php` | UiKit page plumbing: layout, legacy bridge, per-page overrides (REQ-UI-003) | FR-UI-003 |
 | `Ui/RuntimeEnvPageFactory.php` | UiKit view models of the manage pages (REQ-UI-003) | FR-UI-003 |
+| `DependencyInjection/Compiler/AfterCommitMiddlewarePass.php` | After-commit middleware on the bundle connection (1.5) | FR-ORM-003 |
+| `DependencyInjection/Compiler/RuntimeEnvEntityManagerPass.php` | `database.entity_manager` mapping and ownership (1.5) | FR-ORM-003 |
+| `DependencyInjection/Compiler/UnauthenticatedAccessPass.php` | `allow_unauthenticated` only in debug | FR-SEC-001 |
+| `DependencyInjection/Compiler/RuntimeSettingPortsPass.php` | 1.6: runtime-setting ports bound if absent; admin updater path | FR-RS-001, FR-RS-004 |
+| `Doctrine/KeyCollationListener.php` | 1.6: binary NO PAD key columns on MySQL / MariaDB (REQ-SEC-006) | FR-RS-005 |
+| `Event/RuntimeEnvVariableChangedEvent.php` | After-commit change event (1.5) | FR-ORM-003 |
+| `Persistence/AfterCommitConnection.php` | After-commit transaction observer (1.5) | FR-ORM-003 |
+| `Persistence/AfterCommitDriver.php` | After-commit transaction observer (1.5) | FR-ORM-003 |
+| `Persistence/AfterCommitMiddleware.php` | After-commit transaction observer (1.5) | FR-ORM-003 |
+| `Persistence/OwnEntityManagerSubscriber.php` | Bundle-owned manager cleared per unit (1.5) | FR-WORKER-002 |
+| `Persistence/RuntimeEnvOutbox.php` | Committed / pending events (1.5) | FR-ORM-003 |
+| `Persistence/RuntimeEnvPendingEventsInterface.php` | Pending events port (1.5) | FR-ORM-003 |
+| `Persistence/RuntimeEnvTransaction.php` | Unit of work boundary (1.5, 1.5.1) | FR-ORM-003, FR-WORKER-001 |
+| `Persistence/TransactionObserverInterface.php` | Transaction observer port (1.5) | FR-ORM-003 |
+| `RuntimeSetting/DoctrineEncryptValueCipher.php` | 1.6: entity-format encryption for DBAL writes | FR-RS-002 |
+| `RuntimeSetting/Entity/RuntimeEnvVersion.php` | 1.6: `env` version token (mapped only when enabled) | FR-RS-003 |
+| `RuntimeSetting/RuntimeEnvAdminSettings.php` | 1.6: admin edits of registered settings through RuntimeSettingUpdater | FR-RS-004 |
+| `RuntimeSetting/RuntimeEnvSettingStore.php` | 1.6: contract source and writer (DBAL, own transaction, rotation, purge, audit) | FR-RS-001, FR-RS-002, FR-RS-003 |
+| `RuntimeSetting/RuntimeEnvValueCipherInterface.php` | 1.6: cipher port of the store | FR-RS-002 |
+| `RuntimeSetting/RuntimeEnvVersionBumper.php` | 1.6: version bump in the 1.5 writer's flush | FR-RS-003 |
+| `Service/RuntimeEnvReaderInterface.php` | Name-based read port (1.5) | FR-RT-002 |
+| `Service/RuntimeEnvWriterInterface.php` | Name-based write port (1.5) | FR-RT-003 |
+| `Transaction/StorageFailureListener.php` | 1.6: 503 / 409 on the bundle's routes | FR-RS-006 |
+| `Worker/UnitOfWorkFrames.php` | Outermost unit tracking (1.5.1) | FR-WORKER-001 |
 
 ## Symfony config / resources (`src/Resources/`)
 
@@ -55,6 +79,6 @@ This file proves that **every production source artifact** under `src/` is inven
 
 | Category | Files | Mapped |
 | --- | ---: | ---: |
-| PHP classes | 23 | 23 |
+| PHP classes | 47 | 47 |
 | YAML config / translations / Twig / CSS | 12 | 12 |
-| **Total `src/` artifacts** | **31** | **31** |
+| **Total `src/` artifacts** | **59** | **59** |
