@@ -100,7 +100,7 @@ PostgreSQL and SQLite compare exactly already; nothing to do.
   `ensure()` that the 1.5 writer's bumper runs inside your transaction may meet a concurrent store write of the same
   variable in a transient deadlock (503 on the admin routes; retry). Fixed in a 1.6.x patch.
 - **Long table prefix** (Delta QT, QT-D-I-2): the index `idx_{prefix}_variables_prev_exp` may exceed MySQL's 64
-  characters with a very long `table_prefix` (more than 37 characters); keep the prefix shorter.
+  characters with a very long `table_prefix` (more than 41 characters); keep the prefix shorter.
 
 ## To 1.5.1
 
