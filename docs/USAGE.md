@@ -150,15 +150,26 @@ nowo_chat_kit:
 - **Writes** through `nowo:runtime-setting:set|unset|rotate|purge`, through `RuntimeSettingUpdater`, or through the
   admin UI. For a variable that a bundle registered as a writable setting, the admin UI uses the updater too: the
   bundle's validator refuses invalid values (shown on the value field), secrets are never echoed, and the audit actor is
-  `user:<identifier>`. `unset` disables the variable (its row and description stay).
+  `user:<identifier>`. `unset` disables the variable (its row and description stay; a secret's value is emptied, so
+  enabling it again needs a new value).
 - **Rotation**: `rotate` keeps the old value encrypted in `previous_value` until `--keep-previous` expires;
-  `RuntimeSettingResolver::candidates()` returns both inside the window. Expired previous values are deleted by every
-  write and by `nowo:runtime-setting:purge` (schedule it).
+  `RuntimeSettingResolver::candidates()` returns both inside the window, never after. An expired previous value is
+  deleted by the next write of that variable and by `nowo:runtime-setting:purge` (schedule it).
 - **Live change**: every write (store, 1.5 writer, admin UI, purge; also a write that changes nothing) changes the `env`
   version token in the same transaction, so every worker sees the change within `version_ttl`, without a restart.
 - **Transactions**: the store writes through DBAL in its own transaction on the connection of
   `database.entity_manager`, never flushing your entity manager; called inside a transaction you opened, it refuses
-  (`RuntimeSettingNotWritable`). A deadlock on the admin routes answers 503 with `Retry-After`; a duplicate name 409.
+  (`RuntimeSettingNotWritable`). That includes a Messenger handler under the `doctrine_transaction` middleware and a
+  `wrapInTransaction()` on the same connection: change runtime settings outside those units (the contract publishes the
+  change when the writer returns, so it must not join a transaction that may still roll back). A deadlock on the admin
+  routes answers 503 with `Retry-After`; a duplicate name 409.
+- **Locks**: a write locks only its own variable (and the version row): writes of different variables do not wait for
+  each other on MySQL / MariaDB. The version row is created with a statement that cannot conflict, so two first writes
+  serialise instead of failing.
+- **Time**: rotation expiries are stored as UTC wall-clock time, whatever the PHP timezone of the CLI and of the
+  workers.
+- **Replicas**: with a primary / replica DBAL connection, the version and the value are read from the same replica
+  (consistent), so a change is visible once it has replicated.
 - **Audit**: after the commit, an `info` log line (actor, name, action, fingerprints; none for secrets) and
   `RuntimeEnvVariableChangedEvent`, as for 1.5 writes.
 - **Encryption**: values use DoctrineEncryptBundle's default profile (the entity's `#[Encrypted]` format). Replace

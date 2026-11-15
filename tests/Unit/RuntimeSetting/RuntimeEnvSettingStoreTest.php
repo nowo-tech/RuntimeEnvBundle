@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\RuntimeEnvBundle\Tests\Unit\RuntimeSetting;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use Doctrine\DBAL\Exception as DbalException;
 use Doctrine\Persistence\ManagerRegistry;
 use Doctrine\Persistence\ObjectManager;
@@ -31,8 +32,12 @@ use RuntimeException;
 use Stringable;
 use Symfony\Component\Clock\MockClock;
 
+use function date_default_timezone_get;
+use function date_default_timezone_set;
 use function json_encode;
 use function str_repeat;
+
+use const DATE_ATOM;
 
 final class RuntimeEnvSettingStoreTest extends TestCase
 {
@@ -185,15 +190,85 @@ final class RuntimeEnvSettingStoreTest extends TestCase
         self::assertNotSame(RuntimeEnvSettingStore::INITIAL_VERSION, $store->namespaceVersion('env'));
     }
 
-    public function testEveryWritePurgesExpiredPreviousValues(): void
+    public function testAWritePurgesOnlyItsOwnRowTheSweepIsPurgeExpired(): void
     {
         $connection = $this->database();
         $store      = $this->store($connection, clock: $this->clock);
         $this->insertVariable($connection, 'OLD_TOKEN', 'enc:a', true, 'enc:b', new DateTimeImmutable('2026-11-16 11:00:00'));
+        $definition = $this->definition();
+        $store->rotate($definition, 'one', new DateTimeImmutable('2026-11-16 12:00:00'), $this->context());
+        $store->rotate($definition, 'two', new DateTimeImmutable('2026-11-16 12:00:00'), $this->context());
 
-        $store->set($this->definition(), 'x', $this->context());
+        self::assertSame('enc:b', $connection->fetchOne("SELECT previous_value FROM runtime_env_variables WHERE name = 'OLD_TOKEN'"), 'another row is left to purgeExpired() (QT-L-2)');
+        self::assertNull($connection->fetchOne("SELECT previous_value FROM runtime_env_variables WHERE name = 'API_TOKEN'"), 'the written row expires at once (window 0) and is purged');
 
-        self::assertNull($store->read(RuntimeSettingId::fromString('OLD_TOKEN'))?->previous);
+        self::assertSame(1, $store->purgeExpired($this->clock->now()));
+        self::assertNull($connection->fetchOne("SELECT previous_value FROM runtime_env_variables WHERE name = 'OLD_TOKEN'"));
+    }
+
+    public function testRotationExpiriesAreUtcWhateverThePhpTimezone(): void
+    {
+        $default    = date_default_timezone_get();
+        $connection = $this->database();
+        $definition = $this->definition();
+
+        try {
+            // The CLI rotates in UTC with a 1 h window ...
+            date_default_timezone_set('UTC');
+            $store = $this->store($connection, clock: new MockClock('2026-11-15 10:00:00', 'UTC'));
+            $store->set($definition, 'old-secret', $this->context());
+            $store->rotate($definition, 'new-secret', new DateTimeImmutable('2026-11-15 11:00:00', new DateTimeZone('UTC')), $this->context());
+            self::assertSame('2026-11-15 11:00:00', $connection->fetchOne('SELECT previous_expires_at FROM runtime_env_variables'));
+
+            // ... a worker in New York reads it: the window still ends at 11:00 UTC (QT-L-1).
+            date_default_timezone_set('America/New_York');
+            $reader = $this->store($connection);
+            $stored = $reader->read($definition->id);
+            self::assertNotNull($stored);
+            self::assertSame('2026-11-15T11:00:00+00:00', $stored->previousExpiresAt?->format(DATE_ATOM));
+            self::assertNull($stored->previousAt(new DateTimeImmutable('2026-11-15 13:00:00', new DateTimeZone('UTC'))));
+            self::assertSame('old-secret', $stored->previousAt(new DateTimeImmutable('2026-11-15 05:59:00')), '05:59 in New York is 10:59 UTC');
+
+            // A purge from that worker at 13:00 UTC (08:00 local) removes it.
+            self::assertSame(1, $reader->purgeExpired(new DateTimeImmutable('2026-11-15 08:00:00')));
+        } finally {
+            date_default_timezone_set($default);
+        }
+    }
+
+    public function testAnUnreadableExpiryDropsThePreviousValue(): void
+    {
+        $connection = $this->database();
+        $this->insertVariable($connection, 'API_TOKEN', 'enc:wen', true, 'enc:dlo', new DateTimeImmutable('2030-01-01'));
+        $connection->executeStatement("UPDATE runtime_env_variables SET previous_expires_at = 'not a date'");
+
+        self::assertNull($this->store($connection)->read(RuntimeSettingId::fromString('API_TOKEN'))?->previous);
+    }
+
+    public function testUnsetOfASecretEmptiesTheValue(): void
+    {
+        $connection = $this->database();
+        $store      = $this->store($connection);
+        $store->set($this->definition('SECRET_TOKEN', true), 'REDACTED-TEST', $this->context());
+        $store->set($this->definition(), 'plain', $this->context());
+
+        $store->unset($this->definition('SECRET_TOKEN', true), $this->context());
+        $store->unset($this->definition(), $this->context());
+
+        self::assertSame('', $connection->fetchOne("SELECT value FROM runtime_env_variables WHERE name = 'SECRET_TOKEN'"), 'QT-I-4');
+        self::assertSame('enc:nialp', $connection->fetchOne("SELECT value FROM runtime_env_variables WHERE name = 'API_TOKEN'"), 'a plain value stays for the admin');
+    }
+
+    public function testTheVersionRowIsEnsuredThenUpdated(): void
+    {
+        $connection = $this->database();
+        $store      = $this->store($connection);
+        $connection->insert('runtime_env_versions', ['namespace' => 'env', 'token' => RuntimeEnvSettingStore::INITIAL_VERSION]);
+
+        $change = $store->set($this->definition(), 'x', $this->context());
+
+        self::assertSame(1, (int) $connection->fetchOne('SELECT COUNT(*) FROM runtime_env_versions'));
+        self::assertSame($change->version, $store->namespaceVersion('env'));
     }
 
     public function testWritesInsideTheCallersTransactionAreRefused(): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\RuntimeEnvBundle\RuntimeSetting;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Doctrine\DBAL\Types\Type;
@@ -121,13 +122,14 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
 
     public function unset(RuntimeSettingDefinition $definition, RuntimeSettingWriteContext $context): RuntimeSettingChange
     {
-        return $this->write($definition, RuntimeSettingAction::Unset, $context, function (Connection $connection, ?array $row, DateTimeImmutable $now): string {
+        return $this->write($definition, RuntimeSettingAction::Unset, $context, function (Connection $connection, ?array $row, DateTimeImmutable $now) use ($definition): string {
             if ($row === null) {
                 return RuntimeEnvVariableChangedEvent::UPDATED;
             }
 
-            // Unset = disabled (the row, its description and its value stay for the admin; the source reads it as unset).
-            $connection->update($this->variablesTable, [
+            // Unset = disabled (the row and its description stay for the admin; the source reads it as unset). A secret's
+            // value is emptied too (audit QT-I-4): re-enabling it needs a new value, never the old ciphertext.
+            $connection->update($this->variablesTable, ($definition->secret ? ['value' => ''] : []) + [
                 'enabled'             => false,
                 'previous_value'      => null,
                 'previous_expires_at' => null,
@@ -204,7 +206,9 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
             $row        = $this->fetchRow($connection, $definition->key(), true);
             $oldCurrent = $row !== null && $row['enabled'] ? $this->cipher->decrypt($row['value']) : null;
             $event      = $mutation($connection, $row, $now);
-            $this->purge($connection, $now);
+            // Only the row being written (already locked): a table-wide purge here makes two writes of different
+            // variables deadlock on MySQL / MariaDB (audit QT-L-2). The global sweep is purgeExpired()'s job.
+            $this->purge($connection, $now, $definition->key());
 
             return [$oldCurrent, $this->bump($connection), $event];
         });
@@ -238,7 +242,7 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
             'value'               => $value,
             'enabled'             => true,
             'previous_value'      => $previous,
-            'previous_expires_at' => $expires,
+            'previous_expires_at' => $expires instanceof DateTimeImmutable ? self::utc($expires) : null,
             'updated_at'          => $now,
         ];
 
@@ -254,15 +258,30 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
     }
 
     /**
-     * Conditional purge (Delta QS): only rows whose previous value expired at `$now`, in one statement.
+     * Conditional purge (Delta QS): only rows whose previous value expired at `$now` (UTC), in one statement; only the
+     * row `$name` when given.
      */
-    private function purge(Connection $connection, DateTimeImmutable $now): int
+    private function purge(Connection $connection, DateTimeImmutable $now, ?string $name = null): int
     {
-        return (int) $connection->executeStatement(
-            sprintf('UPDATE %s SET previous_value = NULL, previous_expires_at = NULL WHERE previous_expires_at IS NOT NULL AND previous_expires_at <= ?', $this->variablesTable),
-            [$now],
-            [Types::DATETIME_IMMUTABLE],
-        );
+        $sql    = 'UPDATE %s SET previous_value = NULL, previous_expires_at = NULL WHERE previous_expires_at IS NOT NULL AND previous_expires_at <= ?';
+        $params = [self::utc($now)];
+        $types  = [Types::DATETIME_IMMUTABLE];
+        if ($name !== null) {
+            $sql .= ' AND name = ?';
+            $params[] = $name;
+            $types[]  = Types::STRING;
+        }
+
+        return (int) $connection->executeStatement(sprintf($sql, $this->variablesTable), $params, $types);
+    }
+
+    /**
+     * Rotation expiries are stored as UTC wall-clock time (the column has no zone): every writer, purger and reader
+     * agrees whatever its PHP default timezone (audit QT-L-1).
+     */
+    private static function utc(DateTimeImmutable $moment): DateTimeImmutable
+    {
+        return $moment->setTimezone(new DateTimeZone('UTC'));
     }
 
     /**
@@ -270,11 +289,10 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
      */
     private function bump(Connection $connection): string
     {
-        $token   = RuntimeEnvVersionBumper::newToken();
-        $updated = $connection->update($this->versionsTable, ['token' => $token], ['namespace' => RuntimeSettingId::ENV_NAMESPACE]);
-        if ((int) $updated === 0) {
-            $connection->insert($this->versionsTable, ['namespace' => RuntimeSettingId::ENV_NAMESPACE, 'token' => $token]);
-        }
+        // The row exists first (no INSERT race, audit QT-L-3), then the UPDATE locks it and serialises the writers.
+        RuntimeEnvVersionRow::ensure($connection, $this->versionsTable, RuntimeSettingId::ENV_NAMESPACE);
+        $token = RuntimeEnvVersionBumper::newToken();
+        $connection->update($this->versionsTable, ['token' => $token], ['namespace' => RuntimeSettingId::ENV_NAMESPACE]);
 
         return $token;
     }
@@ -287,18 +305,21 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
     private function fetchRow(Connection $connection, string $name, bool $lock): ?array
     {
         $platform = $connection->getDatabasePlatform();
-        // Row lock inside a write (MySQL, MariaDB, PostgreSQL); SQLite locks the whole database for a write anyway.
-        $row = $connection->fetchAssociative(sprintf(
-            'SELECT name, value, enabled, previous_value, previous_expires_at FROM %s WHERE name = ?%s',
-            $this->variablesTable,
-            $lock && !$platform instanceof SQLitePlatform ? ' FOR UPDATE' : '',
-        ), [$name]);
+        $select   = sprintf('SELECT name, value, enabled, previous_value, previous_expires_at FROM %s WHERE name = ?', $this->variablesTable);
+        $row      = $connection->fetchAssociative($select, [$name]);
+        // Lock an EXISTING row only (a record lock on the unique key; MySQL, MariaDB, PostgreSQL): a locking read of a
+        // missing name takes a gap lock on MySQL / MariaDB, and two first writes of different names would deadlock on
+        // their inserts. A missing row is inserted directly (a concurrent insert of the same name is a 409). SQLite
+        // locks the whole database for a write anyway.
+        $row = $lock && is_array($row) && !$platform instanceof SQLitePlatform ? $connection->fetchAssociative($select . ' FOR UPDATE', [$name]) : $row;
         if (!is_array($row) || $row['name'] !== $name || !is_string($row['value'])) {
             return null;
         }
 
         $previous = $row['previous_value'];
-        $expires  = Type::getType(Types::DATETIME_IMMUTABLE)->convertToPHPValue($row['previous_expires_at'], $platform);
+        $raw      = $row['previous_expires_at'];
+        // UTC wall-clock time (QT-L-1); an unreadable expiry drops the previous value (fail closed).
+        $expires = is_string($raw) ? DateTimeImmutable::createFromFormat('!' . $platform->getDateTimeFormatString(), $raw, new DateTimeZone('UTC')) : false;
 
         return [
             'name'                => $name,

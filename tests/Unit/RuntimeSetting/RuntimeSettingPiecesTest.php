@@ -258,6 +258,7 @@ final class RuntimeSettingPiecesTest extends TestCase
         self::assertSame('previous_value', $on->getColumnName('previousValue'));
         self::assertSame('previous_expires_at', $on->getColumnName('previousExpiresAt'));
         self::assertTrue($on->isNullable('previousValue'));
+        self::assertSame(['columns' => ['previous_expires_at']], $on->table['indexes']['idx_custom_variables_prev_exp']);
 
         $version                = new ClassMetadata(RuntimeEnvVersion::class);
         $version->table['name'] = 'runtime_env_versions';

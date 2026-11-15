@@ -8,12 +8,15 @@ use LogicException;
 use Nowo\RuntimeEnvBundle\Controller\RuntimeEnvManageController;
 use Nowo\RuntimeEnvBundle\DependencyInjection\Configuration;
 use Nowo\RuntimeEnvBundle\DependencyInjection\RuntimeEnvExtension;
+use Nowo\RuntimeEnvBundle\Doctrine\KeyCollationListener;
 use Nowo\RuntimeEnvBundle\Doctrine\RuntimeEnvMetadataListener;
 use Nowo\RuntimeEnvBundle\EventSubscriber\RuntimeEnvAccessSubscriber;
 use Nowo\RuntimeEnvBundle\Repository\DoctrineOrmRuntimeEnvVariableRepository;
 use Nowo\RuntimeEnvBundle\Repository\PaginatedRuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Routing\RuntimeEnvRouteLoader;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvSettingStore;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvVersionBumper;
 use Nowo\RuntimeEnvBundle\Security\AllowAllRuntimeEnvAccessChecker;
 use Nowo\RuntimeEnvBundle\Security\ConfigurableRuntimeEnvAccessChecker;
 use Nowo\RuntimeEnvBundle\Security\RuntimeEnvAccessCheckerInterface;
@@ -437,5 +440,35 @@ final class RuntimeEnvExtensionTest extends TestCase
                 return $this->alias;
             }
         };
+    }
+
+    public function testRuntimeSettingsWiringIsOnlyRegisteredWhenEnabled(): void
+    {
+        $off = new ContainerBuilder();
+        $off->registerExtension($this->dummyExtension('security'));
+        $this->extension->load([], $off);
+        self::assertFalse($off->getParameter('nowo_runtime_env.runtime_setting.enabled'));
+        self::assertFalse($off->hasDefinition(KeyCollationListener::class), 'feature off: migrations:diff stays empty (QT-L-4)');
+        self::assertFalse($off->hasDefinition(RuntimeEnvSettingStore::class));
+
+        $on = new ContainerBuilder();
+        $on->registerExtension($this->dummyExtension('security'));
+        $this->extension->load([['runtime_setting' => ['enabled' => true]]], $on);
+        self::assertTrue($on->hasDefinition(KeyCollationListener::class));
+        self::assertTrue($on->hasDefinition(RuntimeEnvSettingStore::class));
+        self::assertSame('runtime_env_versions', $on->getDefinition(RuntimeEnvVersionBumper::class)->getArgument('$versionsTable'));
+    }
+
+    public function testPrependMapsTheVersionEntityOnlyWhenEnabled(): void
+    {
+        $container = new ContainerBuilder();
+        $container->registerExtension($this->extension);
+        $container->registerExtension($this->dummyExtension('doctrine'));
+        $container->loadFromExtension('nowo_runtime_env', ['runtime_setting' => ['enabled' => true]]);
+
+        $this->extension->prepend($container);
+
+        $mappings = $container->getExtensionConfig('doctrine')[0]['orm']['mappings'];
+        self::assertSame('Nowo\\RuntimeEnvBundle\\RuntimeSetting\\Entity', $mappings['RuntimeEnvBundleRuntimeSetting']['prefix']);
     }
 }

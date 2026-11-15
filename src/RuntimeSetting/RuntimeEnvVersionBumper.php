@@ -29,6 +29,7 @@ final readonly class RuntimeEnvVersionBumper
         private ManagerRegistry $registry,
         private string $entityManagerName,
         private bool $ownsManager = true,
+        private string $versionsTable = 'runtime_env_versions',
     ) {
     }
 
@@ -45,6 +46,9 @@ final readonly class RuntimeEnvVersionBumper
             throw new LogicException(sprintf('Entity manager "%s" is not a Doctrine ORM entity manager.', $this->entityManagerName));
         }
 
+        // The row exists before the ORM looks for it (audit QT-L-3): no INSERT race between two first writes, and a
+        // failed flush cannot close the manager on a duplicate key. Safe inside the host's transaction.
+        RuntimeEnvVersionRow::ensure($entityManager->getConnection(), $this->versionsTable, RuntimeSettingId::ENV_NAMESPACE);
         $token   = self::newToken();
         $version = $entityManager->find(RuntimeEnvVersion::class, RuntimeSettingId::ENV_NAMESPACE);
         if ($version instanceof RuntimeEnvVersion) {

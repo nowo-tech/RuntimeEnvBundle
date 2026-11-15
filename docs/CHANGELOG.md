@@ -38,9 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     on `{prefix}_variables`: the key is the environment variable name, values are encrypted in the entity's
     `#[Encrypted]` format, reads go through DBAL on every call (no identity map), writes run in their own transaction
     through transaction-doctrine (never flushing, clearing or resetting an entity manager; refused inside a caller's
-    transaction), rotation keeps the previous value with an expiry, `purgeExpired()` is one conditional `UPDATE`, and
-    every write (also an identical one) changes a never-reused version token of the `env` namespace in
-    `{prefix}_versions` in the same transaction. After the commit: an audit log line (actor, name, action,
+    transaction), rotation keeps the previous value with an expiry (UTC wall-clock time), `purgeExpired()` is one conditional
+    `UPDATE` (a write purges only its own row, so writes of different variables never wait for each other on MySQL /
+    MariaDB), a write locks only an existing row, and every write (also an identical one) changes a never-reused
+    version token of the `env` namespace in `{prefix}_versions` in the same transaction; the version row is created
+    with a statement that cannot conflict (`ON DUPLICATE KEY` / `ON CONFLICT DO NOTHING`). `unset` disables the
+    variable and empties a secret's value. After the commit: an audit log line (actor, name, action,
     fingerprints, none for secrets) and `RuntimeEnvVariableChangedEvent`.
   - The 1.5 writer (`RuntimeEnvWriter`: admin UI and host code) changes the version token in the same flush as its
     write and drops the previous value of a rotation on a plain update.
@@ -49,11 +52,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - With NowoRuntimeSettingBundle registered, admin edits of a registered writable setting go through
     `RuntimeSettingUpdater`: same validator, bounds and secret rules as the command, audit actor `user:<identifier>`.
     Other variables keep the free-form path.
-- **Binary NO PAD collation of the key columns on MySQL / MariaDB** (`Doctrine\KeyCollationListener`, REQ-SEC-006):
-  `name` (and `namespace` of the versions table) in the generated schema; existing tables keep theirs until the
-  optional `ALTER` of UPGRADING.
+- **Binary NO PAD collation of the key columns on MySQL / MariaDB** (`Doctrine\KeyCollationListener`, REQ-SEC-006),
+  with `runtime_setting.enabled` only: `name` (and `namespace` of the versions table) in the generated schema. With
+  the feature off, `migrations:diff` stays empty.
+- CI job "Real databases" (MySQL 8.4, MariaDB 11.4, PostgreSQL 16): the store and the kept-alive kernel test on real
+  servers (`phpunit --group database`).
 - **503 / 409 on the bundle's routes** (`Transaction\StorageFailureListener`): a transient storage failure answers
   503 with `Retry-After`, a unique-key conflict 409, instead of 500.
+
+### Known issues
+
+- QT-L-5 (previous value not covered by DoctrineEncrypt key rotation) and QT-L-6 (admin delete of a registered
+  setting writes no actor audit line): see [UPGRADING](UPGRADING.md#known-issues-fixed-in-a-16x-patch), fixed in a
+  1.6.x patch.
 
 ### Changed
 

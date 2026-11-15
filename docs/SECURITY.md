@@ -52,6 +52,15 @@ No Critical / High / Medium findings. The four Low findings of the 2026-10-30 re
 
 Info items also addressed: dev files export-ignored from the dist; embedded sub-requests (`render(controller())`) and array `_controller` values of the bundle controller are gated; an invalid edit no longer modifies the managed entity (the form edits a detached copy).
 
+### 2026-11-15 audit QT (1.6.0, runtime-setting adapter, PR #39)
+
+| Field | Value |
+|-------|--------|
+| **Head** | `bdf2dc0` |
+| **Method** | Claude Code review of `v1.5.1..bdf2dc0` plus PoCs on MySQL 8.4, MariaDB 11.4 and PostgreSQL 17 |
+| **Result** | No High / Medium. Low findings fixed before the tag: QT-L-1 (rotation expiry UTC), QT-L-2 (write purges only its row; index), QT-L-3 (version row without insert race), QT-L-4 (collation listener only with the feature on), QT-I-4 (`unset` empties a secret). QT-L-5 / QT-L-6: known issues for 1.6.x. Delta re-audit pending |
+| **GHSA** | None (≤ 1.5.1 not affected) |
+
 This subsection is the in-package REQ-SEC-004 record (date, method, grade, residuals).
 
 ## Residual
@@ -60,7 +69,7 @@ This subsection is the in-package REQ-SEC-004 record (date, method, grade, resid
 - Empty `security.access_roles` is **rejected** at compile time (fail-closed) unless `allow_unauthenticated` or a custom `access_checker` is set
 - Demo may set `allow_unauthenticated: true` — refused at compile time outside `kernel.debug` since 1.3.0
 - Host owns retention / audit of who changed which key (1.6: runtime-setting writes log an `info` audit line with the actor; route that channel where you keep audit logs)
-- 1.6 (runtime settings): REQ-SEC-004 audit of the adapter pending before the 1.6.0 tag
+- 1.6 (runtime settings): see the audit QT row below; QT-L-5 and QT-L-6 are known issues for a 1.6.x patch (UPGRADING)
 - Multi-worker: after save, other workers see updates on their next request (request-scoped bag + refreshed Doctrine reads; no shared in-memory cache by design)
 - Encryptor key material remains an application secret (DoctrineEncryptBundle configuration)
 - Twig `runtime_env('KEY')` returns decrypted strings — do not expose secrets in public HTML

@@ -139,11 +139,6 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
             ->setArgument('$runtimeSettings', $runtimeSettings)
             ->setArgument('$versionsTableName', $versionsTable)
             ->addTag('doctrine.event_listener', ['event' => 'loadClassMetadata']));
-        // 1.6: exact (binary NO PAD) collation of the key columns on MySQL / MariaDB, in the generated schema.
-        $container->setDefinition(KeyCollationListener::class, (new Definition(KeyCollationListener::class, [
-            new Reference('doctrine'),
-            new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE),
-        ]))->addTag('doctrine.event_listener', ['event' => 'postGenerateSchemaTable']));
         // 1.6: 503 / 409 instead of 500 for storage failures on the bundle's routes.
         $container->setDefinition(StorageFailureListener::class, (new Definition(StorageFailureListener::class))
             ->addTag('kernel.event_listener', ['event' => KernelEvents::EXCEPTION, 'method' => 'onException', 'priority' => StorageFailureListener::PRIORITY]));
@@ -202,6 +197,13 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
      */
     private function configureRuntimeSettings(ContainerBuilder $container, string $emName, string $variablesTable, string $versionsTable): void
     {
+        // Exact (binary NO PAD) collation of the key columns on MySQL / MariaDB, in the generated schema. Only with the
+        // feature on (audit QT-L-4, owner decision): with it off, migrations:diff stays empty.
+        $container->setDefinition(KeyCollationListener::class, (new Definition(KeyCollationListener::class, [
+            new Reference('doctrine'),
+            new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE),
+        ]))->addTag('doctrine.event_listener', ['event' => 'postGenerateSchemaTable']));
+
         $container->setDefinition(DoctrineEncryptValueCipher::class, new Definition(DoctrineEncryptValueCipher::class, [
             new Reference(EncryptUtil::UTIL_NAME),
         ]));
@@ -222,6 +224,7 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
         $container->setDefinition(RuntimeEnvVersionBumper::class, new Definition(RuntimeEnvVersionBumper::class, [
             '$registry'          => new Reference('doctrine'),
             '$entityManagerName' => $emName,
+            '$versionsTable'     => $versionsTable,
         ]));
         $container->getDefinition(RuntimeEnvWriter::class)->setArgument('$versions', new Reference(RuntimeEnvVersionBumper::class));
     }

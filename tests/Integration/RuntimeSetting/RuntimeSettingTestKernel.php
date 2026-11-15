@@ -46,7 +46,7 @@ final class RuntimeSettingTestKernel extends Kernel implements CompilerPassInter
     use MicroKernelTrait;
 
     public function __construct(
-        private readonly string $database,
+        private readonly string $databaseUrl,
         private readonly string $poolDirectory,
         private readonly int $versionTtl = 1,
     ) {
@@ -70,7 +70,7 @@ final class RuntimeSettingTestKernel extends Kernel implements CompilerPassInter
 
     public function getCacheDir(): string
     {
-        return $this->getProjectDir() . '/' . md5($this->database . $this->poolDirectory . $this->versionTtl) . '/cache';
+        return $this->getProjectDir() . '/' . md5($this->databaseUrl . $this->poolDirectory . $this->versionTtl) . '/cache';
     }
 
     public function getLogDir(): string
@@ -107,7 +107,7 @@ final class RuntimeSettingTestKernel extends Kernel implements CompilerPassInter
             'session'              => ['storage_factory_id' => 'session.storage.factory.mock_file'],
         ]);
         $container->extension('doctrine', [
-            'dbal' => ['url' => 'sqlite:///' . $this->database],
+            'dbal' => ['url' => $this->databaseUrl],
             'orm'  => [],
         ]);
         $container->extension('nowo_runtime_env', [

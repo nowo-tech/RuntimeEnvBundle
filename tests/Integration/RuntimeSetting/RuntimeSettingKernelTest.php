@@ -11,8 +11,11 @@ use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvSettingStore;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriterInterface;
 use Nowo\RuntimeSettingContract\Contract\Exception\InvalidRuntimeSettingValue;
 use Nowo\RuntimeSettingContract\Contract\RuntimeSettingUpdater;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -20,6 +23,9 @@ use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\Request;
 
 use function bin2hex;
+use function getenv;
+use function hash;
+use function is_string;
 use function random_bytes;
 use function spl_object_id;
 use function sys_get_temp_dir;
@@ -52,8 +58,46 @@ final class RuntimeSettingKernelTest extends TestCase
 
     public function testAKeptAliveWorkerSeesWritesOfAnotherKernelWithinTheVersionTtl(): void
     {
-        $worker = $this->kernel(true);
-        $admin  = $this->kernel(false);
+        $this->liveChange('sqlite:///' . $this->directory . '/db.sqlite');
+    }
+
+    /**
+     * QT-I-5: the same flow on MySQL, MariaDB and PostgreSQL (CI job "Real databases").
+     */
+    #[Group('database')]
+    #[DataProvider('realDatabases')]
+    public function testTheSameOnARealDatabase(?string $url): void
+    {
+        if ($url === null) {
+            self::markTestSkipped('Set RE_MYSQL_URL / RE_MARIADB_URL / RE_POSTGRES_URL to run against real servers.');
+        }
+
+        $this->liveChange($url);
+    }
+
+    /**
+     * @return iterable<string, array{0: string|null}>
+     */
+    public static function realDatabases(): iterable
+    {
+        $any = false;
+        foreach (['MySQL' => 'RE_MYSQL_URL', 'MariaDB' => 'RE_MARIADB_URL', 'PostgreSQL' => 'RE_POSTGRES_URL'] as $name => $variable) {
+            $url = getenv($variable);
+            if (is_string($url) && $url !== '') {
+                $any = true;
+
+                yield $name => [$url];
+            }
+        }
+        if (!$any) {
+            yield 'none configured' => [null];
+        }
+    }
+
+    private function liveChange(string $url): void
+    {
+        $worker = $this->kernel(true, $url);
+        $admin  = $this->kernel(false, $url);
         $id     = spl_object_id($worker->getContainer());
         /** @var MockClock $clock */
         $clock = $worker->getContainer()->get('nowo_runtime_setting.clock');
@@ -64,6 +108,14 @@ final class RuntimeSettingKernelTest extends TestCase
         self::assertInstanceOf(RuntimeSettingUpdater::class, $updater);
         $updater->set('DEMO_TOKEN', 'first', 'cli:test');
         self::assertSame('first', $this->request($worker));
+        // The shared pool really holds the value, under the token the source reports (QT-I-5).
+        $source = $this->service($admin, 'test.source');
+        self::assertInstanceOf(RuntimeEnvSettingStore::class, $source);
+        $item = (new FilesystemAdapter('runtime_setting', 0, $this->directory . '/pool'))->getItem('nowo_runtime_setting.' . hash('sha256', 'DEMO_TOKEN'));
+        self::assertTrue($item->isHit(), 'the worker filled the shared pool');
+        $payload = $item->get();
+        self::assertIsArray($payload);
+        self::assertSame($source->namespaceVersion('env'), $payload['v']);
 
         // Through the contract updater: cached under the old token until version_ttl.
         $updater->set('DEMO_TOKEN', 'second', 'cli:test');
@@ -95,7 +147,7 @@ final class RuntimeSettingKernelTest extends TestCase
 
     public function testTheBundleValidatorRefusesTheValueOnEveryWritePath(): void
     {
-        $admin   = $this->kernel(true);
+        $admin   = $this->kernel(true, 'sqlite:///' . $this->directory . '/db.sqlite');
         $updater = $this->service($admin, 'test.updater');
         self::assertInstanceOf(RuntimeSettingUpdater::class, $updater);
 
@@ -103,9 +155,9 @@ final class RuntimeSettingKernelTest extends TestCase
         $updater->set('DEMO_TOKEN', "two\nlines", 'cli:test');
     }
 
-    private function kernel(bool $createSchema): RuntimeSettingTestKernel
+    private function kernel(bool $createSchema, string $url): RuntimeSettingTestKernel
     {
-        $kernel = new RuntimeSettingTestKernel($this->directory . '/db.sqlite', $this->directory . '/pool');
+        $kernel = new RuntimeSettingTestKernel($url, $this->directory . '/pool');
         $kernel->boot();
         $this->kernels[] = $kernel;
 

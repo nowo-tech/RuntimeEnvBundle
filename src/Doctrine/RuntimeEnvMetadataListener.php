@@ -43,6 +43,8 @@ final readonly class RuntimeEnvMetadataListener
         if ($this->runtimeSettings && !$metadata->hasField('previousValue')) {
             $metadata->mapField(['fieldName' => 'previousValue', 'columnName' => 'previous_value', 'type' => 'text', 'nullable' => true]);
             $metadata->mapField(['fieldName' => 'previousExpiresAt', 'columnName' => 'previous_expires_at', 'type' => 'datetime_immutable', 'nullable' => true]);
+            // purgeExpired() locks only the expired range (audit QT-L-2). Expiries are UTC wall-clock time (QT-L-1).
+            $metadata->table['indexes']['idx_' . $this->variablesTableName . '_prev_exp'] = ['columns' => ['previous_expires_at']];
         }
     }
 }
