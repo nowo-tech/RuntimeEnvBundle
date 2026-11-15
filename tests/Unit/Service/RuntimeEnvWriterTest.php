@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace Nowo\RuntimeEnvBundle\Tests\Unit\Service;
 
+use DateTimeImmutable;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use InvalidArgumentException;
 use Nowo\RuntimeEnvBundle\Entity\RuntimeEnvVariable;
 use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\Entity\RuntimeEnvVersion;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvVersionBumper;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvBag;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -127,5 +132,23 @@ final class RuntimeEnvWriterTest extends TestCase
         $this->repository->expects(self::once())->method('remove')->with($variable);
 
         $this->writer->delete($variable);
+    }
+
+    public function testWithRuntimeSettingsEveryWriteBumpsTheVersionInTheSameUnitAndClearsThePreviousValue(): void
+    {
+        $manager = $this->createMock(EntityManagerInterface::class);
+        $manager->method('isOpen')->willReturn(true);
+        $manager->method('find')->willReturn(null);
+        $manager->expects(self::exactly(3))->method('persist')->with(self::isInstanceOf(RuntimeEnvVersion::class));
+        $registry = $this->createMock(ManagerRegistry::class);
+        $registry->method('getManager')->willReturn($manager);
+        $writer = new RuntimeEnvWriter($this->repository, $this->bag, versions: new RuntimeEnvVersionBumper($registry, 'default'));
+        $this->repository->method('findOneByName')->willReturn(null);
+
+        $variable = $writer->create('API_TOKEN', 'one');
+        $variable->setPrevious('enc:old', new DateTimeImmutable('2030-01-01'));
+        $writer->update($variable, 'two', null, true);
+        self::assertNull($variable->getPreviousValue(), 'a plain write drops the rotated-out value');
+        $writer->delete($variable);
     }
 }

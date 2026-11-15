@@ -18,6 +18,13 @@
         </testsuite>
     </testsuites>
 
+    <!-- Real MySQL / MariaDB / PostgreSQL tests (1.6): CI job "Real databases" runs them with -group database. -->
+    <groups>
+        <exclude>
+            <group>database</group>
+        </exclude>
+    </groups>
+
     <php>
         <env name="SYMFONY_DEPRECATIONS_HELPER" value="max[direct]=0"/>
     </php>

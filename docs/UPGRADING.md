@@ -3,6 +3,9 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+  - [Exact key collation (MySQL / MariaDB, with `runtime_setting.enabled` only)](#exact-key-collation-mysql--mariadb-with-runtime_settingenabled-only)
+  - [Opt in: runtime settings (`runtime_setting.enabled`)](#opt-in-runtime-settings-runtime_settingenabled)
+  - [Known issues (fixed in a 1.6.x patch)](#known-issues-fixed-in-a-16x-patch)
 - [To 1.5.1](#to-151)
 - [To 1.5.0](#to-150)
 - [To 1.4.1](#to-141)
@@ -33,6 +36,71 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+Target 1.6.0. Nothing changes until you opt in; RuntimeEnvBag, `runtime_env()` and the admin UI behave as in 1.5.
+
+### Exact key collation (MySQL / MariaDB, with `runtime_setting.enabled` only)
+
+With the feature off, `doctrine:migrations:diff` stays empty. With it on, the generated schema gives `name` a binary
+NO PAD collation (MariaDB `utf8mb4_nopad_bin`, MySQL 8.0+
+`utf8mb4_0900_bin`; MySQL 5.7 keeps the PAD SPACE `utf8mb4_bin` with a warning). `doctrine:migrations:diff` /
+`schema:update --dump-sql` will propose it. Existing tables keep working without it (every lookup is re-checked in PHP);
+apply it when convenient:
+
+```sql
+-- MySQL 8.0+
+ALTER TABLE runtime_env_variables MODIFY name VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_bin NOT NULL;
+-- MariaDB
+ALTER TABLE runtime_env_variables MODIFY name VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL;
+```
+
+PostgreSQL and SQLite compare exactly already; nothing to do.
+
+### Opt in: runtime settings (`runtime_setting.enabled`)
+
+1. Enable it and register the contract's Symfony bundle (for the commands, the resolver and the updater):
+
+   ```yaml
+   nowo_runtime_env:
+       runtime_setting:
+           enabled: true
+   nowo_runtime_setting:
+       cache_pool: cache.app      # recommended in production
+       version_ttl: 5
+       command:
+           enabled: false         # turn on deliberately
+   ```
+
+2. Generate and run a migration: two nullable columns on `{prefix}_variables` (`previous_value` TEXT,
+   `previous_expires_at` DATETIME, UTC wall-clock time, with the index `idx_{prefix}_variables_prev_exp`), the table
+   `{prefix}_versions` (`namespace` VARCHAR(64) primary key, `token` VARCHAR(128)) and, on MySQL / MariaDB, the
+   collation above. Without the feature they are not mapped, so `migrations:diff` neither adds nor drops them.
+   Turning the feature off again makes the next diff propose dropping them (that also deletes rotated-out secrets).
+3. In the adopting bundles, set `runtime.<setting>.key` to the environment variable name (e.g. `CHAT_RETENTION_DAYS`)
+   and `source: db_then_env` (or `db`).
+4. Values written while the feature is off still change through the 1.5 writer; once it is on, every write changes the
+   version token, so running workers pick the change up within `version_ttl`.
+5. The version row is created on demand with a statement that cannot conflict (`INSERT … ON DUPLICATE KEY UPDATE` on
+   MySQL / MariaDB, `INSERT … ON CONFLICT DO NOTHING` on PostgreSQL / SQLite), then updated: two first writes
+   serialise, no deadlock and no duplicate key. Seeding it in your migration
+   (`INSERT INTO runtime_env_versions VALUES ('env', '0')`) is still fine.
+6. Schedule `nowo:runtime-setting:purge` (cron, Scheduler, a message): a write purges only its own row's expired
+   previous value; the table-wide sweep is the purge command.
+
+### Known issues (fixed in a 1.6.x patch)
+
+- **Previous value and DoctrineEncrypt key rotation** (audit QT-L-5): `previous_value` is not an `#[Encrypted]`
+  property, so `doctrine:encrypt:rotate-keys` / `encrypt:database` / `decrypt:database` do not re-encrypt it, and an
+  undecryptable previous value makes the read of the setting fail until the row is purged. Rotate DoctrineEncrypt keys
+  outside a rotation window, or run `nowo:runtime-setting:purge` after the window first.
+- **Admin delete of a registered setting** (audit QT-L-6) goes through the 1.5 writer: the version changes and
+  `RuntimeEnvVariableChangedEvent` is dispatched, but no runtime-setting audit line with the actor is written. Use
+  `nowo:runtime-setting:unset` (audited) for registered settings until then.
+- **Bumper deadlock with `database.transaction: host`** (Delta QT, QT-D-I-1): on MySQL / MariaDB, the version-row
+  `ensure()` that the 1.5 writer's bumper runs inside your transaction may meet a concurrent store write of the same
+  variable in a transient deadlock (503 on the admin routes; retry). Fixed in a 1.6.x patch.
+- **Long table prefix** (Delta QT, QT-D-I-2): the index `idx_{prefix}_variables_prev_exp` may exceed MySQL's 64
+  characters with a very long `table_prefix` (more than 41 characters); keep the prefix shorter.
 
 ## To 1.5.1
 

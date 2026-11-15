@@ -6,9 +6,11 @@ RUN apk add --no-cache \
     unzip \
     bash \
     libzip-dev \
-    libsodium-dev
+    libsodium-dev \
+    postgresql-dev
 
-RUN docker-php-ext-install -j$(nproc) zip sodium
+# pdo_mysql / pdo_pgsql: the real-database tests (phpunit --group database, 1.6).
+RUN docker-php-ext-install -j$(nproc) zip sodium pdo_mysql pdo_pgsql
 
 RUN apk add --no-cache $PHPIZE_DEPS \
     && pecl install pcov \

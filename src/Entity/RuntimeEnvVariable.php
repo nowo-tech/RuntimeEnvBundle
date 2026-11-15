@@ -7,6 +7,8 @@ namespace Nowo\RuntimeEnvBundle\Entity;
 use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 use Nowo\DoctrineEncryptBundle\Configuration\Encrypted;
+use Nowo\RuntimeEnvBundle\Doctrine\RuntimeEnvMetadataListener;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvSettingStore;
 
 /**
  * A single runtime environment variable persisted in the database.
@@ -26,6 +28,16 @@ class RuntimeEnvVariable
 
     #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
     private DateTimeImmutable $updatedAt;
+
+    /**
+     * 1.6 (runtime_setting.enabled only): the previous value of a rotation, as stored (ciphertext with the
+     * DoctrineEncrypt marker, written by {@see RuntimeEnvSettingStore}). Mapped by {@see RuntimeEnvMetadataListener}
+     * only when the feature is on, so hosts that do not use it need no migration.
+     */
+    private ?string $previousValue = null;
+
+    /** 1.6: when {@see $previousValue} stops being accepted (mapped only when runtime_setting.enabled). */
+    private ?DateTimeImmutable $previousExpiresAt = null;
 
     public function __construct(
         #[ORM\Column(type: 'string', length: 128)]
@@ -120,5 +132,46 @@ class RuntimeEnvVariable
     public function getUpdatedAt(): DateTimeImmutable
     {
         return $this->updatedAt;
+    }
+
+    /**
+     * 1.6: the previous value of a rotation as stored (ciphertext), or null.
+     */
+    public function getPreviousValue(): ?string
+    {
+        return $this->previousValue;
+    }
+
+    public function getPreviousExpiresAt(): ?DateTimeImmutable
+    {
+        return $this->previousExpiresAt;
+    }
+
+    /**
+     * @internal 1.6: Doctrine hydrates the rotation columns (written by RuntimeEnvSettingStore through DBAL); this setter
+     *           serves tests and static analysis
+     */
+    public function setPrevious(?string $previousValue, ?DateTimeImmutable $previousExpiresAt): self
+    {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->previousValue = $previousValue;
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->previousExpiresAt = $previousExpiresAt;
+
+        return $this;
+    }
+
+    /**
+     * 1.6: forgets the previous value of a rotation (a plain write replaces the value; the old one is no longer
+     * accepted).
+     */
+    public function clearPrevious(): self
+    {
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->previousValue = null;
+        // @igor-ignore - Doctrine entity field; instance-scoped, not a shared service.
+        $this->previousExpiresAt = null;
+
+        return $this;
     }
 }

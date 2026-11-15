@@ -8,6 +8,7 @@ Alias: `nowo_runtime_env`
 | `table_prefix` | `runtime_env` | Table becomes `{prefix}_variables` |
 | `database.entity_manager` | `default` | Doctrine entity manager that maps the bundle entity. 1.5: mapped on that manager **only** (also off an `auto_mapping` default), every read / write uses it, the build fails when it is not declared. When it is not your default manager the bundle owns it (reset when closed, cleared at every request / message / command). |
 | `database.transaction` | `bundle` | 1.5. `host` (DDD hosts): `RuntimeEnvWriter` does not flush when your code calls it; your use case commits and `RuntimeEnvVariableChangedEvent` follows your commit. The admin UI keeps flushing its own writes. |
+| `runtime_setting.enabled` | `false` | 1.6: nowo-tech/runtime-setting-contract source and writer on this table (key = variable name, values encrypted, rotation, version token). Maps two nullable columns and `{prefix}_versions`: migrate when you enable it. Literal boolean only. See [USAGE](USAGE.md#runtime-settings-16). |
 | `security.access_roles` | `[ROLE_ADMIN]` | REQ-UI-002. An empty list is rejected unless `access_checker` or `allow_unauthenticated` is set. |
 | `security.access_checker` | `null` | Optional service id implementing `RuntimeEnvAccessCheckerInterface` |
 | `security.allow_unauthenticated` | `false` | Demo only: refused at compile time unless `kernel.debug` is true (manage UI enabled). |
@@ -17,7 +18,7 @@ Alias: `nowo_runtime_env`
 | `web_ui.templates.<page>` | `{}` | Per-page template overrides: `index`, `form` (see [TEMPLATES.md](TEMPLATES.md#per-page-overrides)). Unknown page ids fail the container compilation. |
 | `web_ui.list_page_size` | `50` (1–500) | Rows per page of the manage list (REQ-PERF-001; `?page=N`). |
 
-`enabled`, `web_ui.enabled`, `panel.enabled` and `security.allow_unauthenticated` are security switches: they accept
+`enabled`, `web_ui.enabled`, `panel.enabled`, `security.allow_unauthenticated` and `runtime_setting.enabled` are security switches: they accept
 only literal `true` / `false`. An `%env(bool:…)%` placeholder is refused (`InvalidConfigurationException`) because it
 would read as true while the container is built.
 

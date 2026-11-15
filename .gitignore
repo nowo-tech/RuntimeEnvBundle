@@ -28,3 +28,6 @@
 
 # Cursor local sandbox (machine-specific; REQ-IDE-005)
 .cursor/sandbox.json
+
+# Twig CS Fixer cache
+/.twig-cs-fixer.cache

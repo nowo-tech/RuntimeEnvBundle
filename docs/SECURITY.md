@@ -21,6 +21,7 @@
 | Edit form | Secret rendered back into HTML | Since 1.1.0 the edit form never renders the stored (decrypted) value: the field starts empty, blank keeps the value, `clear_value` empties it. Since 1.3.0 a typed value is never re-rendered after a failed submission (create and edit) |
 | List / templates | Secret printed by a template | Since 1.3.0 no entity reaches the templates: list rows are value-free arrays, the value column key resolves to nothing |
 | Configuration | Fail-open switches | Since 1.3.0 security switches accept only literal booleans; `allow_unauthenticated: true` is refused unless `kernel.debug` |
+| Runtime settings (1.6, opt-in) | Invalid or hostile values written live; secrets echoed; stale values; look-alike names | Admin edits of registered settings and the commands go through `RuntimeSettingUpdater` (registered ids, bundle validator first, secrets only via STDIN and never fingerprinted); values encrypted as in 1.5 (previous values too, as stored ciphertext); version token changed in the write transaction; DBAL reads re-checked with `===`; binary NO PAD key collation on MySQL / MariaDB; storage failures answer 503 / 409 with fixed messages on the bundle's routes |
 | FrankenPHP worker | Cross-request leak / stale config | Request-scoped bag memoization; repository `HINT_REFRESH` + `ManagerRegistry`; access subscriber priority 7 + `_firewall_context`; no `$_ENV`/`putenv` |
 
 ## Defaults
@@ -51,6 +52,16 @@ No Critical / High / Medium findings. The four Low findings of the 2026-10-30 re
 
 Info items also addressed: dev files export-ignored from the dist; embedded sub-requests (`render(controller())`) and array `_controller` values of the bundle controller are gated; an invalid edit no longer modifies the managed entity (the form edits a detached copy).
 
+### 2026-11-15 audit QT (1.6.0, runtime-setting adapter, PR #39)
+
+| Field | Value |
+|-------|--------|
+| **Head** | `bdf2dc0` |
+| **Method** | Claude Code review of `v1.5.1..bdf2dc0` plus PoCs on MySQL 8.4, MariaDB 11.4 and PostgreSQL 17 |
+| **Result** | No High / Medium. Low findings fixed before the tag: QT-L-1 (rotation expiry UTC), QT-L-2 (write purges only its row; index), QT-L-3 (version row without insert race), QT-L-4 (collation listener only with the feature on), QT-I-4 (`unset` empties a secret). QT-L-5 / QT-L-6: known issues for 1.6.x |
+| **Status** | Audited (QT + Delta QT, 2026-11-16, `85701e0`): taggable, no open High/Medium; QT-L-5/L-6 known issues for 1.6.x |
+| **GHSA** | None (≤ 1.5.1 not affected) |
+
 This subsection is the in-package REQ-SEC-004 record (date, method, grade, residuals).
 
 ## Residual
@@ -58,7 +69,8 @@ This subsection is the in-package REQ-SEC-004 record (date, method, grade, resid
 - Host owns firewall `access_control` on `web_ui.path_prefix` (soft gate alone is not enough)
 - Empty `security.access_roles` is **rejected** at compile time (fail-closed) unless `allow_unauthenticated` or a custom `access_checker` is set
 - Demo may set `allow_unauthenticated: true` — refused at compile time outside `kernel.debug` since 1.3.0
-- Host owns retention / audit of who changed which key
+- Host owns retention / audit of who changed which key (1.6: runtime-setting writes log an `info` audit line with the actor; route that channel where you keep audit logs)
+- 1.6 (runtime settings): see the audit QT row below; QT-L-5 and QT-L-6 are known issues for a 1.6.x patch (UPGRADING)
 - Multi-worker: after save, other workers see updates on their next request (request-scoped bag + refreshed Doctrine reads; no shared in-memory cache by design)
 - Encryptor key material remains an application secret (DoctrineEncryptBundle configuration)
 - Twig `runtime_env('KEY')` returns decrypted strings — do not expose secrets in public HTML
