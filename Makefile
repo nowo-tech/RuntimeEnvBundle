@@ -12,7 +12,7 @@ endif
 COMPOSE     := $(COMPOSE_BIN) -f $(COMPOSE_FILE)
 SERVICE_PHP := php
 
-.PHONY: check-open-prs help up down down-dev build shell install ensure-up test test-unit test-coverage coverage-php-percent cs-check cs-fix qa clean release-check release-check-demos demo-smoke composer-sync rector rector-dry phpstan igor update validate setup-hooks check-no-cursor-coauthor strip-cursor-coauthor-from-history validate-translations check-twig-extra check-no-raw-html-form assets update-deps
+.PHONY: check-open-prs help up down down-dev build shell install ensure-up test test-unit test-coverage test-with-db test-coverage-with-db coverage-php-percent cs-check cs-fix qa clean release-check release-check-demos demo-smoke composer-sync rector rector-dry phpstan igor update validate setup-hooks check-no-cursor-coauthor strip-cursor-coauthor-from-history validate-translations check-twig-extra check-no-raw-html-form assets update-deps
 
 help:
 	@echo "Runtime Env Bundle - Development Commands"
@@ -29,6 +29,8 @@ help:
 	@echo "  assets        No-op (no frontend in this bundle)"
 	@echo "  test          Run PHPUnit tests (starts container if needed)"
 	@echo "  test-coverage Run tests with code coverage (starts container if needed)"
+	@echo "  test-with-db  Run the real-database tests (--group database) on MySQL, MariaDB and PostgreSQL containers"
+	@echo "  test-coverage-with-db  Run the whole suite with coverage and the database group, then stop the database containers"
 	@echo "  coverage-php-percent  Print Lines %% from coverage-php.txt"
 	@echo "  cs-check      Check code style"
 	@echo "  cs-fix        Fix code style"
@@ -93,7 +95,23 @@ test-unit: ensure-up
 test-coverage: ensure-up
 	$(COMPOSE) exec -T $(SERVICE_PHP) composer test-coverage | tee coverage-php.txt
 	./.scripts/php-coverage-percent.sh coverage-php.txt
-	sh .scripts/coverage-fail-under.sh coverage-php.txt 99
+	sh .scripts/coverage-fail-under.sh coverage-php.txt 100
+
+# Real servers (REQ-TEST-005). RE_* URLs point at the compose services of profile "db"; they are stopped afterwards.
+DB_ENV := -e RE_MYSQL_URL='mysql://root@mysql:3306/reb?serverVersion=8.4.0&charset=utf8mb4' \
+	-e RE_MARIADB_URL='mysql://root@mariadb:3306/reb?serverVersion=11.4.0-MariaDB&charset=utf8mb4' \
+	-e RE_POSTGRES_URL='pgsql://postgres@postgres:5432/reb?serverVersion=16'
+
+test-with-db: ensure-up
+	$(COMPOSE) --profile db up -d --wait mysql mariadb postgres
+	$(COMPOSE) exec -T $(DB_ENV) $(SERVICE_PHP) vendor/bin/phpunit --group database --no-coverage --fail-on-skipped; \
+	status=$$?; $(COMPOSE) --profile db stop mysql mariadb postgres; exit $$status
+
+test-coverage-with-db: ensure-up
+	$(COMPOSE) --profile db up -d --wait mysql mariadb postgres
+	$(COMPOSE) exec -T $(DB_ENV) $(SERVICE_PHP) composer test-coverage | tee coverage-php.txt; \
+	status=$$?; $(COMPOSE) --profile db stop mysql mariadb postgres; \
+	./.scripts/php-coverage-percent.sh coverage-php.txt && sh .scripts/coverage-fail-under.sh coverage-php.txt 100; exit $$status
 
 coverage-php-percent:
 	@./.scripts/php-coverage-percent.sh coverage-php.txt

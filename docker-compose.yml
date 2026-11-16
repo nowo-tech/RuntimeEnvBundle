@@ -16,6 +16,49 @@ services:
     networks:
       - runtime-env-bundle-network
 
+  # Real servers for `make test-with-db` (profile "db": not started by `make up`).
+  mysql:
+    profiles: ["db"]
+    image: mysql:8.4
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: reb
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - runtime-env-bundle-network
+
+  mariadb:
+    profiles: ["db"]
+    image: mariadb:11.4
+    environment:
+      MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: "yes"
+      MARIADB_DATABASE: reb
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - runtime-env-bundle-network
+
+  postgres:
+    profiles: ["db"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: reb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - runtime-env-bundle-network
+
 volumes:
   composer-cache:
     driver: local

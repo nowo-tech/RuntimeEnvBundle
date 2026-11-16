@@ -106,7 +106,12 @@ jobs:
         if: matrix.php == '8.2' && matrix.symfony == '7.4'
         env:
           SYMFONY_DEPRECATIONS_HELPER: max[direct]=0
-        run: composer test-coverage
+        shell: bash
+        run: composer test-coverage | tee coverage-php.txt
+
+      - name: Coverage gate (100% of lines)
+        if: matrix.php == '8.2' && matrix.symfony == '7.4'
+        run: sh .scripts/coverage-fail-under.sh coverage-php.txt 100
 
   database:
     name: Real databases (MySQL 8.4, MariaDB 11.4, PostgreSQL 16)

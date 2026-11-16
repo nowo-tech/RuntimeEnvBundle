@@ -53,6 +53,7 @@ This file proves that **every production source artifact** under `src/` is inven
 | `RuntimeSetting/RuntimeEnvSettingStore.php` | 1.6: contract source and writer (DBAL, own transaction, rotation, purge, audit) | FR-RS-001, FR-RS-002, FR-RS-003 |
 | `RuntimeSetting/RuntimeEnvValueCipherInterface.php` | 1.6: cipher port of the store | FR-RS-002 |
 | `RuntimeSetting/RuntimeEnvVersionBumper.php` | 1.6: version bump in the 1.5 writer's flush | FR-RS-003 |
+| `RuntimeSetting/RuntimeEnvVersionRow.php` | 1.6 (audit QT-L-3): version row of a namespace seeded with a statement that cannot conflict (serialises first writes) | FR-RS-003 |
 | `Service/RuntimeEnvReaderInterface.php` | Name-based read port (1.5) | FR-RT-002 |
 | `Service/RuntimeEnvWriterInterface.php` | Name-based write port (1.5) | FR-RT-003 |
 | `Transaction/StorageFailureListener.php` | 1.6: 503 / 409 on the bundle's routes | FR-RS-006 |
@@ -79,6 +80,6 @@ This file proves that **every production source artifact** under `src/` is inven
 
 | Category | Files | Mapped |
 | --- | ---: | ---: |
-| PHP classes | 47 | 47 |
+| PHP classes | 48 | 48 |
 | YAML config / translations / Twig / CSS | 12 | 12 |
-| **Total `src/` artifacts** | **59** | **59** |
+| **Total `src/` artifacts** | **60** | **60** |
