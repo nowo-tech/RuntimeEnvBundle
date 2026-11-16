@@ -15,6 +15,7 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use Symfony\Component\HttpKernel\Kernel;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
+use function getmypid;
 use function md5;
 use function serialize;
 use function sys_get_temp_dir;
@@ -54,7 +55,9 @@ final class PersistenceTestKernel extends Kernel
 
     public function getCacheDir(): string
     {
-        return $this->getProjectDir() . '/' . md5(serialize([$this->doctrine, $this->database])) . '/cache';
+        // The process id keeps a container compiled by an earlier run (e.g. `composer test` before the coverage run) from
+        // being reused: a cached container skips the extension's prepend() and would hide it from the coverage report.
+        return $this->getProjectDir() . '/' . md5(serialize([$this->doctrine, $this->database])) . '-' . getmypid() . '/cache';
     }
 
     public function getLogDir(): string

@@ -13,6 +13,7 @@ make setup-hooks
 make install
 make cs-check
 make test
+make test-with-db   # real MySQL / MariaDB / PostgreSQL containers (--group database)
 make phpstan
 make igor
 make rector-dry

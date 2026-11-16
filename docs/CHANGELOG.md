@@ -30,6 +30,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Tests
+
+- Coverage is 100% again in CI: the persistence test kernel compiled its container into a cache directory shared between runs, so the coverage run reused the container built by `composer test` and never executed the extension's `prepend()` paths (99.49% reported). The cache directory now carries the process id.
+- CI: the coverage run is followed by a 100% line gate (`.scripts/coverage-fail-under.sh`); `make test-coverage` gate raised from 99 to 100.
+- `make test-with-db` / `make test-coverage-with-db`: the real-database group on MySQL 8.4, MariaDB 11.4 and PostgreSQL 16 containers (compose profile `db`).
+
+### Docs
+
+- Spec Kit inventory maps `RuntimeSetting/RuntimeEnvVersionRow.php` (60 artifacts); `docs/ENGRAM.md` points at the upstream Engram repository.
+
+### CI
+
+- Dependabot: npm entry for `demo/symfony8/e2e`.
+
 ## [1.6.0] - 2026-11-15
 
 ### Added
