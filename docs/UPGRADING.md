@@ -38,6 +38,10 @@
 
 ## Unreleased
 
+### Named asset package `nowo_runtime_env`
+
+The bundle now registers `framework.assets.packages.nowo_runtime_env` (`base_path: /bundles/noworuntimeenv`, the `assets:install` target) and its own template loads the stylesheet with `asset('css/runtime-env.css', 'nowo_runtime_env')` instead of the hard-coded `bundles/noworuntimeenv/...` path. The URL is unchanged by default; run `php bin/console assets:install` after the upgrade. A template that overrides `manage/form.html.twig` and still uses the hard-coded path keeps working, but should switch to the package (REQ-ASSETS-004).
+
 ## To 1.6.0
 
 From **1.5.1**:
