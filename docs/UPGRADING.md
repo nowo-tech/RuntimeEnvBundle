@@ -3,6 +3,8 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.7.0](#to-170)
+  - [Named asset package `nowo_runtime_env`](#named-asset-package-nowo_runtime_env)
 - [To 1.6.0](#to-160)
   - [Exact key collation (MySQL / MariaDB, with `runtime_setting.enabled` only)](#exact-key-collation-mysql--mariadb-with-runtime_settingenabled-only)
   - [Opt in: runtime settings (`runtime_setting.enabled`)](#opt-in-runtime-settings-runtime_settingenabled)
@@ -37,6 +39,14 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+## To 1.7.0
+
+From **1.6.0**:
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
 
 ### Named asset package `nowo_runtime_env`
 
