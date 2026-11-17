@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Demo: `make test-e2e` uses the Playwright image that matches `e2e/package.json` (1.65).
+- `prepend()` registers the asset package `nowo_runtime_env` (`/bundles/noworuntimeenv`) and `manage/form.html.twig` loads `css/runtime-env.css` through it; the URL is unchanged (REQ-ASSETS-004).
+
 ### Tests
 
 - Coverage is 100% again in CI: the persistence test kernel compiled its container into a cache directory shared between runs, so the coverage run reused the container built by `composer test` and never executed the extension's `prepend()` paths (99.49% reported). The cache directory now carries the process id.

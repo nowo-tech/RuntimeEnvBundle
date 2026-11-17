@@ -313,6 +313,21 @@ final class RuntimeEnvExtensionTest extends TestCase
         self::assertSame('tabler-icons', $uiKitConfig[0]['icon_set']);
     }
 
+    public function testPrependRegistersTheNamedAssetPackage(): void
+    {
+        $container = new ContainerBuilder();
+        $container->registerExtension($this->extension);
+        $container->registerExtension($this->dummyExtension('framework'));
+
+        $this->extension->prepend($container);
+
+        $frameworkConfig = $container->getExtensionConfig('framework');
+        self::assertSame(
+            ['base_path' => '/bundles/noworuntimeenv'],
+            $frameworkConfig[0]['assets']['packages']['nowo_runtime_env'],
+        );
+    }
+
     public function testPrependIsNoOpWhenUiKitExtensionIsMissing(): void
     {
         $container = new ContainerBuilder();

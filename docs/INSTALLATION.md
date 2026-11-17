@@ -5,6 +5,7 @@
 - [Requirements](#requirements)
 - [Composer](#composer)
 - [DoctrineEncryptBundle](#doctrineencryptbundle)
+- [Assets](#assets)
 - [Schema](#schema)
 - [Firewall](#firewall)
 
@@ -47,6 +48,14 @@ Generate a key (see DoctrineEncryptBundle docs):
 
 ```bash
 php bin/console nowo:doctrine-encrypt:generate-secret-key
+```
+
+## Assets
+
+Run `php bin/console assets:install` once after install and after every upgrade: it copies `runtime-env.css` to `public/bundles/noworuntimeenv/`. The bundle registers the asset package `nowo_runtime_env` itself (no host `framework.assets` entry needed); load the stylesheet in your own templates with:
+
+```twig
+<link rel="stylesheet" href="{{ asset('css/runtime-env.css', 'nowo_runtime_env') }}">
 ```
 
 ## Schema

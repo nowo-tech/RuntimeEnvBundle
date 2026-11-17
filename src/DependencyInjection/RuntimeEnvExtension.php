@@ -67,6 +67,7 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
         $this->prependDoctrineMappings($container);
         $this->prependUiKitDefaults($container);
         $this->prependFormKitProfile($container);
+        $this->prependAssetPackage($container);
     }
 
     public function load(array $configs, ContainerBuilder $container): void
@@ -321,6 +322,27 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
             ->setArgument('$panelEnabled', (bool) $config['panel']['enabled'])
             ->setArgument('$pathPrefix', (string) $config['web_ui']['path_prefix'])
             ->addTag('routing.loader'));
+    }
+
+    /**
+     * REQ-ASSETS-004: the published stylesheet is addressed through the named asset package `nowo_runtime_env`
+     * (`/bundles/noworuntimeenv`, the `assets:install` target), never through a hard-coded public path.
+     */
+    private function prependAssetPackage(ContainerBuilder $container): void
+    {
+        if (!$container->hasExtension('framework')) {
+            return;
+        }
+
+        $container->prependExtensionConfig('framework', [
+            'assets' => [
+                'packages' => [
+                    Configuration::ALIAS => [
+                        'base_path' => '/bundles/noworuntimeenv',
+                    ],
+                ],
+            ],
+        ]);
     }
 
     private function prependDoctrineMappings(ContainerBuilder $container): void
