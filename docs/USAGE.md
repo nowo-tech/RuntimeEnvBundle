@@ -9,6 +9,7 @@
 - [Runtime settings (1.6)](#runtime-settings-16)
 - [What stays in `.env`](#what-stays-in-env)
 - [FrankenPHP worker](#frankenphp-worker)
+- [Asset package (REQ-ASSETS-004)](#asset-package-req-assets-004)
 - [Overriding templates (REQ-TWIG-001)](#overriding-templates-req-twig-001)
 - [Translation overrides](#translation-overrides)
 
@@ -195,6 +196,10 @@ Safe with or without `kernel.reset` / `services_resetter` (`resetKernel=false`):
 Do **not** store `RuntimeEnvBag::all()` in your own shared service properties — read through the bag each request.
 
 Full audit: [FRANKENPHP-WORKER-AUDIT.md](FRANKENPHP-WORKER-AUDIT.md).
+
+## Asset package (REQ-ASSETS-004)
+
+The `nowo_runtime_env` asset package is a local package (`base_path: /bundles/noworuntimeenv`): the host's default `framework.assets.base_urls` (CDN) and `base_path` are **not** inherited by it, so the bundle stylesheet is always served from the application's own `/bundles/noworuntimeenv/` (run `assets:install`). To serve it from a CDN, override `manage/form.html.twig` and point the stylesheet at your CDN. The package is registered only when `symfony/asset` is installed.
 
 ## Overriding templates (REQ-TWIG-001)
 
