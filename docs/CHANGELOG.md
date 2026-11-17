@@ -31,6 +31,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The `nowo_runtime_env` asset package is registered only when `symfony/asset` is installed (`class_exists(Package::class)` guard); with it installed nothing changes.
+
+### Documentation
+
+- USAGE / UPGRADING: the package is local; the host's default `framework.assets.base_urls` (CDN) and `base_path` are not inherited.
+
+### Tests
+
+- Integration test of the rendered asset URL (`/bundles/noworuntimeenv/css/runtime-env.css`), with and without host `base_urls` / `base_path` (audit SE follow-up).
+
 ## [1.7.0] - 2026-11-17
 
 ### Changed

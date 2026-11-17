@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+  - [Asset package and CDN base URLs](#asset-package-and-cdn-base-urls)
 - [To 1.7.0](#to-170)
   - [Named asset package `nowo_runtime_env`](#named-asset-package-nowo_runtime_env)
 - [To 1.6.0](#to-160)
@@ -39,6 +40,10 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+### Asset package and CDN base URLs
+
+The `nowo_runtime_env` asset package is a local package (`base_path: /bundles/noworuntimeenv`): the host's default `framework.assets.base_urls` (CDN) and `base_path` are **not** inherited by it, so the bundle stylesheet is always served from the application's own `/bundles/noworuntimeenv/` (run `assets:install`). To serve it from a CDN, override `manage/form.html.twig` and point the stylesheet at your CDN. The package is registered only when `symfony/asset` is installed.
 
 ## To 1.7.0
 

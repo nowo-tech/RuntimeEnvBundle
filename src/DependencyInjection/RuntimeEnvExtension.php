@@ -34,6 +34,7 @@ use Nowo\RuntimeEnvBundle\Transaction\StorageFailureListener;
 use Nowo\RuntimeEnvBundle\Twig\RuntimeEnvTwigExtension;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
+use Symfony\Component\Asset\Package;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -48,6 +49,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 use function array_key_exists;
 use function array_key_first;
 use function array_values;
+use function class_exists;
 use function dirname;
 use function is_array;
 use function is_bool;
@@ -327,10 +329,13 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
     /**
      * REQ-ASSETS-004: the published stylesheet is addressed through the named asset package `nowo_runtime_env`
      * (`/bundles/noworuntimeenv`, the `assets:install` target), never through a hard-coded public path.
+     *
+     * Skipped without symfony/asset (the `assets` node would not exist). The package is local: the host's default
+     * `framework.assets.base_urls` (CDN) are not inherited by it.
      */
     private function prependAssetPackage(ContainerBuilder $container): void
     {
-        if (!$container->hasExtension('framework')) {
+        if (!$container->hasExtension('framework') || !class_exists(Package::class)) {
             return;
         }
 
