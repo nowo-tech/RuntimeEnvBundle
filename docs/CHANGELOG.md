@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.7.1] - 2026-11-17](#171---2026-11-17)
 - [[1.7.0] - 2026-11-17](#170---2026-11-17)
 - [[1.6.0] - 2026-11-15](#160---2026-11-15)
 - [[1.5.1] - 2026-11-12](#151---2026-11-12)
@@ -31,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-11-17
+
 ### Changed
 
 - The `nowo_runtime_env` asset package is registered only when `symfony/asset` is installed (`class_exists(Package::class)` guard); with it installed nothing changes.
@@ -42,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 
 - Integration test of the rendered asset URL (`/bundles/noworuntimeenv/css/runtime-env.css`), with and without host `base_urls` / `base_path` (audit SE follow-up).
+
+[1.7.1]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.7.1
 
 ## [1.7.0] - 2026-11-17
 

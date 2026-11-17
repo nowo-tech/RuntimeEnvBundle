@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.7.1](#to-171)
   - [Asset package and CDN base URLs](#asset-package-and-cdn-base-urls)
 - [To 1.7.0](#to-170)
   - [Named asset package `nowo_runtime_env`](#named-asset-package-nowo_runtime_env)
@@ -40,6 +41,14 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+## To 1.7.1
+
+From **1.7.0**:
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
 
 ### Asset package and CDN base URLs
 
