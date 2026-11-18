@@ -34,6 +34,8 @@ use Nowo\RuntimeEnvBundle\Transaction\StorageFailureListener;
 use Nowo\RuntimeEnvBundle\Twig\RuntimeEnvTwigExtension;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
+use Nowo\TransactionDoctrine\Symfony\Conflict\ConflictResponsePolicy;
+use Nowo\TransactionDoctrine\WriteUnit\CommitLedger;
 use Symfony\Component\Asset\Package;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\FileLocator;
@@ -59,6 +61,9 @@ use function sprintf;
 
 final class RuntimeEnvExtension extends Extension implements PrependExtensionInterface
 {
+    /** The commit ledger (1.8): real commits of the bundle's connection, counted by the outbox, read by the conflict answer. */
+    public const COMMIT_LEDGER_ID = 'nowo_runtime_env.commit_ledger';
+
     public function getAlias(): string
     {
         return Configuration::ALIAS;
@@ -142,8 +147,16 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
             ->setArgument('$runtimeSettings', $runtimeSettings)
             ->setArgument('$versionsTableName', $versionsTable)
             ->addTag('doctrine.event_listener', ['event' => 'loadClassMetadata']));
-        // 1.6: 503 / 409 instead of 500 for storage failures on the bundle's routes.
-        $container->setDefinition(StorageFailureListener::class, (new Definition(StorageFailureListener::class))
+        // 1.6 / 1.8: 409 + CONFLICT_001 / CONFLICT_002 (or 503) instead of 500 for storage failures on the bundle's routes.
+        $container->setDefinition(self::COMMIT_LEDGER_ID, new Definition(CommitLedger::class));
+        $policy = $config['conflict_response']['status'] === null && $config['conflict_response']['retry_after'] === null
+            ? new Reference(ConflictResponsePolicy::class, ContainerInterface::NULL_ON_INVALID_REFERENCE)
+            : new Definition(ConflictResponsePolicy::class, [
+                $config['conflict_response']['status'] ?? ConflictResponsePolicy::STATUS_CONFLICT,
+                $config['conflict_response']['retry_after'] ?? ConflictResponsePolicy::DEFAULT_RETRY_AFTER,
+            ]);
+        $container->setDefinition(StorageFailureListener::class, (new Definition(StorageFailureListener::class, [$policy, new Reference(self::COMMIT_LEDGER_ID)]))
+            ->addTag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onRequest', 'priority' => StorageFailureListener::REQUEST_PRIORITY])
             ->addTag('kernel.event_listener', ['event' => KernelEvents::EXCEPTION, 'method' => 'onException', 'priority' => StorageFailureListener::PRIORITY]));
 
         $container->setDefinition(RuntimeEnvBag::class, (new Definition(RuntimeEnvBag::class))
@@ -169,6 +182,7 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
         // LH-RE-M1: the real transactions of the bundle's connection (AfterCommitMiddlewarePass sets the connection).
         $container->setDefinition(RuntimeEnvOutbox::class, (new Definition(RuntimeEnvOutbox::class))
             ->setAutowired(false)
+            ->setArgument('$ledger', new Reference(self::COMMIT_LEDGER_ID))
             ->addTag('kernel.reset', ['method' => 'reset']));
         $container->setDefinition(AfterCommitMiddleware::class, (new Definition(AfterCommitMiddleware::class))
             ->setAutowired(false)

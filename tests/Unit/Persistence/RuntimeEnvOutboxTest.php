@@ -7,6 +7,7 @@ namespace Nowo\RuntimeEnvBundle\Tests\Unit\Persistence;
 use DateTimeImmutable;
 use Nowo\RuntimeEnvBundle\Event\RuntimeEnvVariableChangedEvent;
 use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvOutbox;
+use Nowo\TransactionDoctrine\WriteUnit\CommitLedger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -85,5 +86,21 @@ final class RuntimeEnvOutboxTest extends TestCase
         self::assertSame(0, $outbox->countCommitted() + $outbox->countHeld());
         $outbox->transactionEnded($driver, true);
         self::assertSame([], $outbox->takeCommitted());
+    }
+
+    #[Test]
+    public function aRealCommitIsCountedInTheLedgerARollbackIsNot(): void
+    {
+        $ledger = new CommitLedger();
+        $outbox = new RuntimeEnvOutbox($ledger);
+        $driver = new stdClass();
+
+        $outbox->transactionStarted($driver);
+        $outbox->transactionEnded($driver, false);
+        self::assertSame(0, $ledger->count());
+
+        $outbox->transactionStarted($driver);
+        $outbox->transactionEnded($driver, true);
+        self::assertSame(1, $ledger->count());
     }
 }

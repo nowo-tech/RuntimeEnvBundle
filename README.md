@@ -136,6 +136,7 @@ The screenshots at the top come from this demo: refresh them with `make -C demo/
 ### Additional documentation
 
 - [Demo with FrankenPHP (development and production)](docs/DEMO-FRANKENPHP.md)
+- [Concurrency (write paths, conflict codes)](docs/CONCURRENCY.md)
 - [FrankenPHP worker audit (`resetKernel=false`)](docs/FRANKENPHP-WORKER-AUDIT.md)
 - [GitHub Actions CI requirements](docs/GITHUB_CI.md)
 - [PSR evaluation (REQ-CS-007)](docs/PSR.md)

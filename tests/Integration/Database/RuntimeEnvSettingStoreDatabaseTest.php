@@ -6,15 +6,20 @@ namespace Nowo\RuntimeEnvBundle\Tests\Integration\Database;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
 use Doctrine\DBAL\Tools\DsnParser;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
+use Nowo\RuntimeEnvBundle\Persistence\AfterCommitMiddleware;
+use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvOutbox;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvSettingStore;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvValueCipherInterface;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvVersionRow;
+use Nowo\RuntimeEnvBundle\Transaction\StorageFailureListener;
 use Nowo\RuntimeSettingContract\Contract\RuntimeSettingDefinition;
 use Nowo\RuntimeSettingContract\Contract\RuntimeSettingId;
 use Nowo\RuntimeSettingContract\Contract\RuntimeSettingSource;
@@ -22,10 +27,20 @@ use Nowo\RuntimeSettingContract\Contract\RuntimeSettingType;
 use Nowo\RuntimeSettingContract\Contract\RuntimeSettingWriteContext;
 use Nowo\RuntimeSettingContract\Contract\RuntimeValueFingerprinter;
 use Nowo\RuntimeSettingContract\Contract\Validator\Unbounded;
+use Nowo\TransactionContract\TransientStorageFailure;
+use Nowo\TransactionDoctrine\ConflictCode;
+use Nowo\TransactionDoctrine\Symfony\Conflict\ConflictResponsePolicy;
+use Nowo\TransactionDoctrine\WriteUnit\CommitLedger;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Event\ExceptionEvent;
+use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Throwable;
 
 use function date_default_timezone_get;
 use function date_default_timezone_set;
@@ -47,6 +62,9 @@ final class RuntimeEnvSettingStoreDatabaseTest extends TestCase
 {
     /** @var list<Connection> */
     private array $connections = [];
+
+    /** @var array<string, mixed> */
+    private array $params = [];
 
     protected function tearDown(): void
     {
@@ -152,6 +170,125 @@ final class RuntimeEnvSettingStoreDatabaseTest extends TestCase
     }
 
     /**
+     * 1.8 (REQ-RUNTIME-003 rule 6), two connections: B writes the row A holds inside its transaction, B's lock wait times
+     * out (3 s) and the answer is 409 CONFLICT_001 with Retry-After; A's write wins, nothing of B is stored and B's
+     * connection is usable afterwards.
+     */
+    #[DataProvider('databases')]
+    public function testALockWaitOfAConcurrentWriteAnswers409Conflict001(?string $url): void
+    {
+        [$a, $b] = $this->twoConnections($url);
+        $this->store($a)->set($this->definition('VAR_A'), 'a0', $this->context());
+        $storeB  = $this->store($b);
+        $failure = null;
+        $storeA  = $this->store($a, function () use ($storeB, &$failure): void {
+            if (!$failure instanceof TransientStorageFailure) {
+                try {
+                    $storeB->set($this->definition('VAR_A'), 'b1', $this->context());
+                } catch (TransientStorageFailure $e) {
+                    $failure = $e;
+                }
+            }
+        });
+
+        $storeA->set($this->definition('VAR_A'), 'a1', $this->context());
+
+        self::assertInstanceOf(TransientStorageFailure::class, $failure);
+        $answer = $this->answer($failure, new StorageFailureListener());
+        self::assertSame(409, $answer->getStatusCode());
+        self::assertSame('1', $answer->getHeaders()['Retry-After']);
+        self::assertSame(ConflictCode::RETRY_SAFE, $answer->getHeaders()[StorageFailureListener::CODE_HEADER]);
+        self::assertSame('a1', $storeA->read(RuntimeSettingId::fromString('VAR_A'))?->current);
+        self::assertSame(1, (int) $b->fetchOne('SELECT COUNT(*) FROM runtime_env_variables'), 'B connection usable, one row');
+        self::assertSame(503, $this->answer($failure, new StorageFailureListener(new ConflictResponsePolicy(503)))->getStatusCode(), 'host option');
+    }
+
+    /**
+     * Same lock wait after a unit of the request committed on the bundle's connection (counted by the real commit
+     * observer): CONFLICT_002, no Retry-After.
+     */
+    #[DataProvider('databases')]
+    public function testALockWaitAfterACommittedUnitOfTheRequestAnswers409Conflict002(?string $url): void
+    {
+        [$a] = $this->twoConnections($url);
+        $this->store($a)->set($this->definition('VAR_A'), 'a0', $this->context());
+
+        $ledger = new CommitLedger();
+        $config = new Configuration();
+        $config->setMiddlewares([new AfterCommitMiddleware(new RuntimeEnvOutbox($ledger))]);
+        $c                   = DriverManager::getConnection($this->params, $config);
+        $this->connections[] = $c;
+        $c->executeStatement($c->getDatabasePlatform() instanceof AbstractMySQLPlatform ? 'SET SESSION innodb_lock_wait_timeout = 3' : "SET lock_timeout = '3s'");
+
+        $listener = new StorageFailureListener(null, $ledger);
+        $request  = $this->request();
+        $listener->onRequest(new RequestEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST));
+
+        // The first unit of the request commits on the bundle's connection ...
+        $this->store($c)->set($this->definition('VAR_C'), 'c1', $this->context());
+        self::assertSame(1, $ledger->count());
+
+        // ... the second one meets the lock A holds.
+        $storeC  = $this->store($c);
+        $failure = null;
+        $this->store($a, function () use ($storeC, &$failure): void {
+            if (!$failure instanceof TransientStorageFailure) {
+                try {
+                    $storeC->set($this->definition('VAR_A'), 'c2', $this->context());
+                } catch (TransientStorageFailure $e) {
+                    $failure = $e;
+                }
+            }
+        })->set($this->definition('VAR_A'), 'a1', $this->context());
+
+        self::assertInstanceOf(TransientStorageFailure::class, $failure);
+        $answer = $this->answer($failure, $listener, $request);
+        self::assertSame(409, $answer->getStatusCode());
+        self::assertSame([StorageFailureListener::CODE_HEADER => ConflictCode::COMMITTED], $answer->getHeaders());
+        self::assertSame('c1', $this->store($c)->read(RuntimeSettingId::fromString('VAR_C'))?->current, 'the committed unit stays');
+    }
+
+    /**
+     * A duplicate name is not a lock conflict: the unique key refuses the second insert and the answer is the domain 409
+     * `RUNTIME_ENV_NAME_TAKEN`, never a CONFLICT_* code.
+     */
+    #[DataProvider('databases')]
+    public function testADuplicateNameAnswersTheDomain409NotAConflictCode(?string $url): void
+    {
+        [$a, $b] = $this->twoConnections($url);
+        $row     = ['name' => 'DUP', 'value' => 'x', 'enabled' => 1, 'updated_at' => '2026-01-01 00:00:00'];
+        $a->insert('runtime_env_variables', $row);
+
+        try {
+            $b->insert('runtime_env_variables', $row);
+            self::fail('The unique key must refuse the second insert.');
+        } catch (UniqueConstraintViolationException $e) {
+            $answer = $this->answer($e, new StorageFailureListener());
+        }
+
+        self::assertSame(409, $answer->getStatusCode());
+        self::assertSame([StorageFailureListener::CODE_HEADER => StorageFailureListener::NAME_TAKEN], $answer->getHeaders());
+    }
+
+    private function request(): Request
+    {
+        $request = Request::create('/runtime-env/manage/DUP/edit', 'POST');
+        $request->attributes->set('_controller', 'Nowo\\RuntimeEnvBundle\\Controller\\RuntimeEnvManageController::edit');
+
+        return $request;
+    }
+
+    private function answer(Throwable $failure, StorageFailureListener $listener, ?Request $request = null): HttpException
+    {
+        $event = new ExceptionEvent($this->createStub(HttpKernelInterface::class), $request ?? $this->request(), HttpKernelInterface::MAIN_REQUEST, $failure);
+        $listener->onException($event);
+        $answer = $event->getThrowable();
+        self::assertInstanceOf(HttpException::class, $answer);
+
+        return $answer;
+    }
+
+    /**
      * @return array{0: Connection, 1: Connection}
      */
     private function twoConnections(?string $url): array
@@ -161,6 +298,7 @@ final class RuntimeEnvSettingStoreDatabaseTest extends TestCase
         }
 
         $params              = (new DsnParser(['mysql' => 'pdo_mysql', 'pgsql' => 'pdo_pgsql', 'postgres' => 'pdo_pgsql']))->parse($url);
+        $this->params        = $params;
         $a                   = DriverManager::getConnection($params);
         $b                   = DriverManager::getConnection($params);
         $this->connections[] = $a;
