@@ -267,7 +267,7 @@ final class RuntimeEnvSettingStoreDatabaseTest extends TestCase
         }
 
         self::assertSame(409, $answer->getStatusCode());
-        self::assertSame([StorageFailureListener::CODE_HEADER => StorageFailureListener::NAME_TAKEN], $answer->getHeaders());
+        self::assertSame([StorageFailureListener::ERROR_CODE_HEADER => StorageFailureListener::NAME_TAKEN], $answer->getHeaders());
     }
 
     private function request(): Request

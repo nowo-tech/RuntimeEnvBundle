@@ -137,8 +137,8 @@ final class StorageFailureListenerTest extends TestCase
 
         self::assertInstanceOf(ConflictHttpException::class, $answer);
         self::assertSame(409, $answer->getStatusCode());
-        self::assertSame([StorageFailureListener::CODE_HEADER => StorageFailureListener::NAME_TAKEN], $answer->getHeaders());
-        self::assertNotContains($answer->getHeaders()[StorageFailureListener::CODE_HEADER], [ConflictCode::RETRY_SAFE, ConflictCode::COMMITTED]);
+        self::assertSame([StorageFailureListener::ERROR_CODE_HEADER => StorageFailureListener::NAME_TAKEN], $answer->getHeaders());
+        self::assertArrayNotHasKey(StorageFailureListener::CODE_HEADER, $answer->getHeaders());
         self::assertSame($unique, $answer->getPrevious()?->getPrevious());
     }
 

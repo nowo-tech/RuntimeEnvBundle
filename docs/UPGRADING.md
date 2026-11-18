@@ -54,7 +54,8 @@ nowo_runtime_env:
 ```
 
 - Unset, `conflict_response` follows `nowo_transaction_doctrine.conflict_response` when that bundle is registered.
-- A duplicate name keeps answering 409; it now carries `X-Conflict-Code: RUNTIME_ENV_NAME_TAKEN` (a domain code, not a conflict code).
+- A duplicate name keeps answering 409; it now carries `X-Error-Code: RUNTIME_ENV_NAME_TAKEN` (a domain code; `X-Conflict-Code` is only ever `CONFLICT_001` / `CONFLICT_002`).
+- The lock-conflict answer is now an `HttpException` (status 409, or 503 by option). A host check for `instanceof ServiceUnavailableHttpException` or `ConflictHttpException` no longer matches it: test `HttpException::getStatusCode()` or the `X-Conflict-Code` header instead.
 - `composer update nowo-tech/runtime-env-bundle` also moves `nowo-tech/transaction-doctrine` to `^1.5`.
 - See [CONCURRENCY.md](CONCURRENCY.md).
 

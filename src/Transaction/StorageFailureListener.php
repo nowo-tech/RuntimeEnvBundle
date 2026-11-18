@@ -34,7 +34,8 @@ use function str_starts_with;
  *   own code {@see self::NAME_TAKEN}, never a `CONFLICT_*` code (it is not a lock conflict: retrying the same request
  *   cannot succeed). A lost connection is never mapped.
  *
- * Every answer carries its code in the `X-Conflict-Code` header. The pages get an {@see HttpException} with a fixed
+ * Lock conflict answers carry their code in the `X-Conflict-Code` header (only `CONFLICT_001` / `CONFLICT_002`); the duplicate
+ * name answer carries `X-Error-Code: RUNTIME_ENV_NAME_TAKEN` instead. The pages get an {@see HttpException} with a fixed
  * message, rendered by the application's error page; the storage error stays the previous exception (for the logs), so
  * no SQL, parameter or value reaches the client. The chain of previous exceptions is walked.
  *
@@ -54,6 +55,9 @@ final readonly class StorageFailureListener
 
     /** Response header carrying the conflict code. */
     public const CODE_HEADER = 'X-Conflict-Code';
+
+    /** Response header carrying a domain error code (never a conflict code). */
+    public const ERROR_CODE_HEADER = 'X-Error-Code';
 
     /** Code of a duplicate name (not a lock conflict). */
     public const NAME_TAKEN = 'RUNTIME_ENV_NAME_TAKEN';
@@ -111,7 +115,7 @@ final readonly class StorageFailureListener
         }
 
         if ($this->isUniqueViolation($failure)) {
-            $event->setThrowable(new ConflictHttpException('A concurrent request changed the same variable. Reload and retry.', $failure, 0, [self::CODE_HEADER => self::NAME_TAKEN]));
+            $event->setThrowable(new ConflictHttpException('A concurrent request changed the same variable. Reload and retry.', $failure, 0, [self::ERROR_CODE_HEADER => self::NAME_TAKEN]));
         }
     }
 

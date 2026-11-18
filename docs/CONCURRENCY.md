@@ -47,10 +47,10 @@ handling):
 | --- | --- | --- | --- | --- |
 | `CONFLICT_001` | Deadlock, lock wait timeout or serialization failure (a `TransientStorageFailure` of the store's runner, or a DBAL error anywhere in the chain) and no transaction of the bundle's connection committed since the request started | 409 (`conflict_response.status`) | Yes: the runner's hint, else `conflict_response.retry_after`, else 1 s | Retry |
 | `CONFLICT_002` | The same, after a transaction of the bundle's connection committed earlier in the same request (the `CommitLedger` moved), a `ConcurrencyConflict` that committed, or a lost savepoint with no deadlock behind it (outcome unknown) | 409 (`conflict_response.status`) | No | Reload, do not repeat blindly |
-| `RUNTIME_ENV_NAME_TAKEN` | A unique key refused the write of a concurrent request (two admins creating or renaming to the same name). A domain answer, never a `CONFLICT_*` code | 409 | No | Reload and choose another name |
+| `RUNTIME_ENV_NAME_TAKEN` (`X-Error-Code`) | A unique key refused the write of a concurrent request (two admins creating or renaming to the same name). A domain answer, never a `CONFLICT_*` code | 409 | No | Reload and choose another name |
 
 - Pages get an `HttpException` with a fixed, client-safe message, rendered by your error page.
-- Every answer carries the code in the `X-Conflict-Code` header.
+- Lock conflict answers carry their code in the `X-Conflict-Code` header, which only ever holds `CONFLICT_001` or `CONFLICT_002`. The duplicate-name answer has no `X-Conflict-Code`; it carries `X-Error-Code: RUNTIME_ENV_NAME_TAKEN`.
 - The `CONFLICT_*` codes are `Nowo\TransactionDoctrine\ConflictCode` values.
 - No SQL, parameter or value reaches the client; the storage error stays the previous exception for your logs.
 - The bundle has no JSON endpoints: its answers are pages, so no JSON shape changed.

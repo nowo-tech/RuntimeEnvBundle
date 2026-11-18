@@ -42,7 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - A deadlock, lock wait timeout or serialization failure on the manage pages answers **409** (was 503); set `conflict_response.status: 503` to keep 503. `Retry-After` stays on `CONFLICT_001`.
-- A duplicate name (unique key) still answers 409, now with the domain code `RUNTIME_ENV_NAME_TAKEN` in `X-Conflict-Code` (never a `CONFLICT_*` code).
+- A duplicate name (unique key) still answers 409, now with the domain code `RUNTIME_ENV_NAME_TAKEN` in `X-Error-Code` (`X-Conflict-Code` only ever holds `CONFLICT_001` / `CONFLICT_002`).
+- The lock-conflict answer of a page is an `HttpException` (was `ServiceUnavailableHttpException`).
 - Requires `nowo-tech/transaction-doctrine` `^1.5` (was `^1.1`).
 
 ## [1.7.1] - 2026-11-17
