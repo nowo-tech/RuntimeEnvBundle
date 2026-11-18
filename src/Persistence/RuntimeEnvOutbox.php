@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\RuntimeEnvBundle\Persistence;
 
+use Nowo\TransactionDoctrine\WriteUnit\CommitLedger;
 use Symfony\Contracts\Service\ResetInterface;
 use WeakMap;
 
@@ -49,7 +50,10 @@ final class RuntimeEnvOutbox implements TransactionObserverInterface, ResetInter
     // @igor-ignore - Committed events taken at the next safe point; dropped on kernel.reset.
     private array $committed = [];
 
-    public function __construct()
+    /**
+     * @param CommitLedger|null $ledger counts the real commits of the bundle's connection (1.8: the conflict answer reads it)
+     */
+    public function __construct(private readonly ?CommitLedger $ledger = null)
     {
         $this->transactions = new WeakMap();
     }
@@ -130,6 +134,7 @@ final class RuntimeEnvOutbox implements TransactionObserverInterface, ResetInter
         $levels = $this->transactions[$connection] ?? [];
         unset($this->transactions[$connection]);
         if ($committed) {
+            $this->ledger?->record();
             $this->committed = [...$this->committed, ...$this->flatten($levels)];
         }
     }

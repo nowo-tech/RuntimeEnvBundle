@@ -210,4 +210,20 @@ final class ConfigurationTest extends TestCase
             ],
         ]]);
     }
+
+    public function testConflictResponseDefaultsToFollowingTransactionDoctrine(): void
+    {
+        $config = (new Processor())->processConfiguration(new Configuration(), [[]]);
+        self::assertSame(['status' => null, 'retry_after' => null], $config['conflict_response']);
+
+        $config = (new Processor())->processConfiguration(new Configuration(), [['conflict_response' => ['status' => 503, 'retry_after' => 4]]]);
+        self::assertSame(['status' => 503, 'retry_after' => 4], $config['conflict_response']);
+    }
+
+    public function testConflictResponseStatusMustBe409Or503(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('must be 409 or 503');
+        (new Processor())->processConfiguration(new Configuration(), [['conflict_response' => ['status' => 500]]]);
+    }
 }

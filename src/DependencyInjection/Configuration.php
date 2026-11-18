@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nowo\RuntimeEnvBundle\DependencyInjection;
 
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
+use Nowo\TransactionDoctrine\Symfony\Conflict\ConflictResponsePolicy;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
@@ -13,6 +14,7 @@ use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use function array_diff;
 use function array_keys;
 use function implode;
+use function in_array;
 use function is_array;
 use function is_string;
 use function sprintf;
@@ -64,6 +66,25 @@ final class Configuration implements ConfigurationInterface
                             ->values(['bundle', 'host'])
                             ->defaultValue('bundle')
                             ->info('bundle (default): RuntimeEnvWriter flushes its writes on database.entity_manager. host (1.5, DDD hosts): when the host calls the writer it does not flush; the host use case commits and RuntimeEnvVariableChangedEvent is dispatched after that commit. The bundle admin UI keeps flushing its own writes.')
+                        ->end()
+                    ->end()
+                ->end()
+                ->arrayNode('conflict_response')
+                    ->info('1.8 (REQ-RUNTIME-003): answer of a lock conflict (deadlock, lock wait timeout, serialization failure) on the bundle\'s routes. Unset: nowo-tech/transaction-doctrine\'s conflict_response when that bundle is registered, else 409 with Retry-After 1.')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->integerNode('status')
+                            ->info('409 (default, CONFLICT_001 / CONFLICT_002) or 503 (the 1.6-1.7 answer). Null: follow transaction-doctrine, else 409.')
+                            ->defaultNull()
+                            ->validate()
+                                ->ifTrue(static fn (mixed $v): bool => $v !== null && !in_array($v, ConflictResponsePolicy::STATUSES, true))
+                                ->thenInvalid('nowo_runtime_env.conflict_response.status must be 409 or 503, got %s.')
+                            ->end()
+                        ->end()
+                        ->integerNode('retry_after')
+                            ->info('Retry-After seconds of a CONFLICT_001 answer when the failure carries no hint. Null: follow transaction-doctrine, else 1.')
+                            ->defaultNull()
+                            ->min(0)
                         ->end()
                     ->end()
                 ->end()

@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+  - [Conflict answers: 409 + CONFLICT codes (REQ-RUNTIME-003)](#conflict-answers-409--conflict-codes-req-runtime-003)
 - [To 1.7.1](#to-171)
   - [Asset package and CDN base URLs](#asset-package-and-cdn-base-urls)
 - [To 1.7.0](#to-170)
@@ -41,6 +42,22 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+### Conflict answers: 409 + CONFLICT codes (REQ-RUNTIME-003)
+
+- **Status change.** A deadlock, lock wait timeout or serialization failure on the manage pages now answers **409** with `Retry-After` and `X-Conflict-Code: CONFLICT_001` (nothing committed), or 409 without `Retry-After` and `CONFLICT_002` (part of the request already committed). It was 503 with `Retry-After`. If a proxy, monitor or client treats 503 as retryable, either handle the 409 + `Retry-After` or keep the old status:
+
+```yaml
+nowo_runtime_env:
+    conflict_response:
+        status: 503
+```
+
+- Unset, `conflict_response` follows `nowo_transaction_doctrine.conflict_response` when that bundle is registered.
+- A duplicate name keeps answering 409; it now carries `X-Error-Code: RUNTIME_ENV_NAME_TAKEN` (a domain code; `X-Conflict-Code` is only ever `CONFLICT_001` / `CONFLICT_002`).
+- The lock-conflict answer is now an `HttpException` (status 409, or 503 by option). A host check for `instanceof ServiceUnavailableHttpException` or `ConflictHttpException` no longer matches it: test `HttpException::getStatusCode()` or the `X-Conflict-Code` header instead.
+- `composer update nowo-tech/runtime-env-bundle` also moves `nowo-tech/transaction-doctrine` to `^1.5`.
+- See [CONCURRENCY.md](CONCURRENCY.md).
 
 ## To 1.7.1
 

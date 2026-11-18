@@ -56,7 +56,7 @@ This file proves that **every production source artifact** under `src/` is inven
 | `RuntimeSetting/RuntimeEnvVersionRow.php` | 1.6 (audit QT-L-3): version row of a namespace seeded with a statement that cannot conflict (serialises first writes) | FR-RS-003 |
 | `Service/RuntimeEnvReaderInterface.php` | Name-based read port (1.5) | FR-RT-002 |
 | `Service/RuntimeEnvWriterInterface.php` | Name-based write port (1.5) | FR-RT-003 |
-| `Transaction/StorageFailureListener.php` | 1.6: 503 / 409 on the bundle's routes | FR-RS-006 |
+| `Transaction/StorageFailureListener.php` | 1.6, 1.8: 409 + CONFLICT_001 / CONFLICT_002 (or 503) and the domain 409 on the bundle's routes | FR-RS-006 |
 | `Worker/UnitOfWorkFrames.php` | Outermost unit tracking (1.5.1) | FR-WORKER-001 |
 
 ## Symfony config / resources (`src/Resources/`)

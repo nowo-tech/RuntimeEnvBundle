@@ -32,6 +32,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `conflict_response.status` (409 default, or 503) and `conflict_response.retry_after`: the answer of a lock conflict on the bundle's routes. Unset, they follow nowo-tech/transaction-doctrine's `conflict_response` when its bundle is registered.
+- `CONFLICT_001` (nothing committed, with `Retry-After`) and `CONFLICT_002` (part of the request committed, no `Retry-After`) in every conflict answer, in the `X-Conflict-Code` header. A `CommitLedger` counts the real commits of the bundle's connection (`RuntimeEnvOutbox`).
+- `docs/CONCURRENCY.md`: write paths, codes, host options, residual risks.
+- Two-connection tests on MySQL 8.4, MariaDB 11.4 and PostgreSQL 16: lock wait answers `CONFLICT_001`, lock wait after a committed unit answers `CONFLICT_002`, duplicate name answers the domain 409.
+
+### Changed
+
+- A deadlock, lock wait timeout or serialization failure on the manage pages answers **409** (was 503); set `conflict_response.status: 503` to keep 503. `Retry-After` stays on `CONFLICT_001`.
+- A duplicate name (unique key) still answers 409, now with the domain code `RUNTIME_ENV_NAME_TAKEN` in `X-Error-Code` (`X-Conflict-Code` only ever holds `CONFLICT_001` / `CONFLICT_002`).
+- The lock-conflict answer of a page is an `HttpException` (was `ServiceUnavailableHttpException`).
+- Requires `nowo-tech/transaction-doctrine` `^1.5` (was `^1.1`).
+
 ## [1.7.1] - 2026-11-17
 
 ### Changed

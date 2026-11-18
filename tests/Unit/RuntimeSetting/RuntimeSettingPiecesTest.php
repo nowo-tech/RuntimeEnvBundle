@@ -6,8 +6,6 @@ namespace Nowo\RuntimeEnvBundle\Tests\Unit\RuntimeSetting;
 
 use DateInterval;
 use DateTimeImmutable;
-use Doctrine\DBAL\Exception\DeadlockException;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Event\LoadClassMetadataEventArgs;
 use Doctrine\ORM\Mapping\ClassMetadata;
@@ -27,7 +25,6 @@ use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvAdminSettings;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvSettingStore;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvVersionBumper;
 use Nowo\RuntimeEnvBundle\Tests\Support\RuntimeSettingDatabaseTrait;
-use Nowo\RuntimeEnvBundle\Transaction\StorageFailureListener;
 use Nowo\RuntimeSettingContract\Contract\Exception\InvalidRuntimeSettingValue;
 use Nowo\RuntimeSettingContract\Contract\RuntimeSettingDefinition;
 use Nowo\RuntimeSettingContract\Contract\RuntimeSettingId;
@@ -40,18 +37,10 @@ use Nowo\RuntimeSettingContract\Contract\RuntimeSettingWriterInterface;
 use Nowo\RuntimeSettingContract\Contract\RuntimeValueFingerprinter;
 use Nowo\RuntimeSettingContract\Contract\RuntimeValueSourceInterface;
 use Nowo\RuntimeSettingContract\Contract\Validator\SingleLineString;
-use Nowo\TransactionContract\TransientStorageFailure;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use stdClass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Event\ExceptionEvent;
-use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
-use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
-use Symfony\Component\HttpKernel\HttpKernelInterface;
-use Throwable;
 
 use function str_repeat;
 use function strlen;
@@ -176,36 +165,6 @@ final class RuntimeSettingPiecesTest extends TestCase
         self::assertSame(5 + 128, strlen(RuntimeEnvAdminSettings::actor(str_repeat('x', 300))));
     }
 
-    public function testStorageFailuresOnBundleRoutesAnswer503Or409(): void
-    {
-        $listener = new StorageFailureListener();
-
-        $transient = $this->event(TransientStorageFailure::fromPrevious(new RuntimeException('deadlock'), 7));
-        $listener->onException($transient);
-        self::assertInstanceOf(ServiceUnavailableHttpException::class, $transient->getThrowable());
-        self::assertSame(7, $transient->getThrowable()->getHeaders()['Retry-After']);
-
-        $hint = $this->event(new RuntimeException('wrapped', 0, TransientStorageFailure::fromPrevious(new RuntimeException('x'))));
-        $listener->onException($hint);
-        self::assertSame(1, $hint->getThrowable() instanceof ServiceUnavailableHttpException ? $hint->getThrowable()->getHeaders()['Retry-After'] : null);
-
-        $retryable = $this->event($this->createStub(DeadlockException::class));
-        $listener->onException($retryable);
-        self::assertInstanceOf(ServiceUnavailableHttpException::class, $retryable->getThrowable());
-
-        $conflict = $this->event(new RuntimeException('x', 0, $this->createStub(UniqueConstraintViolationException::class)));
-        $listener->onException($conflict);
-        self::assertInstanceOf(ConflictHttpException::class, $conflict->getThrowable());
-
-        $other = $this->event($original = new RuntimeException('other'));
-        $listener->onException($other);
-        self::assertSame($original, $other->getThrowable());
-
-        $host = $this->event($failure = TransientStorageFailure::fromPrevious(new RuntimeException('x')), 'App\\Controller\\Home::index');
-        $listener->onException($host);
-        self::assertSame($failure, $host->getThrowable(), 'host routes keep their own handling');
-    }
-
     public function testThePortsPassBindsOnlyWhenEnabledAndAbsent(): void
     {
         $off = new ContainerBuilder();
@@ -288,13 +247,5 @@ final class RuntimeSettingPiecesTest extends TestCase
     private function metadataArgs(ClassMetadata $metadata): LoadClassMetadataEventArgs
     {
         return new LoadClassMetadataEventArgs($metadata, $this->createMock(EntityManagerInterface::class));
-    }
-
-    private function event(Throwable $failure, string $controller = 'Nowo\\RuntimeEnvBundle\\Controller\\RuntimeEnvManageController::edit'): ExceptionEvent
-    {
-        $request = new Request();
-        $request->attributes->set('_controller', $controller);
-
-        return new ExceptionEvent($this->createStub(HttpKernelInterface::class), $request, HttpKernelInterface::MAIN_REQUEST, $failure);
     }
 }

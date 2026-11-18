@@ -11,6 +11,7 @@ use Nowo\RuntimeEnvBundle\DependencyInjection\RuntimeEnvExtension;
 use Nowo\RuntimeEnvBundle\Doctrine\KeyCollationListener;
 use Nowo\RuntimeEnvBundle\Doctrine\RuntimeEnvMetadataListener;
 use Nowo\RuntimeEnvBundle\EventSubscriber\RuntimeEnvAccessSubscriber;
+use Nowo\RuntimeEnvBundle\Persistence\RuntimeEnvOutbox;
 use Nowo\RuntimeEnvBundle\Repository\DoctrineOrmRuntimeEnvVariableRepository;
 use Nowo\RuntimeEnvBundle\Repository\PaginatedRuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
@@ -22,9 +23,12 @@ use Nowo\RuntimeEnvBundle\Security\ConfigurableRuntimeEnvAccessChecker;
 use Nowo\RuntimeEnvBundle\Security\RuntimeEnvAccessCheckerInterface;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvBag;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
+use Nowo\RuntimeEnvBundle\Transaction\StorageFailureListener;
 use Nowo\RuntimeEnvBundle\Twig\RuntimeEnvTwigExtension;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
+use Nowo\TransactionDoctrine\Symfony\Conflict\ConflictResponsePolicy;
+use Nowo\TransactionDoctrine\WriteUnit\CommitLedger;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use PHPUnit\Framework\TestCase;
@@ -32,7 +36,12 @@ use ReflectionProperty;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Compiler\MergeExtensionConfigurationPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Extension\Extension;
+use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\HttpKernel\KernelEvents;
+
+use function array_column;
 
 final class RuntimeEnvExtensionTest extends TestCase
 {
@@ -485,5 +494,37 @@ final class RuntimeEnvExtensionTest extends TestCase
 
         $mappings = $container->getExtensionConfig('doctrine')[0]['orm']['mappings'];
         self::assertSame('Nowo\\RuntimeEnvBundle\\RuntimeSetting\\Entity', $mappings['RuntimeEnvBundleRuntimeSetting']['prefix']);
+    }
+
+    public function testTheConflictListenerFollowsTransactionDoctrineByDefault(): void
+    {
+        $container = new ContainerBuilder();
+        $container->registerExtension($this->dummyExtension('security'));
+        $this->extension->load([], $container);
+
+        $listener = $container->getDefinition(StorageFailureListener::class);
+        self::assertInstanceOf(Reference::class, $listener->getArgument(0));
+        self::assertSame(ConflictResponsePolicy::class, (string) $listener->getArgument(0));
+        self::assertSame(RuntimeEnvExtension::COMMIT_LEDGER_ID, (string) $listener->getArgument(1));
+        self::assertSame(CommitLedger::class, $container->getDefinition(RuntimeEnvExtension::COMMIT_LEDGER_ID)->getClass());
+        self::assertSame(RuntimeEnvExtension::COMMIT_LEDGER_ID, (string) $container->getDefinition(RuntimeEnvOutbox::class)->getArgument('$ledger'));
+        $events = array_column($listener->getTag('kernel.event_listener'), 'event');
+        self::assertSame([KernelEvents::REQUEST, KernelEvents::EXCEPTION], $events);
+    }
+
+    public function testTheConflictResponseOptionsBuildThePolicy(): void
+    {
+        $container = new ContainerBuilder();
+        $container->registerExtension($this->dummyExtension('security'));
+        $this->extension->load([['conflict_response' => ['status' => 503]]], $container);
+
+        $policy = $container->getDefinition(StorageFailureListener::class)->getArgument(0);
+        self::assertInstanceOf(Definition::class, $policy);
+        self::assertSame([503, ConflictResponsePolicy::DEFAULT_RETRY_AFTER], $policy->getArguments());
+
+        $container = new ContainerBuilder();
+        $container->registerExtension($this->dummyExtension('security'));
+        $this->extension->load([['conflict_response' => ['retry_after' => 9]]], $container);
+        self::assertSame([ConflictResponsePolicy::STATUS_CONFLICT, 9], $container->getDefinition(StorageFailureListener::class)->getArgument(0)->getArguments());
     }
 }

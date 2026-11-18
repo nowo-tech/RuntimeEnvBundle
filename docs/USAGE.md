@@ -163,7 +163,9 @@ nowo_chat_kit:
   (`RuntimeSettingNotWritable`). That includes a Messenger handler under the `doctrine_transaction` middleware and a
   `wrapInTransaction()` on the same connection: change runtime settings outside those units (the contract publishes the
   change when the writer returns, so it must not join a transaction that may still roll back). A deadlock on the admin
-  routes answers 503 with `Retry-After`; a duplicate name 409.
+  routes answers 409 with `Retry-After` and `CONFLICT_001` (`CONFLICT_002` without `Retry-After` when part of the
+  request committed; 503 with `conflict_response.status: 503`); a duplicate name 409 `RUNTIME_ENV_NAME_TAKEN`. See
+  [CONCURRENCY](CONCURRENCY.md).
 - **Locks**: a write locks only its own variable (and the version row): writes of different variables do not wait for
   each other on MySQL / MariaDB. The version row is created with a statement that cannot conflict, so two first writes
   serialise instead of failing.
