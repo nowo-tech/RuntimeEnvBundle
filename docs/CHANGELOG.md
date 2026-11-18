@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.8.0] - 2026-11-18](#180---2026-11-18)
 - [[1.7.1] - 2026-11-17](#171---2026-11-17)
 - [[1.7.0] - 2026-11-17](#170---2026-11-17)
 - [[1.6.0] - 2026-11-15](#160---2026-11-15)
@@ -32,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-18
+
 ### Added
 
 - `conflict_response.status` (409 default, or 503) and `conflict_response.retry_after`: the answer of a lock conflict on the bundle's routes. Unset, they follow nowo-tech/transaction-doctrine's `conflict_response` when its bundle is registered.
@@ -45,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A duplicate name (unique key) still answers 409, now with the domain code `RUNTIME_ENV_NAME_TAKEN` in `X-Error-Code` (`X-Conflict-Code` only ever holds `CONFLICT_001` / `CONFLICT_002`).
 - The lock-conflict answer of a page is an `HttpException` (was `ServiceUnavailableHttpException`).
 - Requires `nowo-tech/transaction-doctrine` `^1.5` (was `^1.1`).
+
+[1.8.0]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.8.0
 
 ## [1.7.1] - 2026-11-17
 
