@@ -33,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Demo: `demo/symfony8/composer.lock` now installs nowo-tech/transaction-doctrine 1.6.0. The locks of 1.6.0 to 1.8.0 did not install nowo-tech/transaction-doctrine, nowo-tech/transaction-contract or nowo-tech/runtime-setting-contract, which the bundle already required (^1.5): the demo installs from its lock, so it failed with class not found (`CommitLedger`). The bundle's composer.json constraint was already right; hosts are not affected.
+
 ## [1.8.0] - 2026-11-18
 
 ### Added
