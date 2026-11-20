@@ -219,7 +219,7 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
         $container->setDefinition(KeyCollationListener::class, (new Definition(KeyCollationListener::class, [
             new Reference('doctrine'),
             new Reference('logger', ContainerInterface::NULL_ON_INVALID_REFERENCE),
-        ]))->addTag('doctrine.event_listener', ['event' => 'postGenerateSchemaTable']));
+        ]))->addTag('doctrine.event_listener', ['event' => 'postGenerateSchema']));
 
         $container->setDefinition(DoctrineEncryptValueCipher::class, new Definition(DoctrineEncryptValueCipher::class, [
             new Reference(EncryptUtil::UTIL_NAME),
