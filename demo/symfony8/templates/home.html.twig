@@ -3,35 +3,28 @@
 {% block title %}Home - Runtime Env Demo{% endblock %}
 
 {% block nowo_ui_page_header %}
+    {% set _toolbar %}<a class="nowo-ui-btn nowo-ui-btn--primary" href="{{ path('nowo_runtime_env_index') }}">Open /_runtime_env</a>{% endset %}
     {{ include(nowo_ui_partial('page_header'), {
         title: 'Runtime Env Bundle – Demo',
         intro: 'Store selected application environment variables in MySQL with values encrypted at rest via nowo-tech/doctrine-encrypt-bundle (#[Encrypted]).',
+        toolbar: _toolbar,
     }) }}
 {% endblock %}
 
 {% block body %}
-    <p class="nowo-ui-muted">
-        FrankenPHP mode: <strong>worker</strong> by default (<code>FRANKENPHP_MODE</code>).
-        Edits in the CRUD apply on the next request without restarting the worker.
-    </p>
+    {% embed '@NowoUiKit/demo_platform/_section.html.twig' with {title: 'Manage', kind: 'content'} %}
+        {% block section_body %}
+            <p>
+                FrankenPHP mode: <strong>worker</strong> by default (<code class="nowo-ui-code">FRANKENPHP_MODE</code>).
+                Edits in the CRUD apply on the next request without restarting the worker.
+            </p>
+            <p>Create or edit variables (names like <code class="nowo-ui-code">MY_API_TOKEN</code>). List view masks values.</p>
+        {% endblock %}
+    {% endembed %}
 
-    <section class="nowo-ui-card">
-        <div class="nowo-ui-card__header"><h2 class="nowo-ui-card__title">Manage</h2></div>
-        <div class="nowo-ui-card__body">
-            <p>Create or edit variables (names like <code>MY_API_TOKEN</code>). List view masks values.</p>
-            <a class="nowo-ui-btn nowo-ui-btn--primary" href="{{ path('nowo_runtime_env_index') }}">Open /_runtime_env</a>
-        </div>
-    </section>
-
-    <section class="nowo-ui-card">
-        <div class="nowo-ui-card__header"><h2 class="nowo-ui-card__title">RuntimeEnvBag sample</h2></div>
-        <div class="nowo-ui-card__body">
-            <p>Reads <code>DEMO_SAMPLE_VALUE</code> via <code>RuntimeEnvBag</code> (not <code>getenv</code>).</p>
-            {% if has_sample %}
-                <p>Value: <code>{{ sample }}</code></p>
-            {% else %}
-                <p class="nowo-ui-muted">No <code>DEMO_SAMPLE_VALUE</code> yet — create it in the manage UI, then reload this page.</p>
-            {% endif %}
-        </div>
-    </section>
+    {% embed '@NowoUiKit/demo_platform/_section.html.twig' with {title: 'RuntimeEnvBag sample', intro: 'Reads DEMO_SAMPLE_VALUE via RuntimeEnvBag (not getenv).', kind: 'detail', empty: not has_sample, state_message: 'No DEMO_SAMPLE_VALUE yet: create it in the manage UI, then reload this page.', sample: sample} %}
+        {% block section_body %}
+            <p>Value: <code class="nowo-ui-code">{{ sample }}</code></p>
+        {% endblock %}
+    {% endembed %}
 {% endblock %}

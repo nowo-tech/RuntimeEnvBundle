@@ -1,33 +1,17 @@
 <?php
 
-declare(strict_types=1);
-
-use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
-use Nowo\DoctrineEncryptBundle\NowoDoctrineEncryptBundle;
-use Nowo\FormKitBundle\NowoFormKitBundle;
-use Nowo\HotReloadBundle\NowoHotReloadBundle;
-use Nowo\RuntimeEnvBundle\NowoRuntimeEnvBundle;
-use Nowo\TwigInspectorBundle\NowoTwigInspectorBundle;
-use Nowo\UiKitBundle\NowoUiKitBundle;
-use Symfony\Bundle\DebugBundle\DebugBundle;
-use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
-use Symfony\Bundle\SecurityBundle\SecurityBundle;
-use Symfony\Bundle\TwigBundle\TwigBundle;
-use Symfony\Bundle\WebProfilerBundle\WebProfilerBundle;
-use Twig\Extra\TwigExtraBundle\TwigExtraBundle;
-
 return [
-    FrameworkBundle::class           => ['all' => true],
-    SecurityBundle::class            => ['all' => true],
-    DoctrineBundle::class            => ['all' => true],
-    TwigBundle::class                => ['all' => true],
-    TwigExtraBundle::class           => ['all' => true],
-    NowoDoctrineEncryptBundle::class => ['all' => true],
-    NowoUiKitBundle::class           => ['all' => true],
-    NowoFormKitBundle::class         => ['all' => true],
-    NowoRuntimeEnvBundle::class      => ['all' => true],
-    DebugBundle::class               => ['dev' => true],
-    WebProfilerBundle::class         => ['dev' => true, 'test' => true],
-    NowoHotReloadBundle::class       => ['dev' => true, 'test' => true],
-    NowoTwigInspectorBundle::class   => ['dev' => true, 'test' => true],
+    Symfony\Bundle\FrameworkBundle\FrameworkBundle::class => ['all' => true],
+    Symfony\Bundle\SecurityBundle\SecurityBundle::class => ['all' => true],
+    Doctrine\Bundle\DoctrineBundle\DoctrineBundle::class => ['all' => true],
+    Symfony\Bundle\TwigBundle\TwigBundle::class => ['all' => true],
+    Twig\Extra\TwigExtraBundle\TwigExtraBundle::class => ['all' => true],
+    Nowo\DoctrineEncryptBundle\NowoDoctrineEncryptBundle::class => ['all' => true],
+    Nowo\UiKitBundle\NowoUiKitBundle::class => ['all' => true],
+    Nowo\FormKitBundle\NowoFormKitBundle::class => ['all' => true],
+    Nowo\RuntimeEnvBundle\NowoRuntimeEnvBundle::class => ['all' => true],
+    Symfony\Bundle\DebugBundle\DebugBundle::class => ['dev' => true],
+    Symfony\Bundle\WebProfilerBundle\WebProfilerBundle::class => ['dev' => true, 'test' => true],
+    Nowo\HotReloadBundle\NowoHotReloadBundle::class => ['dev' => true, 'test' => true],
+    Nowo\TwigInspectorBundle\NowoTwigInspectorBundle::class => ['dev' => true, 'test' => true],
 ];
