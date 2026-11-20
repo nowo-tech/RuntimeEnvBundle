@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.8.1](#to-181)
 - [To 1.8.0](#to-180)
   - [Conflict answers: 409 + CONFLICT codes (REQ-RUNTIME-003)](#conflict-answers-409--conflict-codes-req-runtime-003)
 - [To 1.7.1](#to-171)
@@ -43,6 +44,14 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+## To 1.8.1
+
+From **1.8.0**:
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
 
 ## To 1.8.0
 

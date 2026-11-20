@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.8.1] - 2026-11-21](#181---2026-11-21)
 - [[1.8.0] - 2026-11-18](#180---2026-11-18)
 - [[1.7.1] - 2026-11-17](#171---2026-11-17)
 - [[1.7.0] - 2026-11-17](#170---2026-11-17)
@@ -33,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-11-21
+
 ### Changed
 
 - CI: new `deps-floor` job (as in BreadcrumbKit). It checks that the demo lock installs every nowo-tech requirement of the bundle (`.scripts/check-demo-lock.py`), then downgrades nowo-tech/transaction-* to the lowest versions composer.json allows (`composer update 'nowo-tech/transaction-*' --prefer-lowest`) and runs PHPStan and the tests there, so a call to a newer API than the constraint allows fails the pull request.
@@ -43,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Schema: the collation of the key columns (variable `name`, version `namespace`) is now applied on `postGenerateSchema`, once the schema tool has added every foreign key, instead of replacing the variables and versions tables on `postGenerateSchemaTable` (audit XI). On DBAL 4.5+ `KeyCollationListener` replaced the table with `setClassTable()`, and ORM 3.7–3.8's schema tool then added the foreign keys that start on that table to the replaced object, so on MySQL / MariaDB they were lost from the generated schema, with their indexes (the bundle tables have no foreign key today, so nothing was lost yet; a host association onto them would have been). On DBAL 4.5+ the tables are now rebuilt with their table editor and swapped into a new schema (`GenerateSchemaEventArgs::setSchema()`), which keeps every foreign key and index; on older DBAL (and ORM versions without `setSchema()`) the column options are set in place. Managers that do not map the bundle entities are skipped, the exact collations are unchanged, and `KeyCollationListener::postGenerateSchemaTable()` stays as a deprecated no-op (the constructor's registry argument is unused but kept). The old listener also checked only `Table::edit()`, not `setClassTable()`, so on ORM 3.6 with DBAL 4.5+ (both allowed by the constraints) generating the schema was a fatal error (`Call to undefined method GenerateSchemaTableEventArgs::setClassTable()`); it no longer is.
 - Demo: `demo/symfony8/composer.lock` now installs nowo-tech/transaction-doctrine 1.6.0. The locks of 1.6.0 to 1.8.0 did not install nowo-tech/transaction-doctrine, nowo-tech/transaction-contract or nowo-tech/runtime-setting-contract, which the bundle already required (^1.5): the demo installs from its lock, so it failed with class not found (`CommitLedger`). The bundle's composer.json constraint was already right; hosts are not affected.
+
+[1.8.1]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.8.1
 
 ## [1.8.0] - 2026-11-18
 
