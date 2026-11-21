@@ -2,6 +2,8 @@
 # The runtime env manage pages render in the demo shell (base.html.twig extends UiKit's admin layout).
 nowo_ui_kit:
     css_framework: custom
+    base_stylesheet: true
     icon_set: none
     layouts:
         admin: 'base.html.twig'
+        guest: 'base.html.twig'

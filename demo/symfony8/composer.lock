@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0e243091f4f935351da8885d5683dc1c",
+    "content-hash": "f0dc03ec2708caf7fe3230db0e16d383",
     "packages": [
         {
             "name": "doctrine/collections",
@@ -1153,11 +1153,11 @@
         },
         {
             "name": "nowo-tech/runtime-env-bundle",
-            "version": "dev-chore/transaction-doctrine-1.8",
+            "version": "dev-chore/demo-platform-shell",
             "dist": {
                 "type": "path",
                 "url": "/var/runtime-env-bundle",
-                "reference": "2cedf5bfb10b0b8ef55cba6d6d94536958994ff0"
+                "reference": "1c55bbd766ff71460164f07871c22681e8f20d30"
             },
             "require": {
                 "doctrine/doctrine-bundle": "^2.10 || ^3.0",
@@ -1600,16 +1600,16 @@
         },
         {
             "name": "nowo-tech/ui-kit-bundle",
-            "version": "v2.49.0",
+            "version": "v2.61.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/nowo-tech/UiKitBundle.git",
-                "reference": "38f5a1e26f360bda0fe7e1f88a5182c47081b8ce"
+                "reference": "d447ef040dfb7e52d221eb888735b9eb40a53bb8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nowo-tech/UiKitBundle/zipball/38f5a1e26f360bda0fe7e1f88a5182c47081b8ce",
-                "reference": "38f5a1e26f360bda0fe7e1f88a5182c47081b8ce",
+                "url": "https://api.github.com/repos/nowo-tech/UiKitBundle/zipball/d447ef040dfb7e52d221eb888735b9eb40a53bb8",
+                "reference": "d447ef040dfb7e52d221eb888735b9eb40a53bb8",
                 "shasum": ""
             },
             "require": {
@@ -1656,7 +1656,8 @@
                 "symfony/validator": "Colour validation in the optional appearance forms"
             },
             "bin": [
-                "bin/nowo-ui-token-lint"
+                "bin/nowo-ui-token-lint",
+                "bin/nowo-ui-demo-style-lint"
             ],
             "type": "symfony-bundle",
             "autoload": {
@@ -1698,8 +1699,8 @@
                 "issues": "https://github.com/nowo-tech/UiKitBundle/issues",
                 "source": "https://github.com/nowo-tech/UiKitBundle"
             },
-            "time": "2026-11-11T22:37:57+00:00",
-            "published-time": "2026-11-11T22:41:16+00:00"
+            "time": "2026-11-20T22:14:25+00:00",
+            "published-time": "2026-11-20T22:17:13+00:00"
         },
         {
             "name": "paragonie/constant_time_encoding",
