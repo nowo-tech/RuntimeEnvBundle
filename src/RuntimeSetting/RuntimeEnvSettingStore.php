@@ -247,7 +247,7 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
             'value'               => $value,
             'enabled'             => true,
             'previous_value'      => $previous,
-            'previous_expires_at' => $expires instanceof DateTimeImmutable ? self::utc($expires) : null,
+            'previous_expires_at' => $expires instanceof DateTimeImmutable ? $this->utc($expires) : null,
             'updated_at'          => $now,
         ];
 
@@ -283,7 +283,7 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
     private function purge(Connection $connection, DateTimeImmutable $now, ?string $name = null): int
     {
         $sql    = 'UPDATE %s SET previous_value = NULL, previous_expires_at = NULL WHERE previous_expires_at IS NOT NULL AND previous_expires_at <= ?';
-        $params = [self::utc($now)];
+        $params = [$this->utc($now)];
         $types  = [Types::DATETIME_IMMUTABLE];
         if ($name !== null) {
             $sql .= ' AND name = ?';
@@ -298,7 +298,7 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
      * Rotation expiries are stored as UTC wall-clock time (the column has no zone): every writer, purger and reader
      * agrees whatever its PHP default timezone (audit QT-L-1).
      */
-    private static function utc(DateTimeImmutable $moment): DateTimeImmutable
+    private function utc(DateTimeImmutable $moment): DateTimeImmutable
     {
         return $moment->setTimezone(new DateTimeZone('UTC'));
     }
