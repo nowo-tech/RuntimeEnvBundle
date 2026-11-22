@@ -39,6 +39,21 @@ final class PageContractTest extends PageContractTestCase
     }
 
     /**
+     * 1.9 (REQ-RUNTIME-003 rule 4): the edit page renders the row version as a hidden input of the form (the UiKit
+     * child loop), whatever the CSS framework, and never on the create page.
+     */
+    public function testTheEditPageCarriesTheRowVersionInAHiddenInput(): void
+    {
+        foreach (['none', 'bootstrap5', 'tailwind'] as $framework) {
+            $html = $this->renderPage(new PageFixture('@NowoRuntimeEnvBundle/manage/form.html.twig', PageFixtures::form(true)), $framework)->html;
+            self::assertMatchesRegularExpression('/<input type="hidden" id="runtime_env_variable_rowVersion" name="runtime_env_variable\[rowVersion\]" value="' . PageFixtures::ROW_VERSION . '"/', $html, $framework);
+
+            $new = $this->renderPage(new PageFixture('@NowoRuntimeEnvBundle/manage/form.html.twig', PageFixtures::form()), $framework)->html;
+            self::assertStringNotContainsString('rowVersion', $new, $framework);
+        }
+    }
+
+    /**
      * A host `web_ui.templates.index` that extends the plain UiKit list scaffold (default cells, no bundle row
      * override) still never prints a value: the rows are value-free and the value column key resolves to nothing.
      */

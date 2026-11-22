@@ -135,6 +135,7 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
                 'previous_expires_at' => null,
                 'updated_at'          => $now,
             ], ['name' => $row['name']], $this->types());
+            $this->advanceRowVersion($connection, $row['name']);
 
             return RuntimeEnvVariableChangedEvent::UPDATED;
         }, null);
@@ -182,10 +183,14 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
 
     /**
      * 1.6: changes the free-form description of a variable (admin UI). It is not a setting value: no version change.
+     * 1.9: the same statement advances the row version of the edit page (REQ-RUNTIME-003 rule 4).
      */
     public function updateDescription(string $name, ?string $description): void
     {
-        $this->connection()->update($this->variablesTable, ['description' => $description], ['name' => $name]);
+        $this->connection()->executeStatement(
+            sprintf('UPDATE %s SET description = ?, row_version = row_version + 1 WHERE name = ?', $this->variablesTable),
+            [$description, $name],
+        );
     }
 
     /**
@@ -247,14 +252,28 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
         ];
 
         if ($row === null) {
-            $connection->insert($this->variablesTable, ['name' => $name, 'description' => null] + $data, $this->types());
+            // 1.9: an id from the entity's sequence where the ORM maps one (PostgreSQL with DBAL 3).
+            $connection->insert($this->variablesTable, RuntimeEnvVariableId::forInsert($this->manager(), $connection) + ['name' => $name, 'description' => null] + $data, $this->types());
 
             return RuntimeEnvVariableChangedEvent::CREATED;
         }
 
         $connection->update($this->variablesTable, $data, ['name' => $row['name']], $this->types());
+        $this->advanceRowVersion($connection, $row['name']);
 
         return RuntimeEnvVariableChangedEvent::UPDATED;
+    }
+
+    /**
+     * 1.9 (REQ-RUNTIME-003 rule 4): a write of the store makes the edit pages opened before it stale (same transaction,
+     * the row is already locked by the write).
+     */
+    private function advanceRowVersion(Connection $connection, string $name): void
+    {
+        $connection->executeStatement(
+            sprintf('UPDATE %s SET row_version = row_version + 1 WHERE name = ?', $this->variablesTable),
+            [$name],
+        );
     }
 
     /**
@@ -366,12 +385,17 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
 
     private function connection(): Connection
     {
+        return $this->manager()->getConnection();
+    }
+
+    private function manager(): EntityManagerInterface
+    {
         $manager = $this->registry->getManager($this->entityManagerName);
         if (!$manager instanceof EntityManagerInterface) {
             throw new LogicException(sprintf('Entity manager "%s" is not a Doctrine ORM entity manager.', $this->entityManagerName));
         }
 
-        return $manager->getConnection();
+        return $manager;
     }
 
     /**

@@ -6,6 +6,8 @@ namespace Nowo\RuntimeEnvBundle\DependencyInjection;
 
 use LogicException;
 use Nowo\DoctrineEncryptBundle\Util\EncryptUtil;
+use Nowo\RuntimeEnvBundle\Concurrency\RowVersionListener;
+use Nowo\RuntimeEnvBundle\Concurrency\RuntimeEnvRowVersions;
 use Nowo\RuntimeEnvBundle\Controller\RuntimeEnvManageController;
 use Nowo\RuntimeEnvBundle\Doctrine\KeyCollationListener;
 use Nowo\RuntimeEnvBundle\Doctrine\RuntimeEnvMetadataListener;
@@ -158,6 +160,16 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
         $container->setDefinition(StorageFailureListener::class, (new Definition(StorageFailureListener::class, [$policy, new Reference(self::COMMIT_LEDGER_ID)]))
             ->addTag('kernel.event_listener', ['event' => KernelEvents::REQUEST, 'method' => 'onRequest', 'priority' => StorageFailureListener::REQUEST_PRIORITY])
             ->addTag('kernel.event_listener', ['event' => KernelEvents::EXCEPTION, 'method' => 'onException', 'priority' => StorageFailureListener::PRIORITY]));
+
+        // 1.9 (REQ-RUNTIME-003 rule 4): row versions of the manage page's edit form. Every ORM update of a variable
+        // advances the version (postUpdate, inside the flush's transaction, on any manager that maps the entity).
+        $container->setDefinition(RuntimeEnvRowVersions::class, new Definition(RuntimeEnvRowVersions::class, [
+            '$registry'          => new Reference('doctrine'),
+            '$entityManagerName' => $emName,
+            '$variablesTable'    => $variablesTable,
+        ]));
+        $container->setDefinition(RowVersionListener::class, (new Definition(RowVersionListener::class))
+            ->addTag('doctrine.event_listener', ['event' => 'postUpdate']));
 
         $container->setDefinition(RuntimeEnvBag::class, (new Definition(RuntimeEnvBag::class))
             ->setAutowired(false)
@@ -312,7 +324,8 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
             ->setArgument('$pathPrefix', $config['web_ui']['path_prefix'])
             ->setArgument('$listPageSize', $config['web_ui']['list_page_size'])
             ->setArgument('$pageFactory', new Reference(RuntimeEnvPageFactory::class))
-            ->setArgument('$translator', new Reference('translator', ContainerInterface::NULL_ON_INVALID_REFERENCE));
+            ->setArgument('$translator', new Reference('translator', ContainerInterface::NULL_ON_INVALID_REFERENCE))
+            ->setArgument('$rowVersions', new Reference(RuntimeEnvRowVersions::class));
 
         $container->getDefinition(RuntimeEnvAccessSubscriber::class)
             ->setArgument('$accessChecker', new Reference(RuntimeEnvAccessCheckerInterface::class))

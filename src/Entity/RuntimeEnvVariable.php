@@ -7,6 +7,8 @@ namespace Nowo\RuntimeEnvBundle\Entity;
 use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 use Nowo\DoctrineEncryptBundle\Configuration\Encrypted;
+use Nowo\RuntimeEnvBundle\Concurrency\RowVersionListener;
+use Nowo\RuntimeEnvBundle\Concurrency\RuntimeEnvRowVersions;
 use Nowo\RuntimeEnvBundle\Doctrine\RuntimeEnvMetadataListener;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvSettingStore;
 
@@ -28,6 +30,17 @@ class RuntimeEnvVariable
 
     #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
     private DateTimeImmutable $updatedAt;
+
+    /**
+     * 1.9 (REQ-RUNTIME-003 rule 4): the optimistic row version of the manage page's edit form.
+     *
+     * The ORM never writes it (`insertable` / `updatable` false: the database default gives 1, so it can never go
+     * backwards). Every change of the row advances it with one atomic `UPDATE … SET row_version = row_version + 1`
+     * ({@see RuntimeEnvRowVersions}, {@see RowVersionListener}, the runtime-setting store). The loaded value may lag
+     * behind the database; the edit page reads the current one with {@see RuntimeEnvRowVersions::current()}.
+     */
+    #[ORM\Column(name: 'row_version', type: 'integer', insertable: false, updatable: false, options: ['default' => 1])]
+    private int $rowVersion = 1;
 
     /**
      * 1.6 (runtime_setting.enabled only): the previous value of a rotation, as stored (ciphertext with the
@@ -132,6 +145,14 @@ class RuntimeEnvVariable
     public function getUpdatedAt(): DateTimeImmutable
     {
         return $this->updatedAt;
+    }
+
+    /**
+     * 1.9: the row version as loaded (it may lag behind the database, see {@see $rowVersion}).
+     */
+    public function getRowVersion(): int
+    {
+        return $this->rowVersion;
     }
 
     /**

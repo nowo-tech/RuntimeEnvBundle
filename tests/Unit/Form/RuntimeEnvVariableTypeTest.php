@@ -8,6 +8,7 @@ use Nowo\RuntimeEnvBundle\Entity\RuntimeEnvVariable;
 use Nowo\RuntimeEnvBundle\Form\RuntimeEnvVariableType;
 use Nowo\RuntimeEnvBundle\Tests\Support\FormKitTestSupport;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Validator\ValidatorExtension;
 use Symfony\Component\Form\Test\TypeTestCase;
@@ -169,5 +170,54 @@ final class RuntimeEnvVariableTypeTest extends TypeTestCase
         $form->submit(['value' => 'REDACTED-TEST-TYPED', 'description' => '', 'enabled' => '1']);
 
         self::assertSame('', $form->createView()['value']->vars['value']);
+    }
+
+    /**
+     * 1.9 (REQ-RUNTIME-003 rule 4): the edit form carries the page's row version in a hidden, unmapped field.
+     */
+    public function testEditCarriesTheRowVersionInAHiddenUnmappedField(): void
+    {
+        $variable = new RuntimeEnvVariable('APP_KEY', 'secret');
+        $form     = $this->factory->create(RuntimeEnvVariableType::class, $variable, ['is_edit' => true, 'row_version' => 4]);
+
+        $field = $form->get(RuntimeEnvVariableType::ROW_VERSION_FIELD);
+        self::assertSame(HiddenType::class, $field->getConfig()->getType()->getInnerType()::class);
+        self::assertFalse($field->getConfig()->getMapped());
+        self::assertSame('4', $form->createView()[RuntimeEnvVariableType::ROW_VERSION_FIELD]->vars['value']);
+        self::assertSame(RuntimeEnvVariableType::MISSING_ROW_VERSION, RuntimeEnvVariableType::submittedRowVersion($form), 'not submitted yet');
+
+        $form->submit(['description' => 'd', 'enabled' => '1', RuntimeEnvVariableType::ROW_VERSION_FIELD => '3']);
+        self::assertSame(3, RuntimeEnvVariableType::submittedRowVersion($form));
+        self::assertSame('3', $form->createView()[RuntimeEnvVariableType::ROW_VERSION_FIELD]->vars['value'], 'a submitted (stale) page keeps its version');
+        self::assertSame('secret', $variable->getValue());
+
+        $missing = $this->factory->create(RuntimeEnvVariableType::class, $variable, ['is_edit' => true, 'row_version' => 4]);
+        $missing->submit(['description' => 'd']);
+        self::assertSame(RuntimeEnvVariableType::MISSING_ROW_VERSION, RuntimeEnvVariableType::submittedRowVersion($missing), 'a missing field is never filled in');
+
+        self::assertFalse($this->factory->create(RuntimeEnvVariableType::class, $variable, ['is_edit' => true])->has(RuntimeEnvVariableType::ROW_VERSION_FIELD), 'no version given');
+        self::assertFalse($this->factory->create(RuntimeEnvVariableType::class, new RuntimeEnvVariable('NEW_KEY'), ['row_version' => 4])->has(RuntimeEnvVariableType::ROW_VERSION_FIELD), 'never on create');
+    }
+
+    /**
+     * 1.9: a missing, empty, signed, zero-padded, fractional or oversized token (surrounding spaces are trimmed by the form) never matches a stored version.
+     */
+    public function testAnInvalidSubmittedRowVersionIsMissing(): void
+    {
+        foreach ([null, '', '0', '-1', '01', '1.5', 'abc', '1234567890123456789'] as $token) {
+            $form = $this->factory->create(RuntimeEnvVariableType::class, new RuntimeEnvVariable('APP_KEY', 'secret'), ['is_edit' => true, 'row_version' => 1]);
+            $form->submit(['description' => 'd', RuntimeEnvVariableType::ROW_VERSION_FIELD => $token]);
+            self::assertSame(RuntimeEnvVariableType::MISSING_ROW_VERSION, RuntimeEnvVariableType::submittedRowVersion($form), (string) $token);
+        }
+        self::assertSame(123456789012345678, RuntimeEnvVariableType::submittedRowVersion(
+            $this->factory->create(RuntimeEnvVariableType::class, new RuntimeEnvVariable('APP_KEY'), ['is_edit' => true, 'row_version' => 1])
+                ->submit([RuntimeEnvVariableType::ROW_VERSION_FIELD => '123456789012345678']),
+        ));
+    }
+
+    public function testInvalidRowVersionOptionTypeIsRejected(): void
+    {
+        $this->expectException(InvalidOptionsException::class);
+        $this->factory->create(RuntimeEnvVariableType::class, new RuntimeEnvVariable('APP_KEY'), ['is_edit' => true, 'row_version' => '4']);
     }
 }

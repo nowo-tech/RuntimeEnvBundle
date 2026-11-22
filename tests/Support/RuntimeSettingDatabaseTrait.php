@@ -28,7 +28,7 @@ trait RuntimeSettingDatabaseTrait
     private function database(): Connection
     {
         $connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'memory' => true]);
-        $connection->executeStatement('CREATE TABLE runtime_env_variables (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(128) NOT NULL, value CLOB NOT NULL, description VARCHAR(255) DEFAULT NULL, enabled BOOLEAN NOT NULL, updated_at DATETIME NOT NULL, previous_value CLOB DEFAULT NULL, previous_expires_at DATETIME DEFAULT NULL)');
+        $connection->executeStatement('CREATE TABLE runtime_env_variables (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(128) NOT NULL, value CLOB NOT NULL, description VARCHAR(255) DEFAULT NULL, enabled BOOLEAN NOT NULL, updated_at DATETIME NOT NULL, previous_value CLOB DEFAULT NULL, previous_expires_at DATETIME DEFAULT NULL, row_version INTEGER DEFAULT 1 NOT NULL)');
         $connection->executeStatement('CREATE UNIQUE INDEX uniq_runtime_env_name ON runtime_env_variables (name)');
         $connection->executeStatement('CREATE TABLE runtime_env_versions (namespace VARCHAR(64) NOT NULL PRIMARY KEY, token VARCHAR(128) NOT NULL)');
 

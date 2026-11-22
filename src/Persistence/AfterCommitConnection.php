@@ -83,10 +83,14 @@ final class AfterCommitConnection extends AbstractConnectionMiddleware
 
     /**
      * Executes the statement; a successful savepoint statement is reported to the observers.
+     *
+     * 1.9 (audit ZJ-M1): returns `int`. DBAL 3 declares `int` (the wider `int|string` was a fatal error on DBAL 3 from
+     * 1.5.0 to 1.8.x); `int` is also valid on DBAL 4 (`int|string`, a count above PHP_INT_MAX). Only savepoint and DDL
+     * statements pass here.
      */
-    public function exec(string $sql): int|string
+    public function exec(string $sql): int
     {
-        $result = parent::exec($sql);
+        $result = (int) parent::exec($sql);
         if (preg_match(self::SAVEPOINT_PATTERN, $sql, $match) === 1) {
             $verb = strtoupper($match[1]);
             $name = $match[2];

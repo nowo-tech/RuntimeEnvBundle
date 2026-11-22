@@ -2,7 +2,7 @@
 
 **Baseline spec**: [`spec.md`](spec.md)  
 **Package**: `nowo-tech/runtime-env-bundle`  
-**Last audited**: 2026-11-16
+**Last audited**: 2026-11-22
 
 This file proves that **every production source artifact** under `src/` is inventoried. PHPUnit under `tests/` is out of scope unless promoted in the spec.
 
@@ -15,12 +15,15 @@ This file proves that **every production source artifact** under `src/` is inven
 | `DependencyInjection/RuntimeEnvExtension.php` | DI extension + parameters | FR-CFG-002 |
 | `DependencyInjection/Compiler/TwigPathsPass.php` | Twig path registration | FR-DI-002 |
 | `DependencyInjection/Compiler/CsrfProtectionPass.php` | Fails closed without form CSRF (REQ-SEC-005) | FR-SEC-001 |
-| `Controller/RuntimeEnvManageController.php` | Admin CRUD | FR-UI-001 |
+| `Concurrency/RowVersionListener.php` | 1.9: every ORM update of a variable advances its row version (`postUpdate`, inside the flush) | FR-CONC-001 |
+| `Concurrency/RuntimeEnvRowVersions.php` | 1.9: row version read, compare-and-set + write in one runner unit, claim unit for registered settings | FR-CONC-001 |
+| `Concurrency/StaleEditException.php` | 1.9: stale edit page (domain 409 `RUNTIME_ENV_STALE_EDIT`) | FR-CONC-001 |
+| `Controller/RuntimeEnvManageController.php` | Admin CRUD; 1.9: stale edit answer | FR-UI-001, FR-CONC-001 |
 | `Doctrine/RuntimeEnvMetadataListener.php` | Table prefix metadata | FR-ORM-001 |
-| `Entity/RuntimeEnvVariable.php` | Encrypted entity | FR-ORM-002 |
+| `Entity/RuntimeEnvVariable.php` | Encrypted entity | FR-ORM-002, FR-CONC-001 |
 | `EventSubscriber/RuntimeEnvAccessSubscriber.php` | Panel access gate (priority 7, firewall-aware) | FR-SEC-001, FR-WORKER-003 |
 | `Form/RuntimeEnvDeleteType.php` | CSRF delete form (REQ-TWIG-005) | FR-UI-004 |
-| `Form/RuntimeEnvVariableType.php` | CRUD form | FR-UI-002 |
+| `Form/RuntimeEnvVariableType.php` | CRUD form | FR-UI-002, FR-CONC-001 |
 | `Repository/RuntimeEnvVariableRepositoryInterface.php` | Repository contract | FR-REP-001 |
 | `Repository/PaginatedRuntimeEnvVariableRepositoryInterface.php` | Paginated list reads (REQ-PERF-001) | FR-REP-001, FR-UI-001 |
 | `Repository/DoctrineOrmRuntimeEnvVariableRepository.php` | ORM repository (registry + HINT_REFRESH, pagination) | FR-REP-002, FR-WORKER-002 |
@@ -50,9 +53,10 @@ This file proves that **every production source artifact** under `src/` is inven
 | `RuntimeSetting/DoctrineEncryptValueCipher.php` | 1.6: entity-format encryption for DBAL writes | FR-RS-002 |
 | `RuntimeSetting/Entity/RuntimeEnvVersion.php` | 1.6: `env` version token (mapped only when enabled) | FR-RS-003 |
 | `RuntimeSetting/RuntimeEnvAdminSettings.php` | 1.6: admin edits of registered settings through RuntimeSettingUpdater | FR-RS-004 |
-| `RuntimeSetting/RuntimeEnvSettingStore.php` | 1.6: contract source and writer (DBAL, own transaction, rotation, purge, audit) | FR-RS-001, FR-RS-002, FR-RS-003 |
+| `RuntimeSetting/RuntimeEnvSettingStore.php` | 1.6: contract source and writer (DBAL, own transaction, rotation, purge, audit) | FR-RS-001, FR-RS-002, FR-RS-003, FR-CONC-001 |
 | `RuntimeSetting/RuntimeEnvValueCipherInterface.php` | 1.6: cipher port of the store | FR-RS-002 |
 | `RuntimeSetting/RuntimeEnvVersionBumper.php` | 1.6: version bump in the 1.5 writer's flush | FR-RS-003 |
+| `RuntimeSetting/RuntimeEnvVariableId.php` | 1.9: id of a store insert from the entity's sequence (PostgreSQL with DBAL 3) | FR-RS-001 |
 | `RuntimeSetting/RuntimeEnvVersionRow.php` | 1.6 (audit QT-L-3): version row of a namespace seeded with a statement that cannot conflict (serialises first writes) | FR-RS-003 |
 | `Service/RuntimeEnvReaderInterface.php` | Name-based read port (1.5) | FR-RT-002 |
 | `Service/RuntimeEnvWriterInterface.php` | Name-based write port (1.5) | FR-RT-003 |
@@ -80,6 +84,6 @@ This file proves that **every production source artifact** under `src/` is inven
 
 | Category | Files | Mapped |
 | --- | ---: | ---: |
-| PHP classes | 48 | 48 |
+| PHP classes | 52 | 52 |
 | YAML config / translations / Twig / CSS | 12 | 12 |
-| **Total `src/` artifacts** | **60** | **60** |
+| **Total `src/` artifacts** | **64** | **64** |

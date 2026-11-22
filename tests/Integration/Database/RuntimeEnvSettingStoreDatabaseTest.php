@@ -309,11 +309,11 @@ final class RuntimeEnvSettingStoreDatabaseTest extends TestCase
         $a->executeStatement('DROP TABLE IF EXISTS runtime_env_variables');
         $a->executeStatement('DROP TABLE IF EXISTS runtime_env_versions');
         if ($mysql) {
-            $a->executeStatement('CREATE TABLE runtime_env_variables (id INT AUTO_INCREMENT NOT NULL PRIMARY KEY, name VARCHAR(128) NOT NULL, value LONGTEXT NOT NULL, description VARCHAR(255) DEFAULT NULL, enabled TINYINT(1) NOT NULL, updated_at DATETIME NOT NULL, previous_value LONGTEXT DEFAULT NULL, previous_expires_at DATETIME DEFAULT NULL, UNIQUE INDEX uniq_runtime_env_name (name)) DEFAULT CHARACTER SET utf8mb4 ENGINE = InnoDB');
+            $a->executeStatement('CREATE TABLE runtime_env_variables (id INT AUTO_INCREMENT NOT NULL PRIMARY KEY, name VARCHAR(128) NOT NULL, value LONGTEXT NOT NULL, description VARCHAR(255) DEFAULT NULL, enabled TINYINT(1) NOT NULL, updated_at DATETIME NOT NULL, previous_value LONGTEXT DEFAULT NULL, previous_expires_at DATETIME DEFAULT NULL, row_version INT DEFAULT 1 NOT NULL, UNIQUE INDEX uniq_runtime_env_name (name)) DEFAULT CHARACTER SET utf8mb4 ENGINE = InnoDB');
             $a->executeStatement('CREATE TABLE runtime_env_versions (namespace VARCHAR(64) NOT NULL PRIMARY KEY, token VARCHAR(128) NOT NULL) DEFAULT CHARACTER SET utf8mb4 ENGINE = InnoDB');
             $b->executeStatement('SET SESSION innodb_lock_wait_timeout = 3');
         } else {
-            $a->executeStatement('CREATE TABLE runtime_env_variables (id SERIAL PRIMARY KEY, name VARCHAR(128) NOT NULL UNIQUE, value TEXT NOT NULL, description VARCHAR(255) DEFAULT NULL, enabled BOOLEAN NOT NULL, updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, previous_value TEXT DEFAULT NULL, previous_expires_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL)');
+            $a->executeStatement('CREATE TABLE runtime_env_variables (id SERIAL PRIMARY KEY, name VARCHAR(128) NOT NULL UNIQUE, value TEXT NOT NULL, description VARCHAR(255) DEFAULT NULL, enabled BOOLEAN NOT NULL, updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, previous_value TEXT DEFAULT NULL, previous_expires_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, row_version INT DEFAULT 1 NOT NULL)');
             $a->executeStatement('CREATE TABLE runtime_env_versions (namespace VARCHAR(64) NOT NULL PRIMARY KEY, token VARCHAR(128) NOT NULL)');
             $b->executeStatement("SET lock_timeout = '3s'");
         }

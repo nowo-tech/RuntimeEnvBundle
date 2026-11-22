@@ -247,6 +247,19 @@ jobs:
           RE_POSTGRES_URL: pgsql://postgres@127.0.0.1:5432/reb?serverVersion=16
         run: vendor/bin/phpunit --group database --no-coverage --fail-on-skipped
 
+      # 1.9 (audit ZJ-M1): the same servers on DBAL 3, which composer allows (doctrine/orm, transaction-doctrine).
+      - name: Downgrade to DBAL 3
+        run: composer update "doctrine/dbal:^3.8.2" --with-all-dependencies --prefer-dist --no-progress --no-interaction
+
+      - name: Real servers on DBAL 3 (none may be skipped)
+        env:
+          RE_MYSQL_URL: mysql://root@127.0.0.1:3306/reb?serverVersion=8.4.0&charset=utf8mb4
+          RE_MARIADB_URL: mysql://root@127.0.0.1:3307/reb?serverVersion=11.4.0-MariaDB&charset=utf8mb4
+          RE_POSTGRES_URL: pgsql://postgres@127.0.0.1:5432/reb?serverVersion=16
+        run: |
+          composer show doctrine/dbal | grep -E '^versions'
+          vendor/bin/phpunit --group database --no-coverage --fail-on-skipped
+
   phpstan:
     name: PHPStan
     runs-on: ubuntu-latest
