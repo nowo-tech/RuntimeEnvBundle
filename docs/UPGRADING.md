@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+- [To 1.9.0](#to-190)
   - [Row version of the edit form: migration required](#row-version-of-the-edit-form-migration-required)
 - [To 1.8.1](#to-181)
 - [To 1.8.0](#to-180)
@@ -45,6 +46,14 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+## To 1.9.0
+
+From **1.8.1**:
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
 
 From **1.8.1**:
 

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Table of contents
 
 - [[Unreleased]](#unreleased)
+- [[1.9.0] - 2026-11-22](#190---2026-11-22)
 - [[1.8.1] - 2026-11-21](#181---2026-11-21)
 - [[1.8.0] - 2026-11-18](#180---2026-11-18)
 - [[1.7.1] - 2026-11-17](#171---2026-11-17)
@@ -34,10 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-22
+
 ### Added
 
 - **Row version on the manage page's edit form (REQ-RUNTIME-003 rule 4).** Two admins editing the same variable no longer overwrite each other without a warning (the last-write-wins residual of 1.8).
-  - New column `row_version INT NOT NULL DEFAULT 1` on the variables table. It needs a migration (see [UPGRADING](UPGRADING.md#unreleased)). The ORM never writes it; every change is one atomic `UPDATE … SET row_version = row_version + 1`.
+  - New column `row_version INT NOT NULL DEFAULT 1` on the variables table. It needs a migration (see [UPGRADING](UPGRADING.md#to-190)). The ORM never writes it; every change is one atomic `UPDATE … SET row_version = row_version + 1`.
   - The edit form carries the version in a hidden, unmapped field `rowVersion`, read from the database (never the identity map, so worker mode with the kernel reset off cannot show a stale version as current).
   - The save checks and advances the version with one compare-and-set (`… WHERE id = ? AND row_version = ?`), then flushes, in one unit of transaction-doctrine's runner. The runner restores the connection's nesting level after any failure, also after a MySQL / MariaDB deadlock that destroyed the flush's savepoint (audit ZH-M1 of the ApiStudio reference), so a deadlock still answers 409 `CONFLICT_001`.
   - A registered runtime setting (`runtime_setting.enabled`) is claimed in a unit of its own before the store writes it, because the store refuses a transaction of the caller.
@@ -51,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **DBAL 3: fatal error on the first connection (1.5.0 to 1.8.x).** `AfterCommitConnection::exec()` declared `int|string`, wider than DBAL 3's `int`, so PHP refused the class and every host on DBAL 3 (allowed by composer through `doctrine/orm` and `nowo-tech/transaction-doctrine`) failed as soon as the bundle's connection was used. It now returns `int`, valid on DBAL 3 and DBAL 4 (audit ZJ-M1). The required "Real databases" CI job now also runs on DBAL 3.
 - **DBAL 3 on PostgreSQL: the runtime-setting store could not insert a new variable.** There ORM 3 maps the entity's id to a sequence and the column has no default; the store's DBAL insert now takes the next value of that sequence from the mapping (`RuntimeSetting\RuntimeEnvVariableId`). Only reachable once the fatal above is fixed.
 - The edit page reads the row version before the values (audit ZJ-L1), so a write committed between the two reads makes the page stale instead of being overwritten.
+
+[1.9.0]: https://github.com/nowo-tech/RuntimeEnvBundle/releases/tag/v1.9.0
 
 ## [1.8.1] - 2026-11-21
 
