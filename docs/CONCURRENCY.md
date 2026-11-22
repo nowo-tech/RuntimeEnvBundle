@@ -50,7 +50,8 @@ This page lists the write paths, the conflict answers and codes, the host option
   `insertable: false, updatable: false`. The ORM never writes it, so it can never go backwards; every change is one
   atomic `UPDATE … SET row_version = row_version + 1`.
 - **Page.** The edit form carries the version in the hidden, unmapped field `rowVersion`. The controller reads it from
-  the database (`RuntimeEnvRowVersions::current()`), never from the identity map, so a manager that kept a loaded row
+  the database (`RuntimeEnvRowVersions::current()`) before it loads the values (a write in between makes the page
+  stale, audit ZJ-L1), never from the identity map, so a manager that kept a loaded row
   across requests (worker mode, kernel reset off) cannot make a stale page look current. A submitted form keeps the
   version it was sent with; a missing or malformed field reads as 0 and never matches (versions start at 1).
 - **Save.** The compare-and-set and the write run in one unit of transaction-doctrine's runner. The compare-and-set
@@ -132,6 +133,9 @@ nowo_runtime_env:
 - `tests/Unit/Concurrency/RuntimeEnvRowVersionsTest.php`, `tests/Unit/Form/RuntimeEnvVariableTypeTest.php` and
   `tests/Unit/Controller/RuntimeEnvManageControllerRuntimeSettingTest.php` cover the same on SQLite: stale, current,
   missing and malformed versions on both edit paths, and a refused setting value that keeps the claimed version.
+- The CI job **Real databases** runs the `database` group on DBAL 4, then again after `composer update
+  "doctrine/dbal:^3.8.2" -W` on DBAL 3 (1.9). The deadlock test asserts a real deadlock (1213) in the failure chain,
+  never a lock wait timeout.
 - The CI job **Real databases (MySQL 8.4, MariaDB 11.4, PostgreSQL 16)** runs the `database` group with
   `--fail-on-skipped` and is a required check of `main`.
 

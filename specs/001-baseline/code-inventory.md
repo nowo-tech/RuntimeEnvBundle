@@ -56,6 +56,7 @@ This file proves that **every production source artifact** under `src/` is inven
 | `RuntimeSetting/RuntimeEnvSettingStore.php` | 1.6: contract source and writer (DBAL, own transaction, rotation, purge, audit) | FR-RS-001, FR-RS-002, FR-RS-003, FR-CONC-001 |
 | `RuntimeSetting/RuntimeEnvValueCipherInterface.php` | 1.6: cipher port of the store | FR-RS-002 |
 | `RuntimeSetting/RuntimeEnvVersionBumper.php` | 1.6: version bump in the 1.5 writer's flush | FR-RS-003 |
+| `RuntimeSetting/RuntimeEnvVariableId.php` | 1.9: id of a store insert from the entity's sequence (PostgreSQL with DBAL 3) | FR-RS-001 |
 | `RuntimeSetting/RuntimeEnvVersionRow.php` | 1.6 (audit QT-L-3): version row of a namespace seeded with a statement that cannot conflict (serialises first writes) | FR-RS-003 |
 | `Service/RuntimeEnvReaderInterface.php` | Name-based read port (1.5) | FR-RT-002 |
 | `Service/RuntimeEnvWriterInterface.php` | Name-based write port (1.5) | FR-RT-003 |
@@ -83,6 +84,6 @@ This file proves that **every production source artifact** under `src/` is inven
 
 | Category | Files | Mapped |
 | --- | ---: | ---: |
-| PHP classes | 51 | 51 |
+| PHP classes | 52 | 52 |
 | YAML config / translations / Twig / CSS | 12 | 12 |
-| **Total `src/` artifacts** | **63** | **63** |
+| **Total `src/` artifacts** | **64** | **64** |

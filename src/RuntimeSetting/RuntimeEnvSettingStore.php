@@ -252,7 +252,8 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
         ];
 
         if ($row === null) {
-            $connection->insert($this->variablesTable, ['name' => $name, 'description' => null] + $data, $this->types());
+            // 1.9: an id from the entity's sequence where the ORM maps one (PostgreSQL with DBAL 3).
+            $connection->insert($this->variablesTable, RuntimeEnvVariableId::forInsert($this->manager(), $connection) + ['name' => $name, 'description' => null] + $data, $this->types());
 
             return RuntimeEnvVariableChangedEvent::CREATED;
         }
@@ -384,12 +385,17 @@ final readonly class RuntimeEnvSettingStore implements RuntimeValueSourceInterfa
 
     private function connection(): Connection
     {
+        return $this->manager()->getConnection();
+    }
+
+    private function manager(): EntityManagerInterface
+    {
         $manager = $this->registry->getManager($this->entityManagerName);
         if (!$manager instanceof EntityManagerInterface) {
             throw new LogicException(sprintf('Entity manager "%s" is not a Doctrine ORM entity manager.', $this->entityManagerName));
         }
 
-        return $manager->getConnection();
+        return $manager;
     }
 
     /**

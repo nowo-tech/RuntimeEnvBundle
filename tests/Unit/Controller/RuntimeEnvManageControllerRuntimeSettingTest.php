@@ -213,6 +213,39 @@ final class RuntimeEnvManageControllerRuntimeSettingTest extends TestCase
         self::assertSame(0, $this->connection->getTransactionNestingLevel());
     }
 
+    /**
+     * Audit ZJ-L1: the page reads the row version before the values. A write committed between the two reads leaves
+     * the page with the older version, so its save is refused instead of overwriting that write.
+     */
+    public function testThePageReadsTheVersionBeforeTheValues(): void
+    {
+        $this->insertVariable($this->connection, 'PLAIN', 'p0');
+        $id      = $this->idOf('PLAIN');
+        $before  = $this->rowVersion($id);
+        $options = [];
+        $forms   = function (string $type, mixed $data, array $formOptions) use (&$options): FormInterface {
+            if ($type === RuntimeEnvVariableType::class) {
+                $options = $formOptions;
+            }
+            $form = $this->createMock(FormInterface::class);
+            $form->method('handleRequest')->willReturnSelf();
+            $form->method('isSubmitted')->willReturn(false);
+            $form->method('createView')->willReturn(new FormView());
+
+            return $form;
+        };
+        $onFind = function () use ($id): void {
+            // Another admin's save commits between the two reads of the page.
+            RuntimeEnvRowVersions::advance($this->connection, 'runtime_env_variables', $id);
+        };
+
+        $response = $this->controller($forms, (new RuntimeEnvVariable('PLAIN', 'p0'))->setId($id), null, $this->rowVersions(), null, $onFind)->edit($this->request('GET'), $id);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame($before, $options['row_version']);
+        self::assertSame($before + 1, $this->rowVersion($id));
+    }
+
     private function idOf(string $name): int
     {
         return (int) $this->connection->fetchOne('SELECT id FROM runtime_env_variables WHERE name = ?', [$name]);
@@ -273,11 +306,18 @@ final class RuntimeEnvManageControllerRuntimeSettingTest extends TestCase
 
     /**
      * @param int|null $saves how many times the plain writer must save (null: not checked)
+     * @param (callable(): void)|null $onFind runs when the controller loads the variable
      */
-    private function controller(callable $forms, ?RuntimeEnvVariable $variable = null, ?TokenStorage $tokens = null, ?RuntimeEnvRowVersions $rowVersions = null, ?int $saves = null): RuntimeEnvManageController
+    private function controller(callable $forms, ?RuntimeEnvVariable $variable = null, ?TokenStorage $tokens = null, ?RuntimeEnvRowVersions $rowVersions = null, ?int $saves = null, ?callable $onFind = null): RuntimeEnvManageController
     {
         $repository = $this->createMock(RuntimeEnvVariableRepositoryInterface::class);
-        $repository->method('find')->willReturn($variable);
+        $repository->method('find')->willReturnCallback(static function () use ($variable, $onFind): ?RuntimeEnvVariable {
+            if ($onFind !== null) {
+                $onFind();
+            }
+
+            return $variable;
+        });
         if ($saves !== null) {
             $repository->expects(self::exactly($saves))->method('save');
         }

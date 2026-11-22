@@ -151,7 +151,10 @@ final class RuntimeEnvManageController extends AbstractController
     #[Route(path: '/{id}/edit', name: 'nowo_runtime_env_edit', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
     public function edit(Request $request, int $id): Response
     {
-        $variable = $this->repository->find($id);
+        // 1.9 (REQ-RUNTIME-003 rule 4, audit ZJ-L1): the row version is read BEFORE the values, so a write committed in
+        // between gives a page whose version is already stale (never old values with the new version).
+        $rowVersion = $this->rowVersions?->current($id);
+        $variable   = $this->repository->find($id);
         if (!$variable instanceof RuntimeEnvVariable) {
             throw new NotFoundHttpException('Runtime env variable not found.');
         }
@@ -163,7 +166,7 @@ final class RuntimeEnvManageController extends AbstractController
         // map); the save refuses the edit when someone else saved the variable since the page was opened.
         $form = $this->createForm(RuntimeEnvVariableType::class, $draft, [
             'is_edit'     => true,
-            'row_version' => $this->rowVersions?->current($id),
+            'row_version' => $rowVersion,
         ]);
         $form->handleRequest($request);
 

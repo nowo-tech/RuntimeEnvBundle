@@ -7,6 +7,8 @@ namespace Nowo\RuntimeEnvBundle\Tests\Integration\Database;
 use Doctrine\Common\EventManager;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Exception\DeadlockException;
+use Doctrine\DBAL\Exception\LockWaitTimeoutException;
 use Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
 use Doctrine\DBAL\Tools\DsnParser;
 use Doctrine\ORM\EntityManager;
@@ -273,6 +275,13 @@ final class RowVersionDatabaseTest extends TestCase
 
         self::assertSame('ok', $peer, 'the peer won the deadlock');
         self::assertInstanceOf(TransientStorageFailure::class, $failure);
+        // Audit ZJ-I1: a real deadlock (1213), never a lock wait timeout (1205) that would skip the ZH-M1 path.
+        $deadlock = false;
+        for ($cause = $failure; $cause instanceof Throwable; $cause = $cause->getPrevious()) {
+            self::assertNotInstanceOf(LockWaitTimeoutException::class, $cause);
+            $deadlock = $deadlock || $cause instanceof DeadlockException;
+        }
+        self::assertTrue($deadlock, 'the failure chain holds the deadlock (1213)');
         $answer = $this->answer($failure);
         self::assertSame(409, $answer->getStatusCode());
         self::assertSame(ConflictCode::RETRY_SAFE, $answer->getHeaders()[StorageFailureListener::CODE_HEADER]);

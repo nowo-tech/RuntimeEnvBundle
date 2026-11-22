@@ -46,6 +46,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New: `Concurrency\RuntimeEnvRowVersions`, `Concurrency\StaleEditException`, `Concurrency\RowVersionListener`, `RuntimeEnvVariable::getRowVersion()`, the `row_version` option of `RuntimeEnvVariableType`.
   - Tests: `RowVersionDatabaseTest` on MySQL 8.4, MariaDB 11.4 and PostgreSQL 16, with two connections (stale second save, lock wait 409 `CONFLICT_001` then stale, other writers, additive migration) and a real deadlock inside the edit's flush on MySQL / MariaDB (409, nesting level 0, the next save works).
 
+### Fixed
+
+- **DBAL 3: fatal error on the first connection (1.5.0 to 1.8.x).** `AfterCommitConnection::exec()` declared `int|string`, wider than DBAL 3's `int`, so PHP refused the class and every host on DBAL 3 (allowed by composer through `doctrine/orm` and `nowo-tech/transaction-doctrine`) failed as soon as the bundle's connection was used. It now returns `int`, valid on DBAL 3 and DBAL 4 (audit ZJ-M1). The required "Real databases" CI job now also runs on DBAL 3.
+- **DBAL 3 on PostgreSQL: the runtime-setting store could not insert a new variable.** There ORM 3 maps the entity's id to a sequence and the column has no default; the store's DBAL insert now takes the next value of that sequence from the mapping (`RuntimeSetting\RuntimeEnvVariableId`). Only reachable once the fatal above is fixed.
+- The edit page reads the row version before the values (audit ZJ-L1), so a write committed between the two reads makes the page stale instead of being overwritten.
+
 ## [1.8.1] - 2026-11-21
 
 ### Changed
