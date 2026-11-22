@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Nowo\RuntimeEnvBundle\Controller;
 
 use InvalidArgumentException;
+use Nowo\RuntimeEnvBundle\Concurrency\RuntimeEnvRowVersions;
+use Nowo\RuntimeEnvBundle\Concurrency\StaleEditException;
 use Nowo\RuntimeEnvBundle\Entity\RuntimeEnvVariable;
 use Nowo\RuntimeEnvBundle\EventSubscriber\RuntimeEnvAccessSubscriber;
 use Nowo\RuntimeEnvBundle\Form\RuntimeEnvDeleteType;
@@ -14,12 +16,14 @@ use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Routing\RuntimeEnvRouteLoader;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvAdminSettings;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
+use Nowo\RuntimeEnvBundle\Transaction\StorageFailureListener;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
 use Nowo\RuntimeSettingContract\Contract\Exception\RuntimeSettingExceptionInterface;
 use Nowo\UiKitBundle\View\Pagination;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -56,6 +60,7 @@ final class RuntimeEnvManageController extends AbstractController
         private readonly ?RuntimeEnvPageFactory $pageFactory = null,
         private readonly ?TranslatorInterface $translator = null,
         private readonly ?RuntimeEnvAdminSettings $settings = null,
+        private readonly ?RuntimeEnvRowVersions $rowVersions = null,
     ) {
     }
 
@@ -154,32 +159,58 @@ final class RuntimeEnvManageController extends AbstractController
         // The form edits a detached copy: an invalid submission (e.g. a failed CSRF token) never modifies the managed
         // entity, so a later flush of the same EntityManager in this request cannot persist it.
         $draft = clone $variable;
-        $form  = $this->createForm(RuntimeEnvVariableType::class, $draft, ['is_edit' => true]);
+        // 1.9 (REQ-RUNTIME-003 rule 4): the page carries the row version read from the database (never the identity
+        // map); the save refuses the edit when someone else saved the variable since the page was opened.
+        $form = $this->createForm(RuntimeEnvVariableType::class, $draft, [
+            'is_edit'     => true,
+            'row_version' => $this->rowVersions?->current($id),
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid() && $this->settings instanceof RuntimeEnvAdminSettings && $this->settings->manages($variable->getName())) {
             // 1.6: a registered runtime setting is written through RuntimeSettingUpdater (same rules as the command).
             $typed    = $form->get('value')->getData();
             $newValue = $form->get('clear_value')->getData() === true ? '' : (is_string($typed) && $typed !== '' ? $typed : null);
+            // The store writes each change in a unit of its own (it refuses a transaction of the caller), so the row
+            // version is claimed in a unit first; every write of the store advances it again.
+            $claimed = null;
             try {
+                $claimed = $this->rowVersions?->claim($id, RuntimeEnvVariableType::submittedRowVersion($form));
                 $this->settings->update($variable->getName(), $newValue, $draft->isEnabled(), $variable->isEnabled(), $variable->getValue(), $draft->getDescription(), $this->actor());
                 $this->addFlash('success', $this->trans('runtime_env.flash.updated'));
 
                 return $this->redirectToRoute('nowo_runtime_env_index');
+            } catch (StaleEditException) {
+                return $this->staleEdit($form, $variable, $id);
             } catch (RuntimeSettingExceptionInterface $e) {
                 $form->get('value')->addError(new FormError($e->getMessage()));
+                $view = $form->createView();
+                if ($claimed !== null) {
+                    // Nothing was written but the claim advanced the version: the corrected form may be saved again.
+                    $view[RuntimeEnvVariableType::ROW_VERSION_FIELD]->vars['value'] = (string) $claimed;
+                }
 
-                return $this->renderFormPage($form->createView(), $variable, true, true, $this->deleteForm($id));
+                return $this->renderFormPage($view, $variable, true, true, $this->deleteForm($id));
             }
         }
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->writer->update(
+            $write = fn (): RuntimeEnvVariable => $this->writer->update(
                 $variable,
                 $draft->getValue(),
                 $draft->getDescription(),
                 $draft->isEnabled(),
             );
+            try {
+                // One transaction: the row version's compare-and-set, then the writer's flush.
+                if ($this->rowVersions instanceof RuntimeEnvRowVersions) {
+                    $this->rowVersions->saveEdit($id, RuntimeEnvVariableType::submittedRowVersion($form), $write);
+                } else {
+                    $write();
+                }
+            } catch (StaleEditException) {
+                return $this->staleEdit($form, $variable, $id);
+            }
             $this->addFlash('success', $this->trans('runtime_env.flash.updated'));
 
             return $this->redirectToRoute('nowo_runtime_env_index');
@@ -218,7 +249,26 @@ final class RuntimeEnvManageController extends AbstractController
         return RuntimeEnvAdminSettings::actor($this->container->has('security.token_storage') ? $this->getUser()?->getUserIdentifier() : null);
     }
 
-    private function renderFormPage(FormView $form, RuntimeEnvVariable $variable, bool $isEdit, bool $submitted, ?FormView $deleteForm = null): Response
+    /**
+     * 1.9: a stale edit (someone saved the variable since the page was opened): nothing was written; the form is shown
+     * again with a 409, `X-Error-Code: RUNTIME_ENV_STALE_EDIT` and a flash that asks to reload. The hidden row version
+     * keeps the page's (stale) value, so saving the same page again is refused until it is reloaded.
+     *
+     * @param FormInterface<RuntimeEnvVariable> $form
+     */
+    private function staleEdit(FormInterface $form, RuntimeEnvVariable $variable, int $id): Response
+    {
+        $this->addFlash('error', $this->trans(StaleEditException::MESSAGE_KEY, StaleEditException::MESSAGE));
+
+        return $this->renderFormPage($form->createView(), $variable, true, true, $this->deleteForm($id), Response::HTTP_CONFLICT, [
+            StorageFailureListener::ERROR_CODE_HEADER => StaleEditException::ERROR_CODE,
+        ]);
+    }
+
+    /**
+     * @param array<string, string> $headers
+     */
+    private function renderFormPage(FormView $form, RuntimeEnvVariable $variable, bool $isEdit, bool $submitted, ?FormView $deleteForm = null, ?int $status = null, array $headers = []): Response
     {
         $pages = $this->pages();
 
@@ -229,7 +279,7 @@ final class RuntimeEnvManageController extends AbstractController
             'is_edit'            => $isEdit,
             'path_prefix'        => $this->pathPrefix,
             'translation_domain' => RuntimeEnvPages::DOMAIN,
-        ]), new Response(status: $submitted ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
+        ]), new Response(status: $status ?? ($submitted ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK), headers: $headers));
     }
 
     /**
@@ -264,10 +314,10 @@ final class RuntimeEnvManageController extends AbstractController
     /**
      * Flash copy from the bundle catalogue (`NowoRuntimeEnvBundle`); the key itself without a translator.
      */
-    private function trans(string $key): string
+    private function trans(string $key, ?string $fallback = null): string
     {
         return $this->translator instanceof TranslatorInterface
             ? $this->translator->trans($key, [], RuntimeEnvPages::DOMAIN)
-            : $key;
+            : $fallback ?? $key;
     }
 }

@@ -20,6 +20,7 @@ final class RuntimeEnvVariableTest extends TestCase
         self::assertSame('Primary key', $variable->getDescription());
         self::assertFalse($variable->isEnabled());
         self::assertInstanceOf(DateTimeImmutable::class, $variable->getUpdatedAt());
+        self::assertSame(1, $variable->getRowVersion(), '1.9: a new row starts at version 1 (the column default)');
     }
 
     public function testSettersReturnSelfAndRefreshUpdatedAt(): void

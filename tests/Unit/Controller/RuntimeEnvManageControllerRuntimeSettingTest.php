@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace Nowo\RuntimeEnvBundle\Tests\Unit\Controller;
 
 use Doctrine\DBAL\Connection;
+use Nowo\RuntimeEnvBundle\Concurrency\RuntimeEnvRowVersions;
+use Nowo\RuntimeEnvBundle\Concurrency\StaleEditException;
 use Nowo\RuntimeEnvBundle\Controller\RuntimeEnvManageController;
 use Nowo\RuntimeEnvBundle\Entity\RuntimeEnvVariable;
+use Nowo\RuntimeEnvBundle\Form\RuntimeEnvVariableType;
 use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvAdminSettings;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvBag;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter;
 use Nowo\RuntimeEnvBundle\Tests\Support\RuntimeSettingDatabaseTrait;
+use Nowo\RuntimeEnvBundle\Transaction\StorageFailureListener;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
 use Nowo\RuntimeSettingContract\Contract\RuntimeSettingDefinition;
@@ -61,6 +65,9 @@ final class RuntimeEnvManageControllerRuntimeSettingTest extends TestCase
 
     /** @var list<FormError> */
     private array $errors = [];
+
+    /** Request stack of the last controller (its session holds the flashes). */
+    private RequestStack $stack;
 
     protected function setUp(): void
     {
@@ -130,11 +137,109 @@ final class RuntimeEnvManageControllerRuntimeSettingTest extends TestCase
     }
 
     /**
-     * @param (callable(RuntimeEnvVariable): void)|null $fill
+     * 1.9 (REQ-RUNTIME-003 rule 4): a registered setting edited on a page opened before another save is refused: 409,
+     * `X-Error-Code: RUNTIME_ENV_STALE_EDIT` (no conflict code), a flash, nothing written.
      */
-    private function form(?callable $fill, ?string $typed = null, bool $clear = false): callable
+    public function testASettingEditFromAStalePageIsRefused(): void
     {
-        return function (string $type, mixed $data) use ($fill, $typed, $clear): FormInterface {
+        $this->settings->create('API_TOKEN', 'REDACTED-TEST-A', null, true, 'user:seed');
+        $id      = $this->idOf('API_TOKEN');
+        $current = $this->rowVersion($id);
+
+        $response = $this->controller($this->form(null, 'REDACTED-TEST-B', false, (string) ($current - 1)), $this->variable($id), null, $this->rowVersions())->edit($this->request('POST'), $id);
+
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame(StaleEditException::ERROR_CODE, $response->headers->get(StorageFailureListener::ERROR_CODE_HEADER));
+        self::assertFalse($response->headers->has(StorageFailureListener::CODE_HEADER));
+        self::assertSame([StaleEditException::MESSAGE], $this->stack->getSession()->getFlashBag()->peek('error'));
+        $this->resolver->clearRuntimeCache();
+        self::assertSame('REDACTED-TEST-A', $this->resolver->get($this->definition));
+        self::assertSame($current, $this->rowVersion($id));
+    }
+
+    /**
+     * 1.9: the current page saves; the claim and the store's writes advance the version.
+     */
+    public function testASettingEditFromTheCurrentPageIsSaved(): void
+    {
+        $this->settings->create('API_TOKEN', 'REDACTED-TEST-A', null, true, 'user:seed');
+        $id      = $this->idOf('API_TOKEN');
+        $current = $this->rowVersion($id);
+
+        $response = $this->controller($this->form(null, 'REDACTED-TEST-B', false, (string) $current), $this->variable($id), null, $this->rowVersions())->edit($this->request('POST'), $id);
+
+        self::assertInstanceOf(RedirectResponse::class, $response);
+        $this->resolver->clearRuntimeCache();
+        self::assertSame('REDACTED-TEST-B', $this->resolver->get($this->definition));
+        self::assertSame($current + 3, $this->rowVersion($id), 'claim, value write, description write');
+    }
+
+    /**
+     * 1.9: a value the validator refuses writes nothing; the claim advanced the version, so the form carries the new
+     * one and the corrected value can be saved from the same page.
+     */
+    public function testARefusedValueKeepsTheClaimedVersionOnTheForm(): void
+    {
+        $this->settings->create('API_TOKEN', 'REDACTED-TEST-A', null, true, 'user:seed');
+        $id                                                        = $this->idOf('API_TOKEN');
+        $current                                                   = $this->rowVersion($id);
+        $view                                                      = new FormView();
+        $view->children[RuntimeEnvVariableType::ROW_VERSION_FIELD] = new FormView($view);
+
+        $response = $this->controller($this->form(null, "two\nlines", false, (string) $current, $view), $this->variable($id), null, $this->rowVersions())->edit($this->request('POST'), $id);
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertCount(1, $this->errors);
+        self::assertSame((string) ($current + 1), $view[RuntimeEnvVariableType::ROW_VERSION_FIELD]->vars['value']);
+        self::assertSame($current + 1, $this->rowVersion($id));
+    }
+
+    /**
+     * 1.9: a plain variable (not a registered setting) edited on a stale page: 409, the writer never runs.
+     */
+    public function testAPlainEditFromAStalePageIsRefusedAndTheCurrentOneSaved(): void
+    {
+        $this->insertVariable($this->connection, 'PLAIN', 'p0');
+        $id      = $this->idOf('PLAIN');
+        $current = $this->rowVersion($id);
+
+        $stale = $this->controller($this->form(null, 'p1', false, 'junk'), (new RuntimeEnvVariable('PLAIN', 'p0'))->setId($id), null, $this->rowVersions(), 0)->edit($this->request('POST'), $id);
+        self::assertSame(409, $stale->getStatusCode());
+        self::assertSame($current, $this->rowVersion($id));
+
+        $saved = $this->controller($this->form(null, 'p1', false, (string) $current), (new RuntimeEnvVariable('PLAIN', 'p0'))->setId($id), null, $this->rowVersions(), 1)->edit($this->request('POST'), $id);
+        self::assertInstanceOf(RedirectResponse::class, $saved);
+        self::assertSame($current + 1, $this->rowVersion($id));
+        self::assertSame(0, $this->connection->getTransactionNestingLevel());
+    }
+
+    private function idOf(string $name): int
+    {
+        return (int) $this->connection->fetchOne('SELECT id FROM runtime_env_variables WHERE name = ?', [$name]);
+    }
+
+    private function rowVersion(int $id): int
+    {
+        return (int) $this->rowVersions()->current($id);
+    }
+
+    private function rowVersions(): RuntimeEnvRowVersions
+    {
+        return new RuntimeEnvRowVersions($this->registryFor($this->connection), 'default', 'runtime_env_variables');
+    }
+
+    private function variable(int $id): RuntimeEnvVariable
+    {
+        return (new RuntimeEnvVariable('API_TOKEN', 'REDACTED-TEST-A'))->setId($id);
+    }
+
+    /**
+     * @param (callable(RuntimeEnvVariable): void)|null $fill
+     * @param string|null $token the submitted row version (1.9), null for a form without the field
+     */
+    private function form(?callable $fill, ?string $typed = null, bool $clear = false, ?string $token = null, ?FormView $view = null): callable
+    {
+        return function (string $type, mixed $data) use ($fill, $typed, $clear, $token, $view): FormInterface {
             if ($fill !== null && $data instanceof RuntimeEnvVariable) {
                 $fill($data);
             }
@@ -147,22 +252,35 @@ final class RuntimeEnvManageControllerRuntimeSettingTest extends TestCase
             });
             $clearField = $this->createMock(FormInterface::class);
             $clearField->method('getData')->willReturn($clear);
+            $tokenField = $this->createMock(FormInterface::class);
+            $tokenField->method('getData')->willReturn($token);
 
             $form = $this->createMock(FormInterface::class);
             $form->method('handleRequest')->willReturnSelf();
             $form->method('isSubmitted')->willReturn(true);
             $form->method('isValid')->willReturn(true);
-            $form->method('createView')->willReturn(new FormView());
-            $form->method('get')->willReturnCallback(static fn (string $name): FormInterface => $name === 'value' ? $value : $clearField);
+            $form->method('createView')->willReturn($view ?? new FormView());
+            $form->method('has')->willReturnCallback(static fn (string $name): bool => $name !== RuntimeEnvVariableType::ROW_VERSION_FIELD || $token !== null);
+            $form->method('get')->willReturnCallback(static fn (string $name): FormInterface => match ($name) {
+                'value'                                   => $value,
+                RuntimeEnvVariableType::ROW_VERSION_FIELD => $tokenField,
+                default                                   => $clearField,
+            });
 
             return $form;
         };
     }
 
-    private function controller(callable $forms, ?RuntimeEnvVariable $variable = null, ?TokenStorage $tokens = null): RuntimeEnvManageController
+    /**
+     * @param int|null $saves how many times the plain writer must save (null: not checked)
+     */
+    private function controller(callable $forms, ?RuntimeEnvVariable $variable = null, ?TokenStorage $tokens = null, ?RuntimeEnvRowVersions $rowVersions = null, ?int $saves = null): RuntimeEnvManageController
     {
         $repository = $this->createMock(RuntimeEnvVariableRepositoryInterface::class);
         $repository->method('find')->willReturn($variable);
+        if ($saves !== null) {
+            $repository->expects(self::exactly($saves))->method('save');
+        }
         $factory = $this->createMock(FormFactoryInterface::class);
         $factory->method('create')->willReturnCallback($forms);
         $router = $this->createMock(UrlGeneratorInterface::class);
@@ -171,8 +289,9 @@ final class RuntimeEnvManageControllerRuntimeSettingTest extends TestCase
         $twig->method('render')->willReturn('page');
         $requestStack = new RequestStack();
         $requestStack->push($this->request('GET'));
+        $this->stack = $requestStack;
 
-        $controller = new RuntimeEnvManageController($repository, new RuntimeEnvWriter($repository, new RuntimeEnvBag($repository, true)), '/admin/runtime-env', 50, new RuntimeEnvPageFactory($router, new RuntimeEnvPages()), null, $this->settings);
+        $controller = new RuntimeEnvManageController($repository, new RuntimeEnvWriter($repository, new RuntimeEnvBag($repository, true)), '/admin/runtime-env', 50, new RuntimeEnvPageFactory($router, new RuntimeEnvPages()), null, $this->settings, $rowVersions);
         $services   = ['form.factory' => $factory, 'twig' => $twig, 'router' => $router, 'request_stack' => $requestStack];
         if ($tokens instanceof TokenStorage) {
             $services['security.token_storage'] = $tokens;

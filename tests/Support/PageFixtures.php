@@ -31,6 +31,9 @@ use function http_build_query;
  */
 final class PageFixtures
 {
+    /** 1.9: row version of the edit page fixture. */
+    public const ROW_VERSION = 3;
+
     /** Placeholder value of every fixture variable; the rendered pages must not contain it. */
     public const SECRET = 'REDACTED-TEST-VALUE';
 
@@ -67,7 +70,8 @@ final class PageFixtures
     public static function form(bool $edit = false, ?RuntimeEnvPageFactory $factory = null): array
     {
         $variable = $edit ? self::variable(2, 'MY_API_TOKEN', 'Third-party API token', true) : new RuntimeEnvVariable('NEW_KEY', '');
-        $form     = self::formFactory()->create(RuntimeEnvVariableType::class, $variable, ['is_edit' => $edit])->createView();
+        // 1.9: the edit page carries the row version (hidden field), as the controller builds it.
+        $form = self::formFactory()->create(RuntimeEnvVariableType::class, $variable, ['is_edit' => $edit] + ($edit ? ['row_version' => self::ROW_VERSION] : []))->createView();
         $factory ??= self::factory();
 
         return $factory->context([

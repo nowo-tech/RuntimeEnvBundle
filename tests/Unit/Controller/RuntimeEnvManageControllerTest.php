@@ -278,7 +278,7 @@ final class RuntimeEnvManageControllerTest extends TestCase
             ->willReturn($variable);
         $this->formFactory->expects(self::once())
             ->method('create')
-            ->with(RuntimeEnvVariableType::class, $variable, ['is_edit' => true])
+            ->with(RuntimeEnvVariableType::class, $variable, ['is_edit' => true, 'row_version' => null])
             ->willReturn($form);
         $this->repository->expects(self::once())
             ->method('save')

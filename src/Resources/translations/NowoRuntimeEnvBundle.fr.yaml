@@ -35,3 +35,4 @@ runtime_env:
         created: Variable créée.
         updated: Variable mise à jour.
         deleted: Variable supprimée.
+        stale_edit: "Quelqu’un d’autre a enregistré cette variable après l’ouverture de la page. Vos modifications n’ont pas été enregistrées. Rechargez la page et appliquez-les à nouveau."

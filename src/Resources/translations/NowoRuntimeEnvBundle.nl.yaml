@@ -35,3 +35,4 @@ runtime_env:
         created: Variabele aangemaakt.
         updated: Variabele bijgewerkt.
         deleted: Variabele verwijderd.
+        stale_edit: "Iemand anders heeft deze variabele opgeslagen nadat u de pagina opende. Uw wijzigingen zijn niet opgeslagen. Laad de pagina opnieuw en breng ze opnieuw aan."
