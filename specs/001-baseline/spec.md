@@ -78,6 +78,7 @@ Allow selected application environment variables to be stored in the database (e
 | FR-RS-004 | 1.6: admin edits of registered writable settings go through `RuntimeSettingUpdater` (same validator and rules as the command; actor `user:<identifier>`). |
 | FR-RS-005 | 1.6: key columns get a binary NO PAD collation on MySQL / MariaDB in the generated schema; fetched rows re-checked with `===`. |
 | FR-RS-006 | 1.6: storage failures on the bundle's routes answer 503 (transient) or 409 (unique conflict). |
+| FR-CONC-001 | 1.9 (REQ-RUNTIME-003 rule 4): the manage page's edit form carries the row version (`row_version`, read from the database) in a hidden unmapped field; the save checks and advances it with one atomic compare-and-set in the same transaction as the write (transaction-doctrine runner, which repairs the nesting level after a failure). A stale page answers 409 `X-Error-Code: RUNTIME_ENV_STALE_EDIT`, writes nothing and shows a translated flash. Every other write of a variable (ORM `postUpdate`, the runtime-setting store, the description edit) advances the version. |
 
 ## Acceptance (v1)
 

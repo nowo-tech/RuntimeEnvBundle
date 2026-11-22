@@ -7,6 +7,7 @@ This page lists the write paths, the conflict answers and codes, the host option
 
 - [Rules the bundle follows](#rules-the-bundle-follows)
 - [Write paths](#write-paths)
+- [Row versions of the edit page](#row-versions-of-the-edit-page)
 - [Conflict answers and codes](#conflict-answers-and-codes)
 - [What is not a conflict](#what-is-not-a-conflict)
 - [Host options](#host-options)
@@ -32,11 +33,38 @@ This page lists the write paths, the conflict answers and codes, the host option
 
 | Write path | Transaction | Control | Conflict answer |
 | --- | --- | --- | --- |
-| Manage pages: create, update, rename, delete (`RuntimeEnvManageController` → `RuntimeEnvWriter`) | One ORM flush on `database.entity_manager`; with `runtime_setting.enabled` the version bump is in the same flush | Unique key `uniq_runtime_env_name`; a pre-check gives the friendly error; the version row is ensured with `INSERT … ON CONFLICT DO NOTHING` / `ON DUPLICATE KEY` | Lock conflict: 409 `CONFLICT_001` / `CONFLICT_002`. Duplicate name: 409 `RUNTIME_ENV_NAME_TAKEN` (domain) |
+| Manage pages: create, delete (`RuntimeEnvManageController` → `RuntimeEnvWriter`) | One ORM flush on `database.entity_manager`; with `runtime_setting.enabled` the version bump is in the same flush | Unique key `uniq_runtime_env_name`; a pre-check gives the friendly error; the version row is ensured with `INSERT … ON CONFLICT DO NOTHING` / `ON DUPLICATE KEY` | Lock conflict: 409 `CONFLICT_001` / `CONFLICT_002`. Duplicate name: 409 `RUNTIME_ENV_NAME_TAKEN` (domain) |
+| Manage page: edit of a plain variable (1.9) | One unit of transaction-doctrine's runner (`RuntimeEnvRowVersions::saveEdit()`): the row version's compare-and-set, then the writer's flush (a savepoint inside the unit) | Optimistic row version: `UPDATE … SET row_version = row_version + 1 WHERE id = ? AND row_version = ?` takes the row lock first ([below](#row-versions-of-the-edit-page)) | Stale page: 409 `RUNTIME_ENV_STALE_EDIT` (domain), nothing written. Lock conflict: 409 `CONFLICT_001` / `CONFLICT_002` |
+| Manage page: edit of a registered runtime setting (1.9, `runtime_setting.enabled`) | The claim (`RuntimeEnvRowVersions::claim()`, one unit), then the store's units below (the store refuses a transaction of the caller) | The same compare-and-set, committed before the store writes; every store write advances the version again | Stale page: 409 `RUNTIME_ENV_STALE_EDIT`, nothing written. A lock conflict after the claim: 409 `CONFLICT_002` (the claim committed) |
 | `RuntimeEnvWriter` called by your code | The same flush, or yours with `database.transaction: host` | The same | Your host's error handling |
-| Runtime-setting store: `set`, `rotate`, `clear`, `enable` / `disable` (`runtime_setting.enabled`) | One unit of the runner, own connection transaction | `SELECT … FOR UPDATE` of the variable row (outside SQLite), unique key for the first insert, atomic version upsert, only the written row is purged | Through the manage pages: 409 `CONFLICT_001` / `CONFLICT_002`. Through the command or your code: a `TransientStorageFailure` with a Retry-After hint |
+| Runtime-setting store: `set`, `rotate`, `clear`, `enable` / `disable` (`runtime_setting.enabled`) | One unit of the runner, own connection transaction | `SELECT … FOR UPDATE` of the variable row (outside SQLite), unique key for the first insert, atomic version upsert, only the written row is purged; 1.9: the row version advances in the same unit | Through the manage pages: 409 `CONFLICT_001` / `CONFLICT_002`. Through the command or your code: a `TransientStorageFailure` with a Retry-After hint |
 | Runtime-setting purge (`purgeExpired()`, `nowo:runtime-setting:purge`) | One unit | Conditional `UPDATE` of the expired previous values, then the version bump | The failure (console) |
-| Description edit (`updateDescription()`) | One statement | None needed: it is not a setting value and changes no version | The failure |
+| Description edit (`updateDescription()`) | One statement | It is not a setting value and changes no `env` token; 1.9: the same statement advances the row version | The failure |
+| Any other ORM update of a variable (your code through `RuntimeEnvWriter`, also with `database.transaction: host`) | Your flush | 1.9: `RowVersionListener` (`postUpdate`, inside the flush) advances the row version atomically, so edit pages opened before are stale | Your host's error handling |
+
+## Row versions of the edit page
+
+1.9 closes the last-write-wins gap of the edit page (REQ-RUNTIME-003 rule 4, optimistic concurrency):
+
+- **Column.** `row_version INT NOT NULL DEFAULT 1` on the variables table, mapped on `RuntimeEnvVariable` with
+  `insertable: false, updatable: false`. The ORM never writes it, so it can never go backwards; every change is one
+  atomic `UPDATE … SET row_version = row_version + 1`.
+- **Page.** The edit form carries the version in the hidden, unmapped field `rowVersion`. The controller reads it from
+  the database (`RuntimeEnvRowVersions::current()`), never from the identity map, so a manager that kept a loaded row
+  across requests (worker mode, kernel reset off) cannot make a stale page look current. A submitted form keeps the
+  version it was sent with; a missing or malformed field reads as 0 and never matches (versions start at 1).
+- **Save.** The compare-and-set and the write run in one unit of transaction-doctrine's runner. The compare-and-set
+  takes the row lock, so a second save of the same page waits for the first commit and then matches no row. After a
+  failure the runner rolls the connection back to the level it found, also after a MySQL / MariaDB deadlock that
+  destroyed the savepoint of the flush (it closes the connection when that rollback fails; audit ZH-M1), and the
+  deadlock still answers 409 `CONFLICT_001`.
+- **Stale answer.** The form is shown again with status 409, `X-Error-Code: RUNTIME_ENV_STALE_EDIT` and the flash
+  `runtime_env.flash.stale_edit` (every shipped locale). It is a domain answer: retrying the same request never
+  succeeds, so there is no `X-Conflict-Code` and no `Retry-After`. The managed entity is never touched (the form edits a
+  detached copy), so no later flush of the manager can write the outdated page.
+- **Other writers.** The ORM listener, the store and the description edit advance the version too, so any change of
+  the row since the page was opened makes the page stale. The global purge of expired previous values does not: it
+  changes no field of the form.
 
 ## Conflict answers and codes
 
@@ -47,10 +75,11 @@ handling):
 | --- | --- | --- | --- | --- |
 | `CONFLICT_001` | Deadlock, lock wait timeout or serialization failure (a `TransientStorageFailure` of the store's runner, or a DBAL error anywhere in the chain) and no transaction of the bundle's connection committed since the request started | 409 (`conflict_response.status`) | Yes: the runner's hint, else `conflict_response.retry_after`, else 1 s | Retry |
 | `CONFLICT_002` | The same, after a transaction of the bundle's connection committed earlier in the same request (the `CommitLedger` moved), a `ConcurrencyConflict` that committed, or a lost savepoint with no deadlock behind it (outcome unknown) | 409 (`conflict_response.status`) | No | Reload, do not repeat blindly |
+| `RUNTIME_ENV_STALE_EDIT` (`X-Error-Code`, 1.9) | The edit page was opened before another save of the same variable (the row version moved). Nothing was written; the form is shown again with a flash. A domain answer, never a `CONFLICT_*` code | 409 | No | Reload the page and apply the change again |
 | `RUNTIME_ENV_NAME_TAKEN` (`X-Error-Code`) | A unique key refused the write of a concurrent request (two admins creating or renaming to the same name). A domain answer, never a `CONFLICT_*` code | 409 | No | Reload and choose another name |
 
 - Pages get an `HttpException` with a fixed, client-safe message, rendered by your error page.
-- Lock conflict answers carry their code in the `X-Conflict-Code` header, which only ever holds `CONFLICT_001` or `CONFLICT_002`. The duplicate-name answer has no `X-Conflict-Code`; it carries `X-Error-Code: RUNTIME_ENV_NAME_TAKEN`.
+- Lock conflict answers carry their code in the `X-Conflict-Code` header, which only ever holds `CONFLICT_001` or `CONFLICT_002`. The duplicate-name and stale-edit answers have no `X-Conflict-Code`; they carry `X-Error-Code: RUNTIME_ENV_NAME_TAKEN` / `RUNTIME_ENV_STALE_EDIT`.
 - The `CONFLICT_*` codes are `Nowo\TransactionDoctrine\ConflictCode` values.
 - No SQL, parameter or value reaches the client; the storage error stays the previous exception for your logs.
 - The bundle has no JSON endpoints: its answers are pages, so no JSON shape changed.
@@ -94,6 +123,15 @@ nowo_runtime_env:
   transaction observer), and a duplicate name answers the domain 409.
 - `tests/Unit/Transaction/StorageFailureListenerTest.php` maps every case: `CONFLICT_001`, `CONFLICT_002` (ledger,
   `ConcurrencyConflict::$committed`, lost savepoint), 503, the unique violation, lost connections left alone.
+- `tests/Integration/Database/RowVersionDatabaseTest.php` (1.9) plays two admins on two connections: the migration is
+  additive (`ALTER TABLE … ADD row_version INT DEFAULT 1 NOT NULL`, existing rows get 1); two saves of the same page,
+  one wins and the other is stale with nothing written; a save waiting on an open save answers 409 `CONFLICT_001` and
+  its retry is stale; writes of the ORM and the store make an open page stale; and on MySQL / MariaDB a real deadlock
+  inside the edit's flush, against a second PHP process (`tests/Support/deadlock-peer.php`), answers 409
+  `CONFLICT_001`, leaves the connection at nesting level 0, and the next save works.
+- `tests/Unit/Concurrency/RuntimeEnvRowVersionsTest.php`, `tests/Unit/Form/RuntimeEnvVariableTypeTest.php` and
+  `tests/Unit/Controller/RuntimeEnvManageControllerRuntimeSettingTest.php` cover the same on SQLite: stale, current,
+  missing and malformed versions on both edit paths, and a refused setting value that keeps the claimed version.
 - The CI job **Real databases (MySQL 8.4, MariaDB 11.4, PostgreSQL 16)** runs the `database` group with
   `--fail-on-skipped` and is a required check of `main`.
 
@@ -108,10 +146,11 @@ RE_POSTGRES_URL='pgsql://postgres@127.0.0.1:5432/reb?serverVersion=16' \
 
 ## Residual risks
 
-- **Two admins editing the same variable in the manage pages: last write wins.** The page reads the row, shows the form
-  and flushes the changed fields; there is no version column and no `FOR UPDATE` on that path, so the second save
-  replaces the first without a warning (the version token still changes, so workers see the final value). Two
-  admins creating the same name are caught by the unique key (`RUNTIME_ENV_NAME_TAKEN`).
+- **Registered runtime settings: the claim commits before the store writes** (the store refuses a transaction of the
+  caller). A page opened after the claim and saved before the store's first write (a window of milliseconds, while
+  that page would still show the old values) is not refused. Plain variables have no such window.
+- **A custom edit template that does not render `rowVersion`** makes every save stale (it fails closed). Render it
+  with `form_rest()` or `form_row(form.rowVersion)`.
 - **Commit tracking covers the bundle's connection.** `CONFLICT_002` is answered when a transaction of that
   connection committed earlier in the request. A write of yours on another connection, or in autocommit before the
   bundle's controller fails, is not counted.

@@ -34,6 +34,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Row version on the manage page's edit form (REQ-RUNTIME-003 rule 4).** Two admins editing the same variable no longer overwrite each other without a warning (the last-write-wins residual of 1.8).
+  - New column `row_version INT NOT NULL DEFAULT 1` on the variables table. It needs a migration (see [UPGRADING](UPGRADING.md#unreleased)). The ORM never writes it; every change is one atomic `UPDATE … SET row_version = row_version + 1`.
+  - The edit form carries the version in a hidden, unmapped field `rowVersion`, read from the database (never the identity map, so worker mode with the kernel reset off cannot show a stale version as current).
+  - The save checks and advances the version with one compare-and-set (`… WHERE id = ? AND row_version = ?`), then flushes, in one unit of transaction-doctrine's runner. The runner restores the connection's nesting level after any failure, also after a MySQL / MariaDB deadlock that destroyed the flush's savepoint (audit ZH-M1 of the ApiStudio reference), so a deadlock still answers 409 `CONFLICT_001`.
+  - A registered runtime setting (`runtime_setting.enabled`) is claimed in a unit of its own before the store writes it, because the store refuses a transaction of the caller.
+  - A stale page answers **409** with `X-Error-Code: RUNTIME_ENV_STALE_EDIT` (a domain code: no `X-Conflict-Code`, no `Retry-After`), writes nothing, and shows the form again with the flash `runtime_env.flash.stale_edit` (all 7 locales).
+  - Every other write of a variable advances the version too: any ORM update (`RowVersionListener`, `postUpdate`, also your code through `RuntimeEnvWriter`), the runtime-setting store's writes and the description edit.
+  - New: `Concurrency\RuntimeEnvRowVersions`, `Concurrency\StaleEditException`, `Concurrency\RowVersionListener`, `RuntimeEnvVariable::getRowVersion()`, the `row_version` option of `RuntimeEnvVariableType`.
+  - Tests: `RowVersionDatabaseTest` on MySQL 8.4, MariaDB 11.4 and PostgreSQL 16, with two connections (stale second save, lock wait 409 `CONFLICT_001` then stale, other writers, additive migration) and a real deadlock inside the edit's flush on MySQL / MariaDB (409, nesting level 0, the next save works).
+
 ## [1.8.1] - 2026-11-21
 
 ### Changed

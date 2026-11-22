@@ -3,6 +3,7 @@
 ## Table of contents
 
 - [Unreleased](#unreleased)
+  - [Row version of the edit form: migration required](#row-version-of-the-edit-form-migration-required)
 - [To 1.8.1](#to-181)
 - [To 1.8.0](#to-180)
   - [Conflict answers: 409 + CONFLICT codes (REQ-RUNTIME-003)](#conflict-answers-409--conflict-codes-req-runtime-003)
@@ -44,6 +45,36 @@
 - [Getting help](#getting-help)
 
 ## Unreleased
+
+From **1.8.1**:
+
+```bash
+composer update nowo-tech/runtime-env-bundle
+```
+
+### Row version of the edit form: migration required
+
+The manage page's edit form now refuses a save made on a page opened before another save of the same variable
+(REQ-RUNTIME-003 rule 4). It needs one new column on the variables table (`{table_prefix}_variables`,
+`runtime_env_variables` by default). Generate the migration with `php bin/console doctrine:migrations:diff` (or
+`doctrine:schema:update --dump-sql`); it is one additive statement, the same on MySQL 8.4, MariaDB 11.4 and
+PostgreSQL 16:
+
+```sql
+ALTER TABLE runtime_env_variables ADD row_version INT DEFAULT 1 NOT NULL;
+```
+
+- Deploy the migration **together with the code**: 1.9 reads and writes `row_version` on every edit and on every write
+  of the runtime-setting store, so the code fails without the column. Existing rows get version 1.
+- With `database.entity_manager` set to a dedicated manager, run the diff for that manager (`--em=<name>`).
+- **Custom edit templates** (`web_ui.templates.form`) that list the fields one by one must render the hidden field:
+  `{{ form_row(form.rowVersion) }}` or `{{ form_rest(form) }}`. Without it every save is refused as stale (it fails
+  closed). The bundle's template renders it through the UiKit child loop.
+- A stale save answers **409** with `X-Error-Code: RUNTIME_ENV_STALE_EDIT` and shows the form again with a flash. It is
+  not a lock conflict: there is no `X-Conflict-Code` and no `Retry-After`; the admin reloads the page.
+- Code of yours that updates a variable through the ORM (also `RuntimeEnvWriter`) now advances its row version in the
+  same flush (one extra `UPDATE` per updated variable). Nothing else changes for it.
+- See [CONCURRENCY.md](CONCURRENCY.md#row-versions-of-the-edit-page).
 
 ## To 1.8.1
 
