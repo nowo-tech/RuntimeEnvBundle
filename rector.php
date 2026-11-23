@@ -46,5 +46,10 @@ return RectorConfig::configure()
         AddClosureNeverReturnTypeRector::class,
         // 1.5: the persistence subscribers are registered explicitly (kernel.event_subscriber) and listen to optional
         // symfony/messenger events by name; keep getSubscribedEvents() there.
-        EventSubscriberToAttributeRector::class => [__DIR__ . '/src/Persistence'],
+        EventSubscriberToAttributeRector::class => [
+            __DIR__ . '/src/Persistence',
+            // The access subscriber's public getSubscribedEvents() and its EventSubscriberInterface (autoconfigured
+            // kernel.event_subscriber tag) are part of the shipped API: hosts and tests call/dispatch through them.
+            __DIR__ . '/src/EventSubscriber/RuntimeEnvAccessSubscriber.php',
+        ],
     ]);

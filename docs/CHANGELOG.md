@@ -35,6 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Rector (`make rector-dry` passes again): `RuntimeEnvSettingStore::utc()` (private) is a regular method. `rector.php` skips `EventSubscriberToAttributeRector` for `src/EventSubscriber/RuntimeEnvAccessSubscriber.php`: its public `getSubscribedEvents()` and `EventSubscriberInterface` stay. No behaviour change.
+- CI: new `release-gates` job runs the four release gates (`make rector-dry`, `validate-phpdoc`, `validate-translations`, `check-twig-extra`) in full mode, so a gate failure shows on the PR instead of at release time (CI only, no change to shipped code).
+
 ## [1.9.0] - 2026-11-22
 
 ### Added
