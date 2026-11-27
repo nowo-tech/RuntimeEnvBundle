@@ -9,3 +9,11 @@ nowo_runtime_env:
     web_ui:
         enabled: true
         path_prefix: /_runtime_env
+    # 1.10: read-only DBAL query providers for nowo-tech/runtime-setting-contract settings (docs/CONFIGURATION.md).
+    # Use a SELECT-only database user with a statement timeout for the provider connection.
+    # providers:
+    #     tenant_db:
+    #         connection: default
+    #         sql: 'SELECT value FROM tenant_setting WHERE tenant = :tenant AND name = :key'
+    #         parameters: { tenant: '%env(TENANT_CODE)%' }
+    #         cache_ttl: 0

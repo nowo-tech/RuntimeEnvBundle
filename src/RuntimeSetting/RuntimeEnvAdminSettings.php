@@ -30,7 +30,9 @@ final readonly class RuntimeEnvAdminSettings
     }
 
     /**
-     * Whether `$name` is a registered setting that can be written (source db / db_then_env).
+     * Whether `$name` is a registered setting whose source can be written (source db / db_then_env). Settings read from
+     * a read-only provider (runtime-setting-contract 1.1) are managed too, so that every change of them is refused
+     * with RuntimeSettingNotWritable instead of falling back to the free-form path.
      */
     public function manages(string $name): bool
     {
@@ -45,6 +47,8 @@ final readonly class RuntimeEnvAdminSettings
      */
     public function create(string $name, string $value, ?string $description, bool $enabled, string $actor): void
     {
+        // 1.10: a setting read from a read-only provider is refused before anything is written (description included).
+        $this->updater->writableDefinition($name);
         // @igor-ignore - Calls the updater (a port); no request data kept in this service.
         $this->updater->set($name, $value, $actor);
         if (!$enabled) {
@@ -65,6 +69,8 @@ final readonly class RuntimeEnvAdminSettings
      */
     public function update(string $name, ?string $newValue, bool $enabled, bool $wasEnabled, string $storedValue, ?string $description, string $actor): void
     {
+        // 1.10: a setting read from a read-only provider is refused before anything is written (description included).
+        $this->updater->writableDefinition($name);
         if (!$enabled) {
             // @igor-ignore - Calls the updater (a port); no request data kept in this service.
             $this->updater->unset($name, $actor);

@@ -32,13 +32,15 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Kernel;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
+use function implode;
 use function md5;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 use function sys_get_temp_dir;
 
 /**
  * 1.6 host: RuntimeEnvBundle with `runtime_setting.enabled`, NowoRuntimeSettingBundle with a shared (filesystem) cache
- * pool, one registered setting (`DEMO_TOKEN`, source db). Kept alive like a FrankenPHP worker with kernel reset false:
+ * pool, one registered setting (`DEMO_TOKEN`, source db) and, 1.10, one read from the DBAL query provider `tenant_db`
+ * (`TENANT_URL`). Kept alive like a FrankenPHP worker with kernel reset false:
  * no services resetter.
  */
 final class RuntimeSettingTestKernel extends Kernel implements CompilerPassInterface
@@ -88,6 +90,16 @@ final class RuntimeSettingTestKernel extends Kernel implements CompilerPassInter
         return new Response((string) $resolver->get($definition));
     }
 
+    public function tenantAction(): Response
+    {
+        /** @var RuntimeSettingResolver $resolver */
+        $resolver = $this->getContainer()->get('test.resolver');
+        /** @var RuntimeSettingDefinition $definition */
+        $definition = $this->getContainer()->get('test.tenant_definition');
+
+        return new Response(implode('|', $resolver->candidates($definition)));
+    }
+
     /**
      * Worker mode with kernel reset false: nothing but the bundles' own boundary listeners clears state.
      */
@@ -114,13 +126,27 @@ final class RuntimeSettingTestKernel extends Kernel implements CompilerPassInter
             'web_ui'          => ['enabled' => false],
             'security'        => ['allow_unauthenticated' => true],
             'runtime_setting' => ['enabled' => true],
+            // 1.10: a DBAL query provider over a host table, shared through the pool for 60 seconds.
+            'providers' => [
+                'tenant_db' => [
+                    'connection' => 'default',
+                    'sql'        => 'SELECT url AS value, old_url, old_until FROM host_tenant_setting WHERE tenant = :tenant AND name = :key',
+                    // An env constant: resolved at runtime, also into the provider's cache scope (audit ZDA-L2).
+                    'parameters'              => ['tenant' => '%env(RS_TEST_TENANT)%'],
+                    'previous_column'         => 'old_url',
+                    'previous_expires_column' => 'old_until',
+                    'cache_ttl'               => 60,
+                ],
+            ],
         ]);
         $container->extension('nowo_runtime_setting', [
-            'cache_pool'  => 'test.shared_pool',
-            'version_ttl' => $this->versionTtl,
-            'command'     => ['enabled' => true],
+            'cache_pool'        => 'test.shared_pool',
+            'version_ttl'       => $this->versionTtl,
+            'command'           => ['enabled' => true],
+            'setting_providers' => ['TENANT_URL' => 'tenant_db'],
         ]);
 
+        $container->parameters()->set('env(RS_TEST_TENANT)', 'acme');
         $services = $container->services();
         $services->set('logger', NullLogger::class);
         $services->set('test.shared_pool', FilesystemAdapter::class)->args(['runtime_setting', 0, $this->poolDirectory]);
@@ -132,6 +158,10 @@ final class RuntimeSettingTestKernel extends Kernel implements CompilerPassInter
             ->args(['DEMO_TOKEN', RuntimeSettingType::String, RuntimeSettingSource::Db, RuntimeSettingErrorPolicy::FailClosed, false, service('test.validator')])
             ->tag(RuntimeSettingsConfiguration::DEFINITION_TAG)
             ->public();
+        $services->set('test.tenant_definition', RuntimeSettingDefinition::class)
+            ->args(['TENANT_URL', RuntimeSettingType::String, RuntimeSettingSource::Db, RuntimeSettingErrorPolicy::FailClosed, false, service('test.validator')])
+            ->tag(RuntimeSettingsConfiguration::DEFINITION_TAG)
+            ->public();
         $services->alias('test.resolver', RuntimeSettingResolver::class)->public();
         $services->alias('test.writer', RuntimeEnvWriterInterface::class)->public();
         $services->alias('test.updater', RuntimeSettingUpdater::class)->public();
@@ -141,5 +171,6 @@ final class RuntimeSettingTestKernel extends Kernel implements CompilerPassInter
     private function configureRoutes(RoutingConfigurator $routes): void
     {
         $routes->add('t_token', '/t/token')->controller('kernel::tokenAction');
+        $routes->add('t_tenant', '/t/tenant')->controller('kernel::tenantAction');
     }
 }

@@ -57,6 +57,7 @@ A worker demo exists: `demo/symfony8/docker/frankenphp/Caddyfile:17` declares a 
 | `Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriter` | yes | none (`readonly`); clears the bag after each write | ✅ | ✅ (only clears its own thread's bag) |
 | `Nowo\RuntimeEnvBundle\Repository\DoctrineOrmRuntimeEnvVariableRepository` | yes | none (`readonly` `ManagerRegistry` + manager name) | ✅ | ✅ refresh reads, closed EM replaced (W-02 resolved) |
 | `Nowo\RuntimeEnvBundle\Doctrine\RuntimeEnvMetadataListener` | yes | none (`final readonly`) | ✅ | ✅ |
+| `nowo_runtime_env.provider.<name>` (`DbalQueryValueProvider`, 1.10) | yes | none (`final readonly`: connection, validated query, time zone); each read frees its result | ✅ | ✅ (values are memoised per request by the contract's resolver, not here) |
 | `Nowo\RuntimeEnvBundle\EventSubscriber\RuntimeEnvAccessSubscriber` | yes | none (`readonly`) | ✅ | ✅ (W-03 resolved) |
 | `ConfigurableRuntimeEnvAccessChecker` / `AllowAllRuntimeEnvAccessChecker` | yes | none (`readonly` / no properties) | ✅ | ✅ |
 | `Nowo\RuntimeEnvBundle\Controller\RuntimeEnvManageController` | yes | none (`readonly`) | ✅ | ✅ |

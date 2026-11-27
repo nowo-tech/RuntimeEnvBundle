@@ -35,7 +35,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **DBAL query providers** (`nowo_runtime_env.providers.<name>`, owner request 2026-11-27, spec
+  `specs/002-dbal-query-provider`): read-only runtime value providers for nowo-tech/runtime-setting-contract 1.1 that
+  run one parameterised `SELECT` on an explicit DBAL connection (`connection`, `sql`, `parameters`, `value_column`,
+  optional `previous_column` / `previous_expires_column` / `expires_timezone`, `max_length`, `cache_ttl`). The SQL is
+  validated when the container is built (`ReadOnlyQuery`: single SELECT, no `;` / comments / string literals / `?` /
+  `::` / `%`, no write, lock, sleep or file keyword, named parameters `:id` / `:namespace` / `:key` plus the
+  configured constants, all used) and is never read from the environment. At most one row; values bounded before
+  parsing; failures are `RuntimeSettingSourceFailure` without SQL, parameters, values or the driver exception. Services
+  `nowo_runtime_env.provider.<name>` tagged `nowo_runtime_setting.provider`; `DbalQueryProvidersPass` fails the build
+  when the connection is not declared.
+- Audit ZDA fixes before release: function families refused by prefix / pattern (`lo_*`, `pg_*advisory*`,
+  `pg_sleep*`, `dblink*`, `*_to_xml*`, `release_*lock*`, `*pos_wait`, `wait_for_*`, `NEXT VALUE FOR`, `load_*`,
+  `xp_*`, `sp_*`, `dbms_*`, `utl_*`, `OPENQUERY`, ...); each provider registers a cache scope (connection, query
+  hash, bound constants with `%env()%` resolved at runtime) with the contract's shared cache; a read on a connection
+  with an open transaction runs in a savepoint (ZDA-v: quoted names used as calls are refused, `"lo_from_bytea"(…)`,
+  `` `sleep`(0) ``, `U&"…"(…)`, `[…](…)`; constants enter the scope hashed, `%env()%` ones through the
+  `nowo_runtime_env_scope` env processor, so the scope never exceeds the contract's 4096 bytes at runtime) (rolled back on failure, connection closed if that rollback fails,
+  the original sanitised failure rethrown). Docs: dedicated connection, PostgreSQL `REVOKE` of `PUBLIC` functions,
+  `memory_limit` caveat, `RuntimeEnvBag` / manage list do not consult providers.
+
 ### Changed
+
+- Requires nowo-tech/runtime-setting-contract ^1.1 (provider support).
+- `RuntimeEnvAdminSettings::create()` / `update()` refuse a setting read from a read-only provider with
+  `RuntimeSettingNotWritable` before anything is written (description included); `manages()` keeps routing those
+  settings to that refusal instead of the free-form path.
 
 - Rector (`make rector-dry` passes again): `RuntimeEnvSettingStore::utc()` (private) is a regular method. `rector.php` skips `EventSubscriberToAttributeRector` for `src/EventSubscriber/RuntimeEnvAccessSubscriber.php`: its public `getSubscribedEvents()` and `EventSubscriberInterface` stay. No behaviour change.
 - CI: new `release-gates` job runs the four release gates (`make rector-dry`, `validate-phpdoc`, `validate-translations`, `check-twig-extra`) in full mode, so a gate failure shows on the PR instead of at release time (CI only, no change to shipped code).

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ac76e2bd7e5123440655d6a5332e3f44",
+    "content-hash": "d250e10ef5b70c6c86bd13a9cea7cf77",
     "packages": [
         {
             "name": "doctrine/collections",
@@ -1160,16 +1160,16 @@
         },
         {
             "name": "nowo-tech/runtime-setting-contract",
-            "version": "v1.0.0",
+            "version": "v1.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/nowo-tech/runtime-setting-contract.git",
-                "reference": "fd2afd7fa86962ffe496073b64322b1cff2e2dfc"
+                "reference": "62f7f5f16be9e963d7954976d09d8c05b436d92d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nowo-tech/runtime-setting-contract/zipball/fd2afd7fa86962ffe496073b64322b1cff2e2dfc",
-                "reference": "fd2afd7fa86962ffe496073b64322b1cff2e2dfc",
+                "url": "https://api.github.com/repos/nowo-tech/runtime-setting-contract/zipball/62f7f5f16be9e963d7954976d09d8c05b436d92d",
+                "reference": "62f7f5f16be9e963d7954976d09d8c05b436d92d",
                 "shasum": ""
             },
             "require": {
@@ -1187,7 +1187,7 @@
             },
             "require-dev": {
                 "friendsofphp/php-cs-fixer": "^3.64",
-                "igor-php/igor-php": "^0.10.0",
+                "igor-php/igor-php": "^0.10.0 || ^0.11.0",
                 "nowo-tech/phpstan-frankenphp": "^1.0",
                 "phpstan/extension-installer": "^1.4",
                 "phpstan/phpstan": "^2.0",
@@ -1216,7 +1216,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "1.0.x-dev"
+                    "dev-main": "1.1.x-dev"
                 }
             },
             "autoload": {
@@ -1267,7 +1267,8 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-11-15T19:31:57+00:00"
+            "time": "2026-11-27T09:11:51+00:00",
+            "published-time": "2026-11-27T09:12:32+00:00"
         },
         {
             "name": "nowo-tech/transaction-contract",
@@ -10083,5 +10084,5 @@
     "platform-overrides": {
         "php": "8.2.0"
     },
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.11.0"
 }

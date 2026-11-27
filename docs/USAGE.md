@@ -7,6 +7,7 @@
 - [Standard Symfony and DDD / hexagonal hosts](#standard-symfony-and-ddd--hexagonal-hosts)
 - [Admin CRUD](#admin-crud)
 - [Runtime settings (1.6)](#runtime-settings-16)
+- [DBAL query providers (1.10)](#dbal-query-providers-110)
 - [What stays in `.env`](#what-stays-in-env)
 - [FrankenPHP worker](#frankenphp-worker)
 - [Asset package (REQ-ASSETS-004)](#asset-package-req-assets-004)
@@ -177,6 +178,45 @@ nowo_chat_kit:
   `RuntimeEnvVariableChangedEvent`, as for 1.5 writes.
 - **Encryption**: values use DoctrineEncryptBundle's default profile (the entity's `#[Encrypted]` format). Replace
   `RuntimeEnvValueCipherInterface` to change that.
+
+## DBAL query providers (1.10)
+
+With nowo-tech/runtime-setting-contract 1.1 a setting can read its value from a **read-only provider** instead of
+this bundle's table. This bundle ships one configured in YAML: a parameterised `SELECT` on any DBAL connection, for
+values that live in host tables (per tenant, per site, joins). Reference: [CONFIGURATION](CONFIGURATION.md#dbal-query-providers-110).
+
+```yaml
+nowo_runtime_env:
+    providers:
+        tenant_db:
+            connection: settings_ro    # a dedicated DBAL connection with a SELECT-only role
+            sql: 'SELECT url AS value FROM host_tenant_setting WHERE tenant = :tenant AND name = :key'
+            parameters: { tenant: '%env(TENANT_CODE)%' }
+            cache_ttl: 0               # see below before raising it
+
+nowo_runtime_setting:
+    cache_pool: cache.app
+    setting_providers:
+        TENANT_URL: tenant_db      # a setting registered by a bundle, with source db or db_then_env
+```
+
+A `cache_ttl` above 0 shares values through `nowo_runtime_setting.cache_pool`. It is safe only when the answer is the
+same for every caller of that pool: the provider's cache scope already includes the connection name, the query and
+the bound constants (`TENANT_CODE` above, resolved at runtime), so two deployments with different constants never
+share an entry; an answer that depends on the request or on the connection's session state (row-level security,
+`search_path`, a per-tenant connection) needs `cache_ttl: 0`.
+
+`RuntimeEnvBag` / `runtime_env()` and the manage list do not consult providers: they keep reading this bundle's table.
+Delete a stale row of the same name when you bind a setting to a provider.
+
+Reading the setting does not change (`RuntimeSettingResolver::get()` / `candidates()`, the bundle's validator runs on
+every value). Writes are refused (`RuntimeSettingNotWritable`) by the commands and the manage UI. For lookups a query
+cannot express (request-scoped tenant, several queries), implement `RuntimeValueProviderInterface` in the host and
+register it with `nowo_runtime_setting.providers`.
+
+The provider services are `nowo_runtime_env.provider.<name>` (`DbalQueryValueProvider`), tagged
+`nowo_runtime_setting.provider`; DDD hosts without NowoRuntimeSettingBundle can pass them to a
+`RuntimeValueProviderRegistry` themselves.
 
 ## What stays in `.env`
 

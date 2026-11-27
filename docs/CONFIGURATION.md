@@ -9,6 +9,7 @@ Alias: `nowo_runtime_env`
 | `database.entity_manager` | `default` | Doctrine entity manager that maps the bundle entity. 1.5: mapped on that manager **only** (also off an `auto_mapping` default), every read / write uses it, the build fails when it is not declared. When it is not your default manager the bundle owns it (reset when closed, cleared at every request / message / command). |
 | `database.transaction` | `bundle` | 1.5. `host` (DDD hosts): `RuntimeEnvWriter` does not flush when your code calls it; your use case commits and `RuntimeEnvVariableChangedEvent` follows your commit. The admin UI keeps flushing its own writes. |
 | `runtime_setting.enabled` | `false` | 1.6: nowo-tech/runtime-setting-contract source and writer on this table (key = variable name, values encrypted, rotation, version token). Maps two nullable columns and `{prefix}_versions`: migrate when you enable it. Literal boolean only. See [USAGE](USAGE.md#runtime-settings-16). |
+| `providers.<name>` | `{}` | 1.10: read-only DBAL query providers for nowo-tech/runtime-setting-contract 1.1 (see [below](#dbal-query-providers-110)). |
 | `conflict_response.status` | `null` | Answer of a lock conflict (deadlock, lock wait, serialization failure) on the manage pages: `409` with `CONFLICT_001` / `CONFLICT_002` (default) or `503`. Null follows nowo-tech/transaction-doctrine's `conflict_response`, else 409. See [CONCURRENCY](CONCURRENCY.md). |
 | `conflict_response.retry_after` | `null` | `Retry-After` seconds of a `CONFLICT_001` answer without a hint. Null follows transaction-doctrine, else 1. |
 | `security.access_roles` | `[ROLE_ADMIN]` | REQ-UI-002. An empty list is rejected unless `access_checker` or `allow_unauthenticated` is set. |
@@ -111,6 +112,75 @@ nowo_runtime_env:
 ```
 
 Keep the host firewall / `access_control` in sync with `web_ui.path_prefix` (the recipe adds `^/_runtime_env`).
+
+## DBAL query providers (1.10)
+
+```yaml
+nowo_runtime_env:
+    providers:
+        tenant_db:                                  # provider name: [a-z][a-z0-9_]{0,63}
+            connection: settings_ro                 # required: doctrine.dbal.connections.<name>; a dedicated one
+            sql: >-
+                SELECT s.value, s.previous_value, s.previous_until
+                FROM tenant_setting s JOIN tenant t ON t.id = s.tenant_id
+                WHERE t.code = :tenant AND s.name = :key
+            parameters:                             # constants, bound as named parameters (may be %env()%)
+                tenant: '%env(TENANT_CODE)%'
+            value_column: value                     # default "value"; NULL or no row = no value
+            previous_column: previous_value         # optional, with previous_expires_column (rotation)
+            previous_expires_column: previous_until # date-time (expires_timezone) or Unix timestamp
+            expires_timezone: UTC                   # default UTC
+            max_length: 65536                       # bytes, 1..65536; longer = source failure
+            cache_ttl: 0                            # 0..3600 s in nowo_runtime_setting.cache_pool; secrets never
+
+nowo_runtime_setting:
+    setting_providers:
+        TENANT_API_URL: tenant_db                   # or runtime.<setting>.provider in the owning bundle
+```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `connection` | required | DBAL connection name; the build fails when it is not declared. Literal only. |
+| `sql` | required | One `SELECT` (validated at container build, never editable at runtime): no `;`, no comments (`--`, `#`, `/* */`), no string literals (`'`, `$$`), no `\`, no positional `?`, no `::` casts, no `%`; `"…"` / backtick segments may only hold letters, digits, underscores and spaces (identifiers; on MySQL without `ANSI_QUOTES` a `"…"` segment is a string, harmless with that alphabet), and a quoted segment is never followed by `(`: quote columns and tables, never function names (`"lo_from_bytea"(…)`, `` `sleep`(0) ``, `[xp_dirtree](…)` are refused); no keyword that writes or locks (`INSERT`, `UPDATE`, `DELETE`, `INTO`, `FOR UPDATE` / `SHARE`, `LOCK`, `SET`, `CALL`, ...) and no function of a family that writes, locks, sleeps, runs dynamic SQL or reaches files or other servers (`lo_*`, `pg_*advisory*`, `pg_sleep*`, `dblink*`, `*_to_xml*`, `pg_ls_*`, `pg_read_*`, `set_config`, `nextval`, `SLEEP`, `GET_LOCK`, `release_*lock*`, `*pos_wait`, `wait_for_*`, `NEXT VALUE FOR`, `load_*`, `xp_*`, `sp_*`, `dbms_*`, `utl_*`, `OPENQUERY`, ...; quote an identifier that collides). This list is best effort: see "Database grants" below. Named parameters only: `:id` (the setting id), `:namespace`, `:key` and the keys of `parameters`. At most 4096 bytes. |
+| `parameters` | `{}` | Constants (`[a-z_][a-z0-9_]*`, not `id` / `namespace` / `key`); every one must be used by `sql`. Scalars or `%env()%`. |
+| `value_column` | `value` | Result column of the value. Matched exactly, else case-insensitively when that is unambiguous. |
+| `previous_column` / `previous_expires_column` | `null` | Both or neither. A previous value without an expiry is ignored (fail closed for that candidate). |
+| `expires_timezone` | `UTC` | Zone of expiry values without an offset (this bundle's own table stores UTC). |
+| `max_length` | `65536` | Longest value accepted before parsing. The driver has already fetched the whole value (and buffered the result) by then: for tables whose values may be huge, bound it in SQL (`LEFT(value, 65536)`), since a value above `memory_limit` is a fatal error that `on_error` cannot catch. |
+| `cache_ttl` | `0` | Seconds a non-secret value may be served from the contract's shared pool. Keep `0` unless the answer is the same for every caller of that pool: not when it depends on the request or on the **connection** (a per-tenant connection, a row-level-security session variable such as `SET app.tenant`, `search_path`). The provider's cache scope (connection name, query hash and a hash of each bound constant, `%env()%` values hashed at runtime through the `nowo_runtime_env_scope` env processor) keeps deployments with different constants apart even on a shared pool, with a fixed size whatever the values; a provider with so many parameters that the scope would exceed 4096 bytes fails the build. |
+
+The query must return **at most one row**: a second row is a source failure, never "the first one wins". Every
+failure (driver error, two rows, missing column, oversized value, bad expiry) is a `RuntimeSettingSourceFailure` that
+names the provider and the rule only: no SQL, no parameter, no value, no chained driver exception. The setting's
+`on_error` then applies.
+
+**Read-only.** Settings read from a provider cannot be set, unset or rotated: the `nowo:runtime-setting:*` commands
+and the manage UI refuse them with `RuntimeSettingNotWritable`.
+
+**Dedicated connection.** Declare a DBAL connection for providers instead of the ORM's `default`. On a connection the
+request shares, a provider read sees the request's uncommitted writes; the bundle runs such a read inside a savepoint
+(rolled back on failure, the connection closed if that rollback fails) so a failed query never aborts the request's
+transaction, but a separate connection avoids the interaction entirely.
+
+**Database grants.** The SQL validation catches configuration mistakes; it does not make arbitrary SQL safe. Give the
+provider connection a role that can only `SELECT` the tables it reads, with a statement timeout (PostgreSQL
+`ALTER ROLE ... SET statement_timeout = '2s'`, MySQL `max_execution_time`, MariaDB `max_statement_time`). On
+PostgreSQL `SELECT` alone is not enough: functions granted to `PUBLIC` still create large objects, take advisory locks
+or sleep. Revoke them, or use a dedicated role in a database where they are revoked:
+
+```sql
+REVOKE EXECUTE ON FUNCTION lo_create(oid), lo_creat(integer), lo_from_bytea(oid, bytea), lo_put(oid, bigint, bytea),
+    lo_import(text), lo_import(text, oid), lo_unlink(oid) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION pg_advisory_lock(bigint), pg_advisory_lock_shared(bigint), pg_try_advisory_lock(bigint),
+    pg_try_advisory_lock_shared(bigint), pg_advisory_xact_lock(bigint), pg_sleep(double precision),
+    pg_sleep_for(interval), pg_sleep_until(timestamp with time zone) FROM PUBLIC;
+-- (and the integer, integer variants of the advisory functions)
+```
+
+**`RuntimeEnvBag` and the manage list.** Providers only feed `RuntimeSettingResolver`. `RuntimeEnvBag`,
+`runtime_env()` and the manage list keep reading this bundle's table: a row left there under the same name is shown
+(and can be deleted) but is not the setting's value. Delete the old row when you bind a setting to a provider, or it
+becomes live again if the binding is removed.
 
 ## Encryption
 

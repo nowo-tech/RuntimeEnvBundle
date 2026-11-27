@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nowo\RuntimeEnvBundle\DependencyInjection;
 
+use DateTimeZone;
+use Exception;
 use LogicException;
 use Nowo\DoctrineEncryptBundle\Util\EncryptUtil;
 use Nowo\RuntimeEnvBundle\Concurrency\RowVersionListener;
@@ -22,6 +24,10 @@ use Nowo\RuntimeEnvBundle\Repository\PaginatedRuntimeEnvVariableRepositoryInterf
 use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Routing\RuntimeEnvRouteLoader;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\DoctrineEncryptValueCipher;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\Provider\CacheScopeEnvVarProcessor;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\Provider\DbalQueryValueProvider;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\Provider\InvalidReadOnlyQuery;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\Provider\ReadOnlyQuery;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvSettingStore;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvValueCipherInterface;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvVersionBumper;
@@ -36,6 +42,8 @@ use Nowo\RuntimeEnvBundle\Transaction\StorageFailureListener;
 use Nowo\RuntimeEnvBundle\Twig\RuntimeEnvTwigExtension;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPageFactory;
 use Nowo\RuntimeEnvBundle\Ui\RuntimeEnvPages;
+use Nowo\RuntimeSettingContract\Bridge\Symfony\DependencyInjection\RuntimeSettingsConfiguration;
+use Nowo\RuntimeSettingContract\Contract\RuntimeValueProviderBinding;
 use Nowo\TransactionDoctrine\Symfony\Conflict\ConflictResponsePolicy;
 use Nowo\TransactionDoctrine\WriteUnit\CommitLedger;
 use Symfony\Component\Asset\Package;
@@ -55,16 +63,26 @@ use function array_key_first;
 use function array_values;
 use function class_exists;
 use function dirname;
+use function hash;
 use function is_array;
 use function is_bool;
 use function is_string;
+use function ksort;
+use function preg_match;
+use function preg_match_all;
 use function rtrim;
 use function sprintf;
+use function strlen;
+
+use const SORT_STRING;
 
 final class RuntimeEnvExtension extends Extension implements PrependExtensionInterface
 {
     /** The commit ledger (1.8): real commits of the bundle's connection, counted by the outbox, read by the conflict answer. */
     public const COMMIT_LEDGER_ID = 'nowo_runtime_env.commit_ledger';
+
+    /** 1.10: service id prefix of the DBAL query providers (`nowo_runtime_env.provider.<name>`). */
+    public const PROVIDER_PREFIX = 'nowo_runtime_env.provider.';
 
     public function getAlias(): string
     {
@@ -213,6 +231,7 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
             $this->configureRuntimeSettings($container, $emName, $variablesTable, $versionsTable);
         }
         $container->setAlias(RuntimeEnvReaderInterface::class, RuntimeEnvBag::class);
+        $this->configureProviders($container, $config['providers']);
 
         $this->registerAccessChecker($container, $config['security']);
         $this->configurePanel($container, $config);
@@ -256,6 +275,99 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
             '$versionsTable'     => $versionsTable,
         ]));
         $container->getDefinition(RuntimeEnvWriter::class)->setArgument('$versions', new Reference(RuntimeEnvVersionBumper::class));
+    }
+
+    /**
+     * 1.10: one {@see DbalQueryValueProvider} per `providers.<name>`, tagged for nowo-tech/runtime-setting-contract's
+     * provider registry. Everything is checked here, at container build: name, literal SQL (no %env()%), the read-only
+     * query rules, columns, time zone. DbalQueryProvidersPass checks the connection exists.
+     *
+     * @param array<string, array{connection: string, sql: string, parameters: array<string, bool|float|int|string|null>, value_column: string, previous_column: ?string, previous_expires_column: ?string, expires_timezone: string, max_length: int, cache_ttl: int}> $providers
+     */
+    private function configureProviders(ContainerBuilder $container, array $providers): void
+    {
+        $connections = [];
+        foreach ($providers as $name => $provider) {
+            $name = (string) $name;
+            if (!RuntimeValueProviderBinding::isValidName($name)) {
+                throw new InvalidConfigurationException('nowo_runtime_env.providers: invalid provider name; use lowercase letters, digits and underscores, starting with a letter (at most 64 bytes).');
+            }
+            foreach (['connection', 'sql', 'value_column', 'expires_timezone'] as $option) {
+                $value = $provider[$option];
+                if (!is_string($value) || $container->resolveEnvPlaceholders($value) !== $value) {
+                    throw new InvalidConfigurationException(sprintf('nowo_runtime_env.providers.%s.%s must be a literal string: the query is fixed when the container is built, never read from the environment.', $name, $option));
+                }
+            }
+            foreach (['previous_column', 'previous_expires_column'] as $option) {
+                $value = $provider[$option];
+                if ($value !== null && (!is_string($value) || $container->resolveEnvPlaceholders($value) !== $value)) {
+                    throw new InvalidConfigurationException(sprintf('nowo_runtime_env.providers.%s.%s must be a literal string or null.', $name, $option));
+                }
+            }
+            if (preg_match('/^[A-Za-z0-9_]{1,64}$/D', $provider['connection']) !== 1) {
+                throw new InvalidConfigurationException(sprintf('nowo_runtime_env.providers.%s.connection must be a DBAL connection name.', $name));
+            }
+            try {
+                new DateTimeZone($provider['expires_timezone']);
+                $query = new ReadOnlyQuery($name, $provider['sql'], $provider['parameters'], $provider['value_column'], $provider['previous_column'], $provider['previous_expires_column'], $provider['max_length']);
+            } catch (InvalidReadOnlyQuery $e) {
+                throw new InvalidConfigurationException($e->getMessage(), 0, $e);
+            } catch (Exception) {
+                throw new InvalidConfigurationException(sprintf('nowo_runtime_env.providers.%s.expires_timezone is not a known time zone.', $name));
+            }
+
+            $container->setDefinition(self::PROVIDER_PREFIX . $name, (new Definition(DbalQueryValueProvider::class, [
+                new Reference(sprintf('doctrine.dbal.%s_connection', $provider['connection'])),
+                new Definition(ReadOnlyQuery::class, [$name, $query->sql, $provider['parameters'], $query->valueColumn, $query->previousColumn, $query->previousExpiresColumn, $query->maxLength]),
+                $provider['expires_timezone'],
+            ]))->addTag(RuntimeSettingsConfiguration::PROVIDER_TAG, ['name' => $name, 'cache_ttl' => $provider['cache_ttl'], 'cache_scope' => $this->providerCacheScope($container, $name, $provider['connection'], $query->sql, $provider['parameters'])]));
+            $connections[$name] = $provider['connection'];
+        }
+        $container->setParameter('nowo_runtime_env.provider_connections', $connections);
+    }
+
+    /**
+     * 1.10 (audits ZDA-L2, ZDA-v): what a DBAL provider's answer depends on besides the setting id: the connection, the
+     * query and the bound constants, each hashed so the scope has a fixed size. A constant's literal text is hashed
+     * here; each `%env()%` inside it becomes `%env(nowo_runtime_env_scope:...)%`, the hash of its runtime value (see
+     * {@see CacheScopeEnvVarProcessor}), so deployments with different values never share a cache entry. The contract
+     * hashes the whole scope again into the cache token.
+     *
+     * @param array<string, bool|float|int|string|null> $parameters
+     */
+    private function providerCacheScope(ContainerBuilder $container, string $provider, string $connection, string $sql, array $parameters): string
+    {
+        $container->setDefinition(CacheScopeEnvVarProcessor::class, (new Definition(CacheScopeEnvVarProcessor::class))
+            ->addTag('container.env_var_processor'));
+
+        ksort($parameters, SORT_STRING);
+        $scope  = 'dbal:' . $connection . '|' . hash('sha256', $sql);
+        $length = strlen($scope);
+        foreach ($parameters as $name => $value) {
+            $text = match (true) {
+                $value === null => '',
+                is_bool($value) => $value ? '1' : '0',
+                default         => (string) $value,
+            };
+            // '%env(NAME)%' for every placeholder (and the literal text around them).
+            $template = is_string($value) ? (string) $container->resolveEnvPlaceholders($text) : $text;
+            preg_match_all('/%env\(([^()%]+)\)%/', $template, $envs);
+            $part = '|' . $name . '=' . CacheScopeEnvVarProcessor::hash($template);
+            $length += strlen($part);
+            foreach ($envs[1] as $env) {
+                $placeholder = $container->getParameterBag()->get('env(' . CacheScopeEnvVarProcessor::PREFIX . ':' . $env . ')');
+                $part .= ':' . (is_string($placeholder) ? $placeholder : '');
+                $length += 1 + CacheScopeEnvVarProcessor::HASH_LENGTH;
+            }
+            $scope .= $part;
+        }
+
+        // The runtime length is known now (every hashed part has a fixed size): never a scope the contract refuses.
+        if ($length > RuntimeValueProviderBinding::MAX_CACHE_SCOPE_LENGTH) {
+            throw new InvalidConfigurationException(sprintf('nowo_runtime_env.providers.%s: too many parameters for the cache scope (%d bytes, at most %d).', $provider, $length, RuntimeValueProviderBinding::MAX_CACHE_SCOPE_LENGTH));
+        }
+
+        return $scope;
     }
 
     /**

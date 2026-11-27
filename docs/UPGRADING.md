@@ -47,6 +47,21 @@
 
 ## Unreleased
 
+### To 1.10.0
+
+```bash
+composer update nowo-tech/runtime-env-bundle nowo-tech/runtime-setting-contract
+```
+
+Requires nowo-tech/runtime-setting-contract **^1.1**. No configuration or schema change: `providers` is empty by
+default and nothing else changes.
+
+To read settings from your own tables, add `nowo_runtime_env.providers.<name>` (see
+[CONFIGURATION](CONFIGURATION.md#dbal-query-providers-110)) and bind settings with
+`nowo_runtime_setting.setting_providers` or the owning bundle's `runtime.<setting>.provider`. Use a SELECT-only
+database user with a statement timeout for the provider's connection. Those settings become read-only: the commands
+and the manage UI refuse to change them.
+
 ## To 1.9.0
 
 From **1.8.1**:
