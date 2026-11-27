@@ -24,6 +24,7 @@ use Nowo\RuntimeEnvBundle\Repository\PaginatedRuntimeEnvVariableRepositoryInterf
 use Nowo\RuntimeEnvBundle\Repository\RuntimeEnvVariableRepositoryInterface;
 use Nowo\RuntimeEnvBundle\Routing\RuntimeEnvRouteLoader;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\DoctrineEncryptValueCipher;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\Provider\CacheScopeEnvVarProcessor;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\Provider\DbalQueryValueProvider;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\Provider\InvalidReadOnlyQuery;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\Provider\ReadOnlyQuery;
@@ -68,8 +69,10 @@ use function is_bool;
 use function is_string;
 use function ksort;
 use function preg_match;
+use function preg_match_all;
 use function rtrim;
 use function sprintf;
+use function strlen;
 
 use const SORT_STRING;
 
@@ -317,29 +320,51 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
                 new Reference(sprintf('doctrine.dbal.%s_connection', $provider['connection'])),
                 new Definition(ReadOnlyQuery::class, [$name, $query->sql, $provider['parameters'], $query->valueColumn, $query->previousColumn, $query->previousExpiresColumn, $query->maxLength]),
                 $provider['expires_timezone'],
-            ]))->addTag(RuntimeSettingsConfiguration::PROVIDER_TAG, ['name' => $name, 'cache_ttl' => $provider['cache_ttl'], 'cache_scope' => $this->providerCacheScope($provider['connection'], $query->sql, $provider['parameters'])]));
+            ]))->addTag(RuntimeSettingsConfiguration::PROVIDER_TAG, ['name' => $name, 'cache_ttl' => $provider['cache_ttl'], 'cache_scope' => $this->providerCacheScope($container, $name, $provider['connection'], $query->sql, $provider['parameters'])]));
             $connections[$name] = $provider['connection'];
         }
         $container->setParameter('nowo_runtime_env.provider_connections', $connections);
     }
 
     /**
-     * 1.10 (audit ZDA-L2): what a DBAL provider's answer depends on besides the setting id: the connection, the query
-     * and the bound constants. `%env()%` constants stay placeholders here and are resolved when the container builds
-     * the binding, so two deployments with different values never share a cache entry. The contract hashes it.
+     * 1.10 (audits ZDA-L2, ZDA-v): what a DBAL provider's answer depends on besides the setting id: the connection, the
+     * query and the bound constants, each hashed so the scope has a fixed size. A constant's literal text is hashed
+     * here; each `%env()%` inside it becomes `%env(nowo_runtime_env_scope:...)%`, the hash of its runtime value (see
+     * {@see CacheScopeEnvVarProcessor}), so deployments with different values never share a cache entry. The contract
+     * hashes the whole scope again into the cache token.
      *
      * @param array<string, bool|float|int|string|null> $parameters
      */
-    private function providerCacheScope(string $connection, string $sql, array $parameters): string
+    private function providerCacheScope(ContainerBuilder $container, string $provider, string $connection, string $sql, array $parameters): string
     {
+        $container->setDefinition(CacheScopeEnvVarProcessor::class, (new Definition(CacheScopeEnvVarProcessor::class))
+            ->addTag('container.env_var_processor'));
+
         ksort($parameters, SORT_STRING);
-        $scope = 'dbal:' . $connection . '|' . hash('sha256', $sql);
+        $scope  = 'dbal:' . $connection . '|' . hash('sha256', $sql);
+        $length = strlen($scope);
         foreach ($parameters as $name => $value) {
-            $scope .= '|' . $name . '=' . match (true) {
+            $text = match (true) {
                 $value === null => '',
                 is_bool($value) => $value ? '1' : '0',
                 default         => (string) $value,
             };
+            // '%env(NAME)%' for every placeholder (and the literal text around them).
+            $template = is_string($value) ? (string) $container->resolveEnvPlaceholders($text) : $text;
+            preg_match_all('/%env\(([^()%]+)\)%/', $template, $envs);
+            $part = '|' . $name . '=' . CacheScopeEnvVarProcessor::hash($template);
+            $length += strlen($part);
+            foreach ($envs[1] as $env) {
+                $placeholder = $container->getParameterBag()->get('env(' . CacheScopeEnvVarProcessor::PREFIX . ':' . $env . ')');
+                $part .= ':' . (is_string($placeholder) ? $placeholder : '');
+                $length += 1 + CacheScopeEnvVarProcessor::HASH_LENGTH;
+            }
+            $scope .= $part;
+        }
+
+        // The runtime length is known now (every hashed part has a fixed size): never a scope the contract refuses.
+        if ($length > RuntimeValueProviderBinding::MAX_CACHE_SCOPE_LENGTH) {
+            throw new InvalidConfigurationException(sprintf('nowo_runtime_env.providers.%s: too many parameters for the cache scope (%d bytes, at most %d).', $provider, $length, RuntimeValueProviderBinding::MAX_CACHE_SCOPE_LENGTH));
         }
 
         return $scope;

@@ -30,6 +30,7 @@ use function hash;
 use function is_string;
 use function random_bytes;
 use function spl_object_id;
+use function substr;
 use function sys_get_temp_dir;
 
 /**
@@ -181,7 +182,7 @@ final class RuntimeSettingKernelTest extends TestCase
         self::assertSame('https://acme-1.example', $this->request($worker, '/t/tenant'));
         $registry = $this->service($worker, RuntimeValueProviderRegistry::class);
         self::assertInstanceOf(RuntimeValueProviderRegistry::class, $registry);
-        self::assertStringEndsWith('|tenant=acme', $registry->get('tenant_db')->cacheScope, 'the env constant is part of the cache scope');
+        self::assertStringEndsWith(':' . substr(hash('sha256', 'acme'), 0, 16), $registry->get('tenant_db')->cacheScope, 'the env constant (hashed) is part of the cache scope');
 
         // A rotation at the provider: within the cache TTL the pool still serves the first value, to every worker.
         $connection->update('host_tenant_setting', ['url' => 'https://acme-2.example', 'old_url' => 'https://acme-1.example', 'old_until' => '2026-11-16 13:00:00'], ['tenant' => 'acme']);

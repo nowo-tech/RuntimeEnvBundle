@@ -46,7 +46,7 @@ final class ReadOnlyQueryTest extends TestCase
 
     public function testFamilyNamesInsideQuotedIdentifiersAndLookAlikesAreAllowed(): void
     {
-        $query = new ReadOnlyQuery('p', 'SELECT "lo_value" AS value, sleeping, flower, sp FROM t WHERE "pg_sleep" = :key');
+        $query = new ReadOnlyQuery('p', 'SELECT "lo_value" AS value, "lo_count", `sleep` + 1, sleeping, flower, sp FROM t WHERE "pg_sleep" = :key AND x IN ("lo_count", 1)');
 
         self::assertSame(['key'], $query->usedParameters);
     }
@@ -133,6 +133,18 @@ final class ReadOnlyQueryTest extends TestCase
         yield 'function openrowset' => ['SELECT OPENROWSET(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
         yield 'function waitfor' => ['SELECT WAITFOR(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
         yield 'next value for' => ["SELECT NEXT  VALUE\nFOR seq AS value FROM t WHERE id = :id", 'uses NEXT  VALUE'];
+        yield 'quoted call' => ['SELECT "lo_from_bytea"(0, x) AS value FROM t WHERE id = :id', 'quoted function names are not allowed'];
+        yield 'quoted advisory lock' => ['SELECT "pg_try_advisory_lock"(7) AS value FROM t WHERE id = :id', 'quoted function names are not allowed'];
+        yield 'schema-qualified quoted call' => ['SELECT pg_catalog."lo_from_bytea"(0, x) AS value FROM t WHERE id = :id', 'quoted function names are not allowed'];
+        yield 'unicode-escaped quoted call' => ['SELECT U&"lo_from_bytea"(0, x) AS value FROM t WHERE id = :id', 'quoted function names are not allowed'];
+        yield 'quoted call with a space' => ['SELECT "lo_from_bytea" (0, x) AS value FROM t WHERE id = :id', 'quoted function names are not allowed'];
+        yield 'quoted call with a newline' => ["SELECT \"pg_sleep_for\"\n(x) AS value FROM t WHERE id = :id", 'quoted function names are not allowed'];
+        yield 'quoted call with a non-breaking space' => ["SELECT \"pg_sleep\"\u{00A0}(1) AS value FROM t WHERE id = :id", 'quoted function names are not allowed'];
+        yield 'backtick release_all_locks' => ['SELECT `release_all_locks`() AS value FROM t WHERE id = :id', 'quoted function names are not allowed'];
+        yield 'backtick sleep' => ['SELECT `sleep`(0) AS value FROM t WHERE id = :id', 'quoted function names are not allowed'];
+        yield 'backtick get_lock' => ['SELECT `get_lock`(x, 1) AS value FROM t WHERE id = :id', 'quoted function names are not allowed'];
+        yield 'bracketed call' => ['SELECT [xp_dirtree](x) AS value FROM t WHERE id = :id', 'quoted function names are not allowed'];
+        yield 'quoted harmless-looking call' => ['SELECT "upper"(x) AS value FROM t WHERE id = :id', 'quoted function names are not allowed'];
         yield 'bad quoted identifier' => ['SELECT "va-lue" FROM t WHERE id = :id', 'quoted identifiers'];
         yield 'unbalanced quote' => ['SELECT "value FROM t WHERE id = :id', 'unbalanced'];
         yield 'assignment' => ['SELECT @x := 1 AS value FROM t WHERE id = :id', 'named parameter'];

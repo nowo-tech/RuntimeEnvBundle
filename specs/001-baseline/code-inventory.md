@@ -54,6 +54,7 @@ This file proves that **every production source artifact** under `src/` is inven
 | `RuntimeSetting/Entity/RuntimeEnvVersion.php` | 1.6: `env` version token (mapped only when enabled) | FR-RS-003 |
 | `RuntimeSetting/RuntimeEnvAdminSettings.php` | 1.6: admin edits of registered settings through RuntimeSettingUpdater; 1.10: provider settings refused | FR-RS-004, FR-PRV-005 |
 | `RuntimeSetting/Provider/DbalQueryValueProvider.php` | 1.10: read-only DBAL query provider (one row, bounded, sanitised failures) | FR-PRV-002, FR-PRV-003, FR-PRV-004 |
+| `RuntimeSetting/Provider/CacheScopeEnvVarProcessor.php` | 1.10: `%env(nowo_runtime_env_scope:...)%`, fixed-length hash of an env constant for the provider cache scope | FR-PRV-009 |
 | `RuntimeSetting/Provider/ReadOnlyQuery.php` | 1.10: validated read-only SQL + parameters + columns | FR-PRV-001 |
 | `RuntimeSetting/Provider/InvalidReadOnlyQuery.php` | 1.10: configuration refusal (names the rule, never the SQL) | FR-PRV-001 |
 | `DependencyInjection/Compiler/DbalQueryProvidersPass.php` | 1.10: provider connections must be declared | FR-PRV-006 |
@@ -88,6 +89,6 @@ This file proves that **every production source artifact** under `src/` is inven
 
 | Category | Files | Mapped |
 | --- | ---: | ---: |
-| PHP classes | 56 | 56 |
+| PHP classes | 57 | 57 |
 | YAML config / translations / Twig / CSS | 12 | 12 |
-| **Total `src/` artifacts** | **68** | **68** |
+| **Total `src/` artifacts** | **69** | **69** |

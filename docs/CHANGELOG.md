@@ -51,7 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pg_sleep*`, `dblink*`, `*_to_xml*`, `release_*lock*`, `*pos_wait`, `wait_for_*`, `NEXT VALUE FOR`, `load_*`,
   `xp_*`, `sp_*`, `dbms_*`, `utl_*`, `OPENQUERY`, ...); each provider registers a cache scope (connection, query
   hash, bound constants with `%env()%` resolved at runtime) with the contract's shared cache; a read on a connection
-  with an open transaction runs in a savepoint (rolled back on failure, connection closed if that rollback fails,
+  with an open transaction runs in a savepoint (ZDA-v: quoted names used as calls are refused, `"lo_from_bytea"(…)`,
+  `` `sleep`(0) ``, `U&"…"(…)`, `[…](…)`; constants enter the scope hashed, `%env()%` ones through the
+  `nowo_runtime_env_scope` env processor, so the scope never exceeds the contract's 4096 bytes at runtime) (rolled back on failure, connection closed if that rollback fails,
   the original sanitised failure rethrown). Docs: dedicated connection, PostgreSQL `REVOKE` of `PUBLIC` functions,
   `memory_limit` caveat, `RuntimeEnvBag` / manage list do not consult providers.
 

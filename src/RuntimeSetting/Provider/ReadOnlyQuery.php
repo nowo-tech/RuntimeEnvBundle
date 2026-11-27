@@ -36,7 +36,8 @@ use function strlen;
  *   casts (use `CAST()`), no `%` (no container parameter or env value can change the SQL): constants go in
  *   `parameters`;
  * - `"…"` and backtick segments may only hold letters, digits, underscores and spaces (identifiers; on MySQL without
- *   ANSI_QUOTES a `"…"` segment is a string literal, harmless with that alphabet);
+ *   ANSI_QUOTES a `"…"` segment is a string literal, harmless with that alphabet) and are never followed by `(`:
+ *   quoted names of columns and tables only, never of functions;
  * - no keyword that writes or locks ({@see self::FORBIDDEN_KEYWORDS}: INSERT, UPDATE, DELETE, INTO, FOR UPDATE /
  *   SHARE, LOCK, SET, CALL, ...) and no function of a family that writes, locks, sleeps, runs dynamic SQL or reaches
  *   files and other servers ({@see self::FORBIDDEN_FUNCTION_FAMILIES}: `lo_*`, `pg_*advisory*`, `pg_sleep*`,
@@ -137,6 +138,12 @@ final readonly class ReadOnlyQuery
             if (str_contains($sql, $needle)) {
                 throw InvalidReadOnlyQuery::because($provider, 'sql must not contain ' . $what . '.');
             }
+        }
+
+        // Audit ZDA-v-L1: a quoted name used as a call ("lo_from_bytea"(...), U&"...", pg_catalog."...", `sleep`(0),
+        // [name](...)) would escape the scans below, which blank quoted segments: quote columns and tables only.
+        if (preg_match('/(?:"[^"]*"|`[^`]*`|\[[^\]]*\])(?:\s|\x{00A0})*\(/u', $sql) === 1) {
+            throw InvalidReadOnlyQuery::because($provider, 'quoted function names are not allowed; quote only columns and tables.');
         }
 
         // Quoted identifiers: letters, digits, underscores, spaces. Then they are blanked out for the keyword check.

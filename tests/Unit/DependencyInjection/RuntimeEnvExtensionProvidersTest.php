@@ -6,6 +6,7 @@ namespace Nowo\RuntimeEnvBundle\Tests\Unit\DependencyInjection;
 
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\DbalQueryProvidersPass;
 use Nowo\RuntimeEnvBundle\DependencyInjection\RuntimeEnvExtension;
+use Nowo\RuntimeEnvBundle\RuntimeSetting\Provider\CacheScopeEnvVarProcessor;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\Provider\DbalQueryValueProvider;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\Provider\ReadOnlyQuery;
 use Nowo\RuntimeSettingContract\Bridge\Symfony\DependencyInjection\RuntimeSettingsConfiguration;
@@ -19,8 +20,12 @@ use Symfony\Component\DependencyInjection\Reference;
 
 use function array_walk_recursive;
 use function hash;
+use function implode;
 use function is_string;
+use function sprintf;
+use function str_repeat;
 use function str_starts_with;
+use function strlen;
 use function substr;
 
 /**
@@ -50,8 +55,13 @@ final class RuntimeEnvExtensionProvidersTest extends TestCase
         $tag = $definition->getTag(RuntimeSettingsConfiguration::PROVIDER_TAG);
         self::assertSame('tenant_settings', $tag[0]['name']);
         self::assertSame(60, $tag[0]['cache_ttl']);
-        // ZDA-L2: connection, query hash and bound constants (the env value is resolved at runtime), sorted by name.
-        self::assertSame('dbal:tenants|' . hash('sha256', self::SQL) . '|active=1|min=2|none=|tenant=%env(TENANT_CODE)%', $container->resolveEnvPlaceholders($tag[0]['cache_scope']));
+        // ZDA-L2 / ZDA-v: connection, query hash and hashed constants (an env value hashed at runtime), sorted by name.
+        $h = static fn (string $text): string => CacheScopeEnvVarProcessor::hash($text);
+        self::assertSame(
+            'dbal:tenants|' . hash('sha256', self::SQL) . '|active=' . $h('1') . '|min=' . $h('2') . '|none=' . $h('') . '|tenant=' . $h('%env(TENANT_CODE)%') . ':%env(nowo_runtime_env_scope:TENANT_CODE)%',
+            $container->resolveEnvPlaceholders($tag[0]['cache_scope']),
+        );
+        self::assertTrue($container->getDefinition(CacheScopeEnvVarProcessor::class)->hasTag('container.env_var_processor'));
         self::assertEquals(new Reference('doctrine.dbal.tenants_connection'), $definition->getArgument(0));
         self::assertSame('Europe/Madrid', $definition->getArgument(2));
 
@@ -62,6 +72,31 @@ final class RuntimeEnvExtensionProvidersTest extends TestCase
         self::assertSame('%env(TENANT_CODE)%', $container->resolveEnvPlaceholders($query->getArgument(2)['tenant']));
         self::assertSame(['value', 'prev', 'prev_until', 2048], [$query->getArgument(3), $query->getArgument(4), $query->getArgument(5), $query->getArgument(6)]);
         self::assertSame(['tenant_settings' => 'tenants'], $container->getParameter('nowo_runtime_env.provider_connections'));
+    }
+
+    public function testAScopeThatWouldBeTooLongFailsTheBuild(): void
+    {
+        $parameters = [];
+        $conditions = [];
+        for ($i = 0; $i < 50; ++$i) {
+            $name              = sprintf('p%02d', $i) . str_repeat('x', 60);
+            $parameters[$name] = str_repeat('v', 10000);
+            $conditions[]      = 'c = :' . $name;
+        }
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('nowo_runtime_env.providers.wide: too many parameters for the cache scope');
+
+        $this->load(['wide' => ['connection' => 'default', 'sql' => 'SELECT value FROM t WHERE ' . implode(' AND ', $conditions), 'parameters' => $parameters]]);
+    }
+
+    public function testHugeConstantsKeepTheScopeShort(): void
+    {
+        $container = $this->load(['p' => ['connection' => 'default', 'sql' => 'SELECT value FROM t WHERE name = :key AND x = :big', 'parameters' => ['big' => str_repeat('v', 100000)]]]);
+
+        $scope = $container->getDefinition(RuntimeEnvExtension::PROVIDER_PREFIX . 'p')->getTag(RuntimeSettingsConfiguration::PROVIDER_TAG)[0]['cache_scope'];
+        self::assertIsString($scope);
+        self::assertLessThan(120, strlen($scope));
     }
 
     public function testNoProvidersByDefault(): void
