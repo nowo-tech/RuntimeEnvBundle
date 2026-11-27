@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0175eadae3b444755ff9f50be682e38f",
+    "content-hash": "d250e10ef5b70c6c86bd13a9cea7cf77",
     "packages": [
         {
             "name": "doctrine/collections",
@@ -1160,16 +1160,16 @@
         },
         {
             "name": "nowo-tech/runtime-setting-contract",
-            "version": "dev-feat/value-providers",
+            "version": "v1.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/nowo-tech/runtime-setting-contract.git",
-                "reference": "7c2549b279d6ed897230bfe3d2aac4d73f29ec29"
+                "reference": "62f7f5f16be9e963d7954976d09d8c05b436d92d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nowo-tech/runtime-setting-contract/zipball/7c2549b279d6ed897230bfe3d2aac4d73f29ec29",
-                "reference": "7c2549b279d6ed897230bfe3d2aac4d73f29ec29",
+                "url": "https://api.github.com/repos/nowo-tech/runtime-setting-contract/zipball/62f7f5f16be9e963d7954976d09d8c05b436d92d",
+                "reference": "62f7f5f16be9e963d7954976d09d8c05b436d92d",
                 "shasum": ""
             },
             "require": {
@@ -1224,58 +1224,7 @@
                     "Nowo\\RuntimeSettingContract\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "Nowo\\RuntimeSettingContract\\Tests\\": "tests/"
-                }
-            },
-            "archive": {
-                "exclude": [
-                    "/demo",
-                    "/tests",
-                    "/.github",
-                    "/.cursor",
-                    "/.specify",
-                    "/specs"
-                ]
-            },
-            "scripts": {
-                "test": [
-                    "phpunit --colors=always"
-                ],
-                "test-unit": [
-                    "phpunit --testsuite=Unit --colors=always"
-                ],
-                "test-integration": [
-                    "phpunit --testsuite=Integration --colors=always"
-                ],
-                "test-coverage": [
-                    "phpunit --colors=always --coverage-clover coverage.xml --coverage-text"
-                ],
-                "cs-check": [
-                    "php-cs-fixer fix --dry-run --diff --config=.php-cs-fixer.dist.php"
-                ],
-                "cs-fix": [
-                    "php-cs-fixer fix --config=.php-cs-fixer.dist.php"
-                ],
-                "rector": [
-                    "rector process"
-                ],
-                "rector-dry": [
-                    "rector process --dry-run --no-progress-bar"
-                ],
-                "phpstan": [
-                    "phpstan analyse --memory-limit=512M --no-progress"
-                ],
-                "igor": [
-                    "igor-php --no-agent ."
-                ],
-                "qa": [
-                    "@cs-check",
-                    "@phpstan",
-                    "@test"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -1307,18 +1256,19 @@
                 "symfony"
             ],
             "support": {
-                "issues": "https://github.com/nowo-tech/runtime-setting-contract/issues",
-                "source": "https://github.com/nowo-tech/runtime-setting-contract",
+                "changelog": "https://github.com/nowo-tech/runtime-setting-contract/blob/main/docs/CHANGELOG.md",
                 "docs": "https://github.com/nowo-tech/runtime-setting-contract/tree/main/docs",
-                "changelog": "https://github.com/nowo-tech/runtime-setting-contract/blob/main/docs/CHANGELOG.md"
+                "issues": "https://github.com/nowo-tech/runtime-setting-contract/issues",
+                "source": "https://github.com/nowo-tech/runtime-setting-contract"
             },
             "funding": [
                 {
-                    "type": "github",
-                    "url": "https://github.com/HecFranco"
+                    "url": "https://github.com/HecFranco",
+                    "type": "github"
                 }
             ],
-            "time": "2026-11-27T08:34:42+00:00"
+            "time": "2026-11-27T09:11:51+00:00",
+            "published-time": "2026-11-27T09:12:32+00:00"
         },
         {
             "name": "nowo-tech/transaction-contract",
@@ -10122,18 +10072,9 @@
             "time": "2026-10-05T23:14:19+00:00"
         }
     ],
-    "aliases": [
-        {
-            "package": "nowo-tech/runtime-setting-contract",
-            "version": "dev-feat/value-providers",
-            "alias": "1.1.0",
-            "alias_normalized": "1.1.0.0"
-        }
-    ],
+    "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "nowo-tech/runtime-setting-contract": 20
-    },
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

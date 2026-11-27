@@ -44,6 +44,13 @@ final class ReadOnlyQueryTest extends TestCase
         self::assertSame(65536, $query->maxLength);
     }
 
+    public function testFamilyNamesInsideQuotedIdentifiersAndLookAlikesAreAllowed(): void
+    {
+        $query = new ReadOnlyQuery('p', 'SELECT "lo_value" AS value, sleeping, flower, sp FROM t WHERE "pg_sleep" = :key');
+
+        self::assertSame(['key'], $query->usedParameters);
+    }
+
     public function testKeywordsInsideQuotedIdentifiersAreAllowed(): void
     {
         $query = new ReadOnlyQuery('p', 'SELECT "update" AS value FROM "set" WHERE "lock" = :key');
@@ -76,8 +83,56 @@ final class ReadOnlyQueryTest extends TestCase
         yield 'into' => ['SELECT value INTO @v FROM t WHERE id = :id', 'keyword INTO'];
         yield 'for update' => ['SELECT value FROM t WHERE id = :id FOR UPDATE', 'keyword UPDATE'];
         yield 'for share' => ['SELECT value FROM t WHERE id = :id FOR share', 'keyword share'];
-        yield 'sleep' => ['SELECT pg_sleep(10) AS value FROM t WHERE id = :id', 'keyword pg_sleep'];
-        yield 'load_file' => ['SELECT LOAD_FILE(x) AS value FROM t WHERE id = :id', 'keyword LOAD_FILE'];
+        yield 'function pg_sleep' => ['SELECT pg_sleep(10) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_sleep_for' => ['SELECT pg_sleep_for(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_sleep_until' => ['SELECT PG_SLEEP_UNTIL(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function lo_from_bytea' => ['SELECT lo_from_bytea(0, x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function lo_put' => ['SELECT lo_put(1, 0, x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function lo_unlink' => ['SELECT lo_unlink(1) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function lo_import' => ['SELECT lo_import(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_try_advisory_lock' => ['SELECT pg_try_advisory_lock(42) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_advisory_lock_shared' => ['SELECT pg_advisory_lock_shared(42) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_advisory_unlock_all' => ['SELECT pg_advisory_unlock_all() AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function dblink_exec' => ['SELECT dblink_exec(x, y) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function dblink_connect' => ['SELECT dblink_connect(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_ls_dir' => ['SELECT pg_ls_dir(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_stat_file' => ['SELECT pg_stat_file(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_read_binary_file' => ['SELECT pg_read_binary_file(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_file_write' => ['SELECT pg_file_write(x, y, z) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_reload_conf' => ['SELECT pg_reload_conf() AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_rotate_logfile' => ['SELECT pg_rotate_logfile() AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_switch_wal' => ['SELECT pg_switch_wal() AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_logical_emit_message' => ['SELECT pg_logical_emit_message(x, y, z) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_create_restore_point' => ['SELECT pg_create_restore_point(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_drop_replication_slot' => ['SELECT pg_drop_replication_slot(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_terminate_backend' => ['SELECT pg_terminate_backend(1) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_notify' => ['SELECT pg_notify(x, y) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function set_config' => ['SELECT pg_catalog.set_config(x, y, z) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function query_to_xml' => ['SELECT query_to_xml(chr(115), true, true, x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function table_to_xmlschema' => ['SELECT table_to_xmlschema(x, true, true, y) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function txid_current' => ['SELECT txid_current() AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function pg_current_xact_id' => ['SELECT pg_current_xact_id() AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function nextval' => ['SELECT nextval(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function setval' => ['SELECT setval(x, 1) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function sleep' => ['SELECT SLEEP(1) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function benchmark' => ['SELECT BENCHMARK(1, x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function get_lock' => ['SELECT GET_LOCK(x, 1) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function release_lock' => ['SELECT RELEASE_LOCK(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function release_all_locks' => ['SELECT release_all_locks() AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function is_free_lock' => ['SELECT IS_FREE_LOCK(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function source_pos_wait' => ['SELECT source_pos_wait(x, y) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function master_pos_wait' => ['SELECT MASTER_POS_WAIT(x, y) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function wait_for_executed_gtid_set' => ['SELECT wait_for_executed_gtid_set(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function load_file' => ['SELECT LOAD_FILE(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function load_extension' => ['SELECT load_extension(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function xp_dirtree' => ['SELECT xp_dirtree(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function sp_executesql' => ['SELECT sp_executesql(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function dbms_lock' => ['SELECT dbms_lock.sleep(1) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function utl_http' => ['SELECT utl_http.request(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function openquery' => ['SELECT OPENQUERY(x, y) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function openrowset' => ['SELECT OPENROWSET(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'function waitfor' => ['SELECT WAITFOR(x) AS value FROM t WHERE id = :id', 'which can write, lock'];
+        yield 'next value for' => ["SELECT NEXT  VALUE\nFOR seq AS value FROM t WHERE id = :id", 'uses NEXT  VALUE'];
         yield 'bad quoted identifier' => ['SELECT "va-lue" FROM t WHERE id = :id', 'quoted identifiers'];
         yield 'unbalanced quote' => ['SELECT "value FROM t WHERE id = :id', 'unbalanced'];
         yield 'assignment' => ['SELECT @x := 1 AS value FROM t WHERE id = :id', 'named parameter'];

@@ -42,11 +42,17 @@ use const CASE_LOWER;
  *   parameters or a value, and never chaining the driver's exception (which may quote them).
  * - Stateless (worker mode): the connection is the host's, nothing is kept between calls.
  *
- * Run it with a database user that can only SELECT the tables it reads, and set a statement timeout for that user
- * (PostgreSQL `ALTER ROLE ... SET statement_timeout`, MySQL / MariaDB `max_execution_time` / `max_statement_time`).
+ * Run it on a dedicated connection whose database user can only SELECT the tables it reads, with a statement timeout
+ * (PostgreSQL `ALTER ROLE ... SET statement_timeout`, MySQL / MariaDB `max_execution_time` / `max_statement_time`). On
+ * a connection with an open transaction the read runs inside a savepoint (and sees that transaction's uncommitted
+ * writes). Values are bounded after the driver fetched them: bound huge columns in SQL (`LEFT(value, n)`), since a
+ * value larger than `memory_limit` is a fatal error that `on_error` cannot catch.
  */
 final readonly class DbalQueryValueProvider implements RuntimeValueProviderInterface
 {
+    /** Savepoint wrapped around a read on a connection with an open transaction. */
+    public const SAVEPOINT = 'nowo_runtime_value_provider';
+
     /** Longest expiry representation accepted. */
     public const MAX_EXPIRY_LENGTH = 64;
 
@@ -69,6 +75,10 @@ final readonly class DbalQueryValueProvider implements RuntimeValueProviderInter
     {
         [$params, $types] = $this->parameters($id);
 
+        // Audit ZDA-L3: on a connection with an open transaction (a shared connection), the read runs inside a
+        // savepoint, so a failed statement never aborts the caller's transaction (PostgreSQL 25P02).
+        $savepoint = $this->connection->isTransactionActive() ? $this->enterSavepoint() : null;
+
         try {
             $result = $this->connection->executeQuery($this->query->sql, $params, $types);
             try {
@@ -77,9 +87,17 @@ final readonly class DbalQueryValueProvider implements RuntimeValueProviderInter
             } finally {
                 $result->free();
             }
+            if ($savepoint !== null) {
+                $this->connection->releaseSavepoint($savepoint);
+            }
         } catch (Throwable $e) {
             // The driver's message may quote the SQL or the bound values: class only, no chain.
-            throw $this->failure('the query failed (' . $e::class . ')');
+            $failure = $this->failure('the query failed (' . $e::class . ')');
+            if ($savepoint !== null) {
+                $this->leaveSavepoint($savepoint);
+            }
+
+            throw $failure;
         }
 
         if ($row === false) {
@@ -105,6 +123,31 @@ final readonly class DbalQueryValueProvider implements RuntimeValueProviderInter
         }
 
         return new StoredRuntimeValue($current, $previous, $this->expiry($expires));
+    }
+
+    private function enterSavepoint(): string
+    {
+        try {
+            $this->connection->createSavepoint(self::SAVEPOINT);
+        } catch (Throwable $e) {
+            throw $this->failure('the savepoint could not be created (' . $e::class . ')');
+        }
+
+        return self::SAVEPOINT;
+    }
+
+    /**
+     * Lost-savepoint pattern (REQ-RUNTIME-003): roll back to the savepoint (the caller's transaction level); when that
+     * fails the transaction is in an unknown state, so the connection is closed (the caller's next statement fails
+     * instead of committing half a unit). The caller rethrows the original, sanitised failure.
+     */
+    private function leaveSavepoint(string $savepoint): void
+    {
+        try {
+            $this->connection->rollbackSavepoint($savepoint);
+        } catch (Throwable) {
+            $this->connection->close();
+        }
     }
 
     /**

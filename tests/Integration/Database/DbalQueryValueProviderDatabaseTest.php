@@ -117,6 +117,29 @@ final class DbalQueryValueProviderDatabaseTest extends TestCase
         self::assertSame('45', (new DbalQueryValueProvider($connection, new ReadOnlyQuery('host', 'SELECT val AS value FROM host_setting WHERE ns = :namespace AND name = :key')))->read(RuntimeSettingId::fromString('chat.retention_days'))?->current);
     }
 
+    /**
+     * ZDA-L3: a failing provider read inside the caller's transaction (shared connection) leaves it usable, also on
+     * PostgreSQL, where a failed statement would otherwise abort the whole transaction (25P02).
+     */
+    #[DataProvider('databases')]
+    public function testAFailureInsideTheCallersTransactionLeavesItUsable(?string $url): void
+    {
+        $connection = $this->connect($url);
+        $connection->beginTransaction();
+        $connection->executeStatement("UPDATE host_setting SET weight = 8 WHERE name = 'retention_days'");
+
+        try {
+            (new DbalQueryValueProvider($connection, new ReadOnlyQuery('host', 'SELECT val AS value FROM host_setting_missing WHERE name = :key')))->read(RuntimeSettingId::fromString('API_URL'));
+            self::fail('Expected an exception.');
+        } catch (RuntimeSettingSourceFailure) {
+        }
+
+        self::assertSame('45', (new DbalQueryValueProvider($connection, new ReadOnlyQuery('host', 'SELECT val AS value FROM host_setting WHERE ns = :namespace AND name = :key')))->read(RuntimeSettingId::fromString('chat.retention_days'))?->current);
+        $connection->executeStatement("UPDATE host_setting SET weight = 9 WHERE name = 'retention_days'");
+        $connection->commit();
+        self::assertSame(9, (int) $connection->fetchOne("SELECT weight FROM host_setting WHERE name = 'retention_days'"));
+    }
+
     private function connect(?string $url): Connection
     {
         if ($url === null) {

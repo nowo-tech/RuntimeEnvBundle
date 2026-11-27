@@ -6,4 +6,4 @@
 - [x] T004 Admin UI refusal (FR-PRV-005)
 - [x] T005 Tests: SQLite, MySQL, MariaDB, PostgreSQL, kernel (SC-001..SC-003)
 - [x] T006 Documentation and changelog
-- [ ] T007 Switch `nowo-tech/runtime-setting-contract` to `^1.1` and drop the VCS repository once 1.1.0 is tagged
+- [x] T007 Switch `nowo-tech/runtime-setting-contract` to `^1.1` and drop the VCS repository once 1.1.0 is tagged

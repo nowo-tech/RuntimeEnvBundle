@@ -129,9 +129,10 @@ final class RuntimeSettingTestKernel extends Kernel implements CompilerPassInter
             // 1.10: a DBAL query provider over a host table, shared through the pool for 60 seconds.
             'providers' => [
                 'tenant_db' => [
-                    'connection'              => 'default',
-                    'sql'                     => 'SELECT url AS value, old_url, old_until FROM host_tenant_setting WHERE tenant = :tenant AND name = :key',
-                    'parameters'              => ['tenant' => 'acme'],
+                    'connection' => 'default',
+                    'sql'        => 'SELECT url AS value, old_url, old_until FROM host_tenant_setting WHERE tenant = :tenant AND name = :key',
+                    // An env constant: resolved at runtime, also into the provider's cache scope (audit ZDA-L2).
+                    'parameters'              => ['tenant' => '%env(RS_TEST_TENANT)%'],
                     'previous_column'         => 'old_url',
                     'previous_expires_column' => 'old_until',
                     'cache_ttl'               => 60,
@@ -145,6 +146,7 @@ final class RuntimeSettingTestKernel extends Kernel implements CompilerPassInter
             'setting_providers' => ['TENANT_URL' => 'tenant_db'],
         ]);
 
+        $container->parameters()->set('env(RS_TEST_TENANT)', 'acme');
         $services = $container->services();
         $services->set('logger', NullLogger::class);
         $services->set('test.shared_pool', FilesystemAdapter::class)->args(['runtime_setting', 0, $this->poolDirectory]);

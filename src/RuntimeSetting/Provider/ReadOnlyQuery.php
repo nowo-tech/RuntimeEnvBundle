@@ -27,15 +27,21 @@ use function strlen;
 /**
  * 1.10: one parameterised, read-only SQL query of a DBAL query provider, validated when the container is built.
  *
- * Rules (defence in depth; the real guarantee is a database user that can only SELECT):
+ * Rules (best effort, defence in depth: they catch configuration mistakes, they do not make arbitrary SQL safe; the
+ * database grants are what bound the query, and on PostgreSQL a role with SELECT only can still create large objects,
+ * take advisory locks or sleep through functions granted to PUBLIC, so revoke those or use a dedicated role):
  * - one statement starting with `SELECT`, at most {@see self::MAX_SQL_LENGTH} bytes, no control characters but
  *   whitespace;
  * - no `;`, no comments (`--`, `#`, `/*`), no string literals (`'`, `$$`), no backslash, no positional `?`, no `::`
  *   casts (use `CAST()`), no `%` (no container parameter or env value can change the SQL): constants go in
  *   `parameters`;
- * - identifiers may be quoted with `"` or backticks (letters, digits, underscores, spaces only);
- * - no keyword that writes, locks, sleeps or reaches files ({@see self::FORBIDDEN_KEYWORDS}: INSERT, UPDATE, DELETE,
- *   INTO, FOR UPDATE / SHARE, LOCK, SET, CALL, SLEEP, PG_SLEEP, LOAD_FILE, ...); quote an identifier that collides;
+ * - `"…"` and backtick segments may only hold letters, digits, underscores and spaces (identifiers; on MySQL without
+ *   ANSI_QUOTES a `"…"` segment is a string literal, harmless with that alphabet);
+ * - no keyword that writes or locks ({@see self::FORBIDDEN_KEYWORDS}: INSERT, UPDATE, DELETE, INTO, FOR UPDATE /
+ *   SHARE, LOCK, SET, CALL, ...) and no function of a family that writes, locks, sleeps, runs dynamic SQL or reaches
+ *   files and other servers ({@see self::FORBIDDEN_FUNCTION_FAMILIES}: `lo_*`, `pg_*advisory*`, `pg_sleep*`,
+ *   `dblink*`, `*_to_xml*`, `release_*lock*`, `*pos_wait`, `wait_for_*`, `NEXT VALUE FOR`, `load_*`, `xp_*`, `utl_*`,
+ *   `OPENQUERY`, ...); quote an identifier that collides;
  * - named parameters only: the built-ins `:id`, `:namespace`, `:key` (the setting id and its parts) and the
  *   configured `parameters`; every configured parameter must be used, every used one must exist.
  */
@@ -58,11 +64,25 @@ final readonly class ReadOnlyQuery
         'update', 'upsert', 'vacuum',
         // Inside a SELECT: writes (SELECT ... INTO), row locks (FOR UPDATE / FOR SHARE / LOCK IN SHARE MODE).
         'into', 'outfile', 'dumpfile', 'share',
-        // Functions that sleep, lock, write, signal or reach files and other servers.
-        'benchmark', 'dblink', 'get_lock', 'lo_export', 'lo_import', 'load_file', 'nextval', 'openrowset',
-        'opendatasource', 'pg_advisory_lock', 'pg_advisory_xact_lock', 'pg_cancel_backend', 'pg_notify',
-        'pg_read_binary_file', 'pg_read_file', 'pg_sleep', 'pg_terminate_backend', 'release_lock', 'set_config',
-        'setval', 'sleep', 'waitfor', 'xp_cmdshell',
+    ];
+
+    /**
+     * Function families refused anywhere outside quoted identifiers (case-insensitive, audit ZDA-L1): matched by
+     * prefix or pattern, not by exact name, so siblings (`pg_sleep_for`, `dblink_exec`, `lo_from_bytea`,
+     * `pg_try_advisory_lock`, `release_all_locks`, ...) are refused too. Best effort: see the class docblock.
+     */
+    public const FORBIDDEN_FUNCTION_FAMILIES = [
+        // PostgreSQL: sleep, large objects (writes), advisory locks, other servers, files, server control, sequences,
+        // transaction ids, dynamic SQL through *_to_xml.
+        'pg_sleep\w*', 'lo_\w+', 'pg_\w*advisory\w*', 'dblink\w*', 'pg_ls_\w+', 'pg_stat_file', 'pg_file_\w+',
+        'pg_read_\w+', 'pg_reload_conf', 'pg_rotate_logfile', 'pg_switch_wal', 'pg_logical_\w+', 'pg_create_\w+',
+        'pg_drop_\w+', 'pg_terminate_backend', 'pg_cancel_backend', 'pg_notify', 'set_config', '\w+_to_xml\w*',
+        'txid_current\w*', 'pg_current_xact_id\w*', 'nextval', 'setval',
+        // MySQL / MariaDB: sleep, named locks, replication waits, files.
+        'sleep', 'benchmark', 'get_lock', 'release_\w*locks?', 'is_free_lock', 'is_used_lock', '\w*pos_wait',
+        'wait_for_\w+', 'load_\w+',
+        // SQLite: load_extension (load_*). SQL Server / Oracle: shell, procedures, packages, other servers, waits.
+        'xp_\w+', 'sp_\w+', 'dbms_\w+', 'utl_\w+', 'openquery', 'openrowset', 'opendatasource', 'waitfor',
     ];
 
     /** @var list<string> named parameters the SQL uses, sorted */
@@ -137,6 +157,11 @@ final readonly class ReadOnlyQuery
         }
         if (preg_match('/\b(' . implode('|', self::FORBIDDEN_KEYWORDS) . ')\b/i', $bare, $match) === 1) {
             throw InvalidReadOnlyQuery::because($provider, 'sql must be read-only; it uses the keyword ' . $match[1] . '.');
+        }
+        if (preg_match('/\b(' . implode('|', self::FORBIDDEN_FUNCTION_FAMILIES) . ')\b/i', $bare, $match) === 1
+            || preg_match('/\b(next\s+value\s+for)\b/i', $bare, $match) === 1
+        ) {
+            throw InvalidReadOnlyQuery::because($provider, 'sql must be read-only; it uses ' . $match[1] . ', which can write, lock, sleep, run dynamic SQL or reach files or other servers.');
         }
 
         // Named parameters: every ":" starts one.

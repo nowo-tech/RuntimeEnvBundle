@@ -189,16 +189,25 @@ values that live in host tables (per tenant, per site, joins). Reference: [CONFI
 nowo_runtime_env:
     providers:
         tenant_db:
-            connection: default
+            connection: settings_ro    # a dedicated DBAL connection with a SELECT-only role
             sql: 'SELECT url AS value FROM host_tenant_setting WHERE tenant = :tenant AND name = :key'
             parameters: { tenant: '%env(TENANT_CODE)%' }
-            cache_ttl: 60
+            cache_ttl: 0               # see below before raising it
 
 nowo_runtime_setting:
     cache_pool: cache.app
     setting_providers:
         TENANT_URL: tenant_db      # a setting registered by a bundle, with source db or db_then_env
 ```
+
+A `cache_ttl` above 0 shares values through `nowo_runtime_setting.cache_pool`. It is safe only when the answer is the
+same for every caller of that pool: the provider's cache scope already includes the connection name, the query and
+the bound constants (`TENANT_CODE` above, resolved at runtime), so two deployments with different constants never
+share an entry; an answer that depends on the request or on the connection's session state (row-level security,
+`search_path`, a per-tenant connection) needs `cache_ttl: 0`.
+
+`RuntimeEnvBag` / `runtime_env()` and the manage list do not consult providers: they keep reading this bundle's table.
+Delete a stale row of the same name when you bind a setting to a provider.
 
 Reading the setting does not change (`RuntimeSettingResolver::get()` / `candidates()`, the bundle's validator runs on
 every value). Writes are refused (`RuntimeSettingNotWritable`) by the commands and the manage UI. For lookups a query

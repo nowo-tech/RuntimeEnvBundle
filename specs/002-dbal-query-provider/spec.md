@@ -50,6 +50,9 @@ YAML with parameterised, read-only SQL validated at container compile, never edi
 | FR-PRV-005 | `RuntimeEnvAdminSettings` refuses create / update of a provider-backed setting with `RuntimeSettingNotWritable` before anything is written; `manages()` keeps such settings off the free-form path. |
 | FR-PRV-006 | One service `nowo_runtime_env.provider.<name>` per entry, tagged `nowo_runtime_setting.provider` (`name`, `cache_ttl` 0..3600); `DbalQueryProvidersPass` fails the build when the connection is not declared. |
 | FR-PRV-007 | Stateless (worker mode): no state kept between reads. |
+| FR-PRV-008 | Audit ZDA-L1: function families refused by pattern (`ReadOnlyQuery::FORBIDDEN_FUNCTION_FAMILIES` + `NEXT VALUE FOR`); the validation is documented as best effort, grants (PostgreSQL `REVOKE ... FROM PUBLIC`) as required. |
+| FR-PRV-009 | Audit ZDA-L2: each provider tag carries `cache_scope` = `dbal:<connection>|sha256(sql)|<name>=<value>...` (constants sorted, `%env()%` resolved at runtime), hashed by the contract into the cache token. |
+| FR-PRV-010 | Audit ZDA-L3: with an open transaction on the connection the read runs inside savepoint `nowo_runtime_value_provider`, released on success; on failure rolled back to it, the connection closed when that rollback fails, the original sanitised failure rethrown. |
 
 ## Success criteria
 

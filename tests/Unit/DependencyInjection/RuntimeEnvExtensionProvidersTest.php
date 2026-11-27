@@ -18,6 +18,7 @@ use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 
 use function array_walk_recursive;
+use function hash;
 use function is_string;
 use function str_starts_with;
 use function substr;
@@ -27,7 +28,7 @@ use function substr;
  */
 final class RuntimeEnvExtensionProvidersTest extends TestCase
 {
-    private const SQL = 'SELECT value, prev, prev_until FROM tenant_setting WHERE tenant = :tenant AND name = :key';
+    private const SQL = 'SELECT value, prev, prev_until FROM tenant_setting WHERE tenant = :tenant AND name = :key AND active = :active AND (:none IS NULL) AND weight > :min AND weight > 0';
 
     public function testRegistersATaggedProviderPerEntry(): void
     {
@@ -35,7 +36,7 @@ final class RuntimeEnvExtensionProvidersTest extends TestCase
             'tenant_settings' => [
                 'connection'              => 'tenants',
                 'sql'                     => self::SQL,
-                'parameters'              => ['tenant' => 'ENV:TENANT_CODE'],
+                'parameters'              => ['tenant' => 'ENV:TENANT_CODE', 'active' => true, 'none' => null, 'min' => 2],
                 'previous_column'         => 'prev',
                 'previous_expires_column' => 'prev_until',
                 'expires_timezone'        => 'Europe/Madrid',
@@ -46,7 +47,11 @@ final class RuntimeEnvExtensionProvidersTest extends TestCase
 
         $definition = $container->getDefinition(RuntimeEnvExtension::PROVIDER_PREFIX . 'tenant_settings');
         self::assertSame(DbalQueryValueProvider::class, $definition->getClass());
-        self::assertSame([['name' => 'tenant_settings', 'cache_ttl' => 60]], $definition->getTag(RuntimeSettingsConfiguration::PROVIDER_TAG));
+        $tag = $definition->getTag(RuntimeSettingsConfiguration::PROVIDER_TAG);
+        self::assertSame('tenant_settings', $tag[0]['name']);
+        self::assertSame(60, $tag[0]['cache_ttl']);
+        // ZDA-L2: connection, query hash and bound constants (the env value is resolved at runtime), sorted by name.
+        self::assertSame('dbal:tenants|' . hash('sha256', self::SQL) . '|active=1|min=2|none=|tenant=%env(TENANT_CODE)%', $container->resolveEnvPlaceholders($tag[0]['cache_scope']));
         self::assertEquals(new Reference('doctrine.dbal.tenants_connection'), $definition->getArgument(0));
         self::assertSame('Europe/Madrid', $definition->getArgument(2));
 

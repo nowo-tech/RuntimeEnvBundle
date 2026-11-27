@@ -12,6 +12,7 @@ use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvSettingStore;
 use Nowo\RuntimeEnvBundle\Service\RuntimeEnvWriterInterface;
 use Nowo\RuntimeSettingContract\Contract\Exception\InvalidRuntimeSettingValue;
 use Nowo\RuntimeSettingContract\Contract\RuntimeSettingUpdater;
+use Nowo\RuntimeSettingContract\Contract\RuntimeValueProviderRegistry;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -178,6 +179,9 @@ final class RuntimeSettingKernelTest extends TestCase
         $connection->insert('host_tenant_setting', ['tenant' => 'other', 'name' => 'TENANT_URL', 'url' => 'https://other.example']);
 
         self::assertSame('https://acme-1.example', $this->request($worker, '/t/tenant'));
+        $registry = $this->service($worker, RuntimeValueProviderRegistry::class);
+        self::assertInstanceOf(RuntimeValueProviderRegistry::class, $registry);
+        self::assertStringEndsWith('|tenant=acme', $registry->get('tenant_db')->cacheScope, 'the env constant is part of the cache scope');
 
         // A rotation at the provider: within the cache TTL the pool still serves the first value, to every worker.
         $connection->update('host_tenant_setting', ['url' => 'https://acme-2.example', 'old_url' => 'https://acme-1.example', 'old_until' => '2026-11-16 13:00:00'], ['tenant' => 'acme']);

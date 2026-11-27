@@ -62,12 +62,16 @@ use function array_key_first;
 use function array_values;
 use function class_exists;
 use function dirname;
+use function hash;
 use function is_array;
 use function is_bool;
 use function is_string;
+use function ksort;
 use function preg_match;
 use function rtrim;
 use function sprintf;
+
+use const SORT_STRING;
 
 final class RuntimeEnvExtension extends Extension implements PrependExtensionInterface
 {
@@ -313,10 +317,32 @@ final class RuntimeEnvExtension extends Extension implements PrependExtensionInt
                 new Reference(sprintf('doctrine.dbal.%s_connection', $provider['connection'])),
                 new Definition(ReadOnlyQuery::class, [$name, $query->sql, $provider['parameters'], $query->valueColumn, $query->previousColumn, $query->previousExpiresColumn, $query->maxLength]),
                 $provider['expires_timezone'],
-            ]))->addTag(RuntimeSettingsConfiguration::PROVIDER_TAG, ['name' => $name, 'cache_ttl' => $provider['cache_ttl']]));
+            ]))->addTag(RuntimeSettingsConfiguration::PROVIDER_TAG, ['name' => $name, 'cache_ttl' => $provider['cache_ttl'], 'cache_scope' => $this->providerCacheScope($provider['connection'], $query->sql, $provider['parameters'])]));
             $connections[$name] = $provider['connection'];
         }
         $container->setParameter('nowo_runtime_env.provider_connections', $connections);
+    }
+
+    /**
+     * 1.10 (audit ZDA-L2): what a DBAL provider's answer depends on besides the setting id: the connection, the query
+     * and the bound constants. `%env()%` constants stay placeholders here and are resolved when the container builds
+     * the binding, so two deployments with different values never share a cache entry. The contract hashes it.
+     *
+     * @param array<string, bool|float|int|string|null> $parameters
+     */
+    private function providerCacheScope(string $connection, string $sql, array $parameters): string
+    {
+        ksort($parameters, SORT_STRING);
+        $scope = 'dbal:' . $connection . '|' . hash('sha256', $sql);
+        foreach ($parameters as $name => $value) {
+            $scope .= '|' . $name . '=' . match (true) {
+                $value === null => '',
+                is_bool($value) => $value ? '1' : '0',
+                default         => (string) $value,
+            };
+        }
+
+        return $scope;
     }
 
     /**

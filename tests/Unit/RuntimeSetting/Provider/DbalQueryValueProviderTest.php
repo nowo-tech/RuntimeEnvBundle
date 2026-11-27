@@ -255,6 +255,60 @@ final class DbalQueryValueProviderTest extends TestCase
     }
 
     /**
+     * ZDA-L3: inside the caller's transaction the read runs in a savepoint; a failure rolls back to it and the
+     * caller's transaction stays usable.
+     */
+    public function testInsideATransactionTheReadUsesASavepoint(): void
+    {
+        $this->connection->beginTransaction();
+        $this->connection->executeStatement("UPDATE tenant_setting SET value = 'uncommitted' WHERE tenant = 'beta'");
+
+        self::assertSame('uncommitted', $this->provider('SELECT value FROM tenant_setting WHERE tenant = :tenant AND name = :key', ['tenant' => 'beta'])->read(RuntimeSettingId::fromString('API_URL'))?->current);
+        self::assertTrue($this->connection->isTransactionActive());
+        self::assertSame(1, $this->connection->getTransactionNestingLevel());
+
+        try {
+            $this->provider('SELECT value FROM missing_table WHERE name = :key')->read(RuntimeSettingId::fromString('API_URL'));
+            self::fail('Expected an exception.');
+        } catch (RuntimeSettingSourceFailure $e) {
+            self::assertNull($e->getPrevious());
+        }
+
+        // The caller's unit of work goes on and commits.
+        $this->connection->executeStatement("UPDATE tenant_setting SET value = 'committed' WHERE tenant = 'beta'");
+        $this->connection->commit();
+        self::assertSame('committed', $this->connection->fetchOne("SELECT value FROM tenant_setting WHERE tenant = 'beta'"));
+    }
+
+    public function testASavepointThatCannotBeCreatedIsAFailure(): void
+    {
+        $connection = $this->createMock(Connection::class);
+        $connection->method('isTransactionActive')->willReturn(true);
+        $connection->method('createSavepoint')->willThrowException(new RuntimeException('SAVEPOINT REDACTED'));
+        $connection->expects(self::never())->method('executeQuery');
+
+        $this->expectException(RuntimeSettingSourceFailure::class);
+        $this->expectExceptionMessage('Runtime value provider "tenant": the savepoint could not be created (RuntimeException).');
+
+        (new DbalQueryValueProvider($connection, $this->query('SELECT value FROM t WHERE name = :key')))->read(RuntimeSettingId::fromString('API_URL'));
+    }
+
+    public function testALostSavepointClosesTheConnectionAndRethrowsTheOriginalFailure(): void
+    {
+        $connection = $this->createMock(Connection::class);
+        $connection->method('isTransactionActive')->willReturn(true);
+        $connection->expects(self::once())->method('createSavepoint')->with(DbalQueryValueProvider::SAVEPOINT);
+        $connection->method('executeQuery')->willThrowException(new RuntimeException('SELECT REDACTED'));
+        $connection->expects(self::once())->method('rollbackSavepoint')->with(DbalQueryValueProvider::SAVEPOINT)->willThrowException(new RuntimeException('lost'));
+        $connection->expects(self::once())->method('close');
+
+        $this->expectException(RuntimeSettingSourceFailure::class);
+        $this->expectExceptionMessage('Runtime value provider "tenant": the query failed (RuntimeException).');
+
+        (new DbalQueryValueProvider($connection, $this->query('SELECT value FROM t WHERE name = :key')))->read(RuntimeSettingId::fromString('API_URL'));
+    }
+
+    /**
      * @param list<array<string, mixed>> $rows
      */
     private function fakeRows(array $rows, int $maxLength = 65536): DbalQueryValueProvider

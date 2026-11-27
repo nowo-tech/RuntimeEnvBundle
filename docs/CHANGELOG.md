@@ -47,6 +47,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parsing; failures are `RuntimeSettingSourceFailure` without SQL, parameters, values or the driver exception. Services
   `nowo_runtime_env.provider.<name>` tagged `nowo_runtime_setting.provider`; `DbalQueryProvidersPass` fails the build
   when the connection is not declared.
+- Audit ZDA fixes before release: function families refused by prefix / pattern (`lo_*`, `pg_*advisory*`,
+  `pg_sleep*`, `dblink*`, `*_to_xml*`, `release_*lock*`, `*pos_wait`, `wait_for_*`, `NEXT VALUE FOR`, `load_*`,
+  `xp_*`, `sp_*`, `dbms_*`, `utl_*`, `OPENQUERY`, ...); each provider registers a cache scope (connection, query
+  hash, bound constants with `%env()%` resolved at runtime) with the contract's shared cache; a read on a connection
+  with an open transaction runs in a savepoint (rolled back on failure, connection closed if that rollback fails,
+  the original sanitised failure rethrown). Docs: dedicated connection, PostgreSQL `REVOKE` of `PUBLIC` functions,
+  `memory_limit` caveat, `RuntimeEnvBag` / manage list do not consult providers.
 
 ### Changed
 
