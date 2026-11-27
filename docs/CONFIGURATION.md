@@ -9,6 +9,7 @@ Alias: `nowo_runtime_env`
 | `database.entity_manager` | `default` | Doctrine entity manager that maps the bundle entity. 1.5: mapped on that manager **only** (also off an `auto_mapping` default), every read / write uses it, the build fails when it is not declared. When it is not your default manager the bundle owns it (reset when closed, cleared at every request / message / command). |
 | `database.transaction` | `bundle` | 1.5. `host` (DDD hosts): `RuntimeEnvWriter` does not flush when your code calls it; your use case commits and `RuntimeEnvVariableChangedEvent` follows your commit. The admin UI keeps flushing its own writes. |
 | `runtime_setting.enabled` | `false` | 1.6: nowo-tech/runtime-setting-contract source and writer on this table (key = variable name, values encrypted, rotation, version token). Maps two nullable columns and `{prefix}_versions`: migrate when you enable it. Literal boolean only. See [USAGE](USAGE.md#runtime-settings-16). |
+| `providers.<name>` | `{}` | 1.10: read-only DBAL query providers for nowo-tech/runtime-setting-contract 1.1 (see [below](#dbal-query-providers-110)). |
 | `conflict_response.status` | `null` | Answer of a lock conflict (deadlock, lock wait, serialization failure) on the manage pages: `409` with `CONFLICT_001` / `CONFLICT_002` (default) or `503`. Null follows nowo-tech/transaction-doctrine's `conflict_response`, else 409. See [CONCURRENCY](CONCURRENCY.md). |
 | `conflict_response.retry_after` | `null` | `Retry-After` seconds of a `CONFLICT_001` answer without a hint. Null follows transaction-doctrine, else 1. |
 | `security.access_roles` | `[ROLE_ADMIN]` | REQ-UI-002. An empty list is rejected unless `access_checker` or `allow_unauthenticated` is set. |
@@ -111,6 +112,53 @@ nowo_runtime_env:
 ```
 
 Keep the host firewall / `access_control` in sync with `web_ui.path_prefix` (the recipe adds `^/_runtime_env`).
+
+## DBAL query providers (1.10)
+
+```yaml
+nowo_runtime_env:
+    providers:
+        tenant_db:                                  # provider name: [a-z][a-z0-9_]{0,63}
+            connection: tenants                     # required: doctrine.dbal.connections.<name>
+            sql: >-
+                SELECT s.value, s.previous_value, s.previous_until
+                FROM tenant_setting s JOIN tenant t ON t.id = s.tenant_id
+                WHERE t.code = :tenant AND s.name = :key
+            parameters:                             # constants, bound as named parameters (may be %env()%)
+                tenant: '%env(TENANT_CODE)%'
+            value_column: value                     # default "value"; NULL or no row = no value
+            previous_column: previous_value         # optional, with previous_expires_column (rotation)
+            previous_expires_column: previous_until # date-time (expires_timezone) or Unix timestamp
+            expires_timezone: UTC                   # default UTC
+            max_length: 65536                       # bytes, 1..65536; longer = source failure
+            cache_ttl: 0                            # 0..3600 s in nowo_runtime_setting.cache_pool; secrets never
+
+nowo_runtime_setting:
+    setting_providers:
+        TENANT_API_URL: tenant_db                   # or runtime.<setting>.provider in the owning bundle
+```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `connection` | required | DBAL connection name; the build fails when it is not declared. Literal only. |
+| `sql` | required | One `SELECT` (validated at container build, never editable at runtime): no `;`, no comments (`--`, `#`, `/* */`), no string literals (`'`, `$$`), no `\`, no positional `?`, no `::` casts, no `%`; identifiers may be quoted with `"` or backticks; no keyword that writes, locks, sleeps or reaches files (`INSERT`, `UPDATE`, `DELETE`, `INTO`, `FOR UPDATE` / `SHARE`, `LOCK`, `SET`, `CALL`, `SLEEP`, `PG_SLEEP`, `LOAD_FILE`, ...). Named parameters only: `:id` (the setting id), `:namespace`, `:key` and the keys of `parameters`. At most 4096 bytes. |
+| `parameters` | `{}` | Constants (`[a-z_][a-z0-9_]*`, not `id` / `namespace` / `key`); every one must be used by `sql`. Scalars or `%env()%`. |
+| `value_column` | `value` | Result column of the value. Matched exactly, else case-insensitively when that is unambiguous. |
+| `previous_column` / `previous_expires_column` | `null` | Both or neither. A previous value without an expiry is ignored (fail closed for that candidate). |
+| `expires_timezone` | `UTC` | Zone of expiry values without an offset (this bundle's own table stores UTC). |
+| `max_length` | `65536` | Longest value accepted before parsing. |
+| `cache_ttl` | `0` | Seconds a non-secret value may be served from the contract's shared pool. Keep `0` when a parameter depends on the request. |
+
+The query must return **at most one row**: a second row is a source failure, never "the first one wins". Every
+failure (driver error, two rows, missing column, oversized value, bad expiry) is a `RuntimeSettingSourceFailure` that
+names the provider and the rule only: no SQL, no parameter, no value, no chained driver exception. The setting's
+`on_error` then applies.
+
+**Read-only.** Settings read from a provider cannot be set, unset or rotated: the `nowo:runtime-setting:*` commands
+and the manage UI refuse them with `RuntimeSettingNotWritable`. Run the provider on a connection whose database user
+can only `SELECT` the tables it reads, and give that user a statement timeout (PostgreSQL
+`ALTER ROLE ... SET statement_timeout = '2s'`, MySQL `max_execution_time`, MariaDB `max_statement_time`): the
+validation is defence in depth, the database grants are the guarantee.
 
 ## Encryption
 

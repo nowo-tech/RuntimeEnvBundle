@@ -2,7 +2,7 @@
 
 **Baseline spec**: [`spec.md`](spec.md)  
 **Package**: `nowo-tech/runtime-env-bundle`  
-**Last audited**: 2026-11-22
+**Last audited**: 2026-11-27 (1.10 provider files: [`002-dbal-query-provider`](../002-dbal-query-provider/spec.md))
 
 This file proves that **every production source artifact** under `src/` is inventoried. PHPUnit under `tests/` is out of scope unless promoted in the spec.
 
@@ -52,7 +52,11 @@ This file proves that **every production source artifact** under `src/` is inven
 | `Persistence/TransactionObserverInterface.php` | Transaction observer port (1.5) | FR-ORM-003 |
 | `RuntimeSetting/DoctrineEncryptValueCipher.php` | 1.6: entity-format encryption for DBAL writes | FR-RS-002 |
 | `RuntimeSetting/Entity/RuntimeEnvVersion.php` | 1.6: `env` version token (mapped only when enabled) | FR-RS-003 |
-| `RuntimeSetting/RuntimeEnvAdminSettings.php` | 1.6: admin edits of registered settings through RuntimeSettingUpdater | FR-RS-004 |
+| `RuntimeSetting/RuntimeEnvAdminSettings.php` | 1.6: admin edits of registered settings through RuntimeSettingUpdater; 1.10: provider settings refused | FR-RS-004, FR-PRV-005 |
+| `RuntimeSetting/Provider/DbalQueryValueProvider.php` | 1.10: read-only DBAL query provider (one row, bounded, sanitised failures) | FR-PRV-002, FR-PRV-003, FR-PRV-004 |
+| `RuntimeSetting/Provider/ReadOnlyQuery.php` | 1.10: validated read-only SQL + parameters + columns | FR-PRV-001 |
+| `RuntimeSetting/Provider/InvalidReadOnlyQuery.php` | 1.10: configuration refusal (names the rule, never the SQL) | FR-PRV-001 |
+| `DependencyInjection/Compiler/DbalQueryProvidersPass.php` | 1.10: provider connections must be declared | FR-PRV-006 |
 | `RuntimeSetting/RuntimeEnvSettingStore.php` | 1.6: contract source and writer (DBAL, own transaction, rotation, purge, audit) | FR-RS-001, FR-RS-002, FR-RS-003, FR-CONC-001 |
 | `RuntimeSetting/RuntimeEnvValueCipherInterface.php` | 1.6: cipher port of the store | FR-RS-002 |
 | `RuntimeSetting/RuntimeEnvVersionBumper.php` | 1.6: version bump in the 1.5 writer's flush | FR-RS-003 |
@@ -84,6 +88,6 @@ This file proves that **every production source artifact** under `src/` is inven
 
 | Category | Files | Mapped |
 | --- | ---: | ---: |
-| PHP classes | 52 | 52 |
+| PHP classes | 56 | 56 |
 | YAML config / translations / Twig / CSS | 12 | 12 |
-| **Total `src/` artifacts** | **64** | **64** |
+| **Total `src/` artifacts** | **68** | **68** |

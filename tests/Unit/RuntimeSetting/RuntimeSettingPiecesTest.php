@@ -26,6 +26,7 @@ use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvSettingStore;
 use Nowo\RuntimeEnvBundle\RuntimeSetting\RuntimeEnvVersionBumper;
 use Nowo\RuntimeEnvBundle\Tests\Support\RuntimeSettingDatabaseTrait;
 use Nowo\RuntimeSettingContract\Contract\Exception\InvalidRuntimeSettingValue;
+use Nowo\RuntimeSettingContract\Contract\Exception\RuntimeSettingNotWritable;
 use Nowo\RuntimeSettingContract\Contract\RuntimeSettingDefinition;
 use Nowo\RuntimeSettingContract\Contract\RuntimeSettingId;
 use Nowo\RuntimeSettingContract\Contract\RuntimeSettingRegistry;
@@ -155,6 +156,38 @@ final class RuntimeSettingPiecesTest extends TestCase
 
         $this->expectException(InvalidRuntimeSettingValue::class);
         $admin->update('API_TOKEN', '', true, false, 'REDACTED-TEST-B', null, 'user:admin');
+    }
+
+    /**
+     * 1.10: a setting read from a read-only provider (runtime-setting-contract 1.1) is managed, and every admin change
+     * of it is refused before anything is written (the description included).
+     */
+    public function testTheAdminPathRefusesProviderSettings(): void
+    {
+        $connection = $this->database();
+        $store      = $this->store($connection);
+        $registry   = new RuntimeSettingRegistry([
+            new RuntimeSettingDefinition('TENANT_URL', RuntimeSettingType::String, RuntimeSettingSource::Db, validator: new SingleLineString(64), provider: 'tenant_db'),
+        ]);
+        $admin = new RuntimeEnvAdminSettings($registry, new RuntimeSettingUpdater($registry, $store, new RuntimeSettingResolver($store, versionTtl: 0), new RuntimeValueFingerprinter(str_repeat('k', 32))), $store);
+        $this->insertVariable($connection, 'TENANT_URL', 'enc:old');
+
+        self::assertTrue($admin->manages('TENANT_URL'), 'routed to the refusal, never to the free-form path');
+
+        foreach ([
+            static fn () => $admin->create('TENANT_URL', 'x', 'New', true, 'user:admin'),
+            static fn () => $admin->update('TENANT_URL', null, true, true, 'old', 'Changed description', 'user:admin'),
+            static fn () => $admin->update('TENANT_URL', 'x', true, true, 'old', null, 'user:admin'),
+        ] as $i => $change) {
+            try {
+                $change();
+                self::fail('Change ' . $i . ' was accepted.');
+            } catch (RuntimeSettingNotWritable $e) {
+                self::assertStringContainsString('read-only provider "tenant_db"', $e->getMessage());
+            }
+        }
+        self::assertSame('seeded', $connection->fetchOne('SELECT description FROM runtime_env_variables'));
+        self::assertSame('enc:old', $connection->fetchOne('SELECT value FROM runtime_env_variables'));
     }
 
     public function testAdminActor(): void

@@ -22,6 +22,7 @@
 | List / templates | Secret printed by a template | Since 1.3.0 no entity reaches the templates: list rows are value-free arrays, the value column key resolves to nothing |
 | Configuration | Fail-open switches | Since 1.3.0 security switches accept only literal booleans; `allow_unauthenticated: true` is refused unless `kernel.debug` |
 | Runtime settings (1.6, opt-in) | Invalid or hostile values written live; secrets echoed; stale values; look-alike names | Admin edits of registered settings and the commands go through `RuntimeSettingUpdater` (registered ids, bundle validator first, secrets only via STDIN and never fingerprinted); values encrypted as in 1.5 (previous values too, as stored ciphertext); version token changed in the write transaction; DBAL reads re-checked with `===`; binary NO PAD key collation on MySQL / MariaDB; storage failures answer 503 / 409 with fixed messages on the bundle's routes |
+| DBAL query providers (1.10, opt-in) | SQL injection, writes or locks through configured SQL; SQL / values leaking in errors; cross-tenant values through the shared cache | SQL fixed at container build (no `%env()%`, no `%`), one `SELECT` validated (no `;`, comments, literals, `?`, `::`, write / lock / sleep / file keywords), named parameters only (the setting id is bound, never interpolated); at most one row; values bounded before parsing; failures name the provider and the rule only, no chained driver exception; settings refused by every write path; secrets never in the shared cache; `cache_ttl: 0` by default. Residual: a SELECT-only database user with a statement timeout is the real guarantee |
 | FrankenPHP worker | Cross-request leak / stale config | Request-scoped bag memoization; repository `HINT_REFRESH` + `ManagerRegistry`; access subscriber priority 7 + `_firewall_context`; no `$_ENV`/`putenv` |
 
 ## Defaults
@@ -72,6 +73,7 @@ This subsection is the in-package REQ-SEC-004 record (date, method, grade, resid
 - Host owns retention / audit of who changed which key (1.6: runtime-setting writes log an `info` audit line with the actor; route that channel where you keep audit logs)
 - 1.6 (runtime settings): see the audit QT row below; QT-L-5 and QT-L-6 are known issues for a 1.6.x patch (UPGRADING)
 - Multi-worker: after save, other workers see updates on their next request (request-scoped bag + refreshed Doctrine reads; no shared in-memory cache by design)
+- 1.10 DBAL query providers: give the provider connection a database user that can only `SELECT` the tables it reads and a statement timeout; keep `cache_ttl: 0` when a parameter depends on the request (the contract's shared cache is keyed by setting id)
 - Encryptor key material remains an application secret (DoctrineEncryptBundle configuration)
 - Twig `runtime_env('KEY')` returns decrypted strings — do not expose secrets in public HTML
 - Do not put the manage panel behind a firewall with `security: false` unless `allow_unauthenticated` is intentionally enabled (token storage may not refresh)

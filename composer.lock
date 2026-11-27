@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ac76e2bd7e5123440655d6a5332e3f44",
+    "content-hash": "0175eadae3b444755ff9f50be682e38f",
     "packages": [
         {
             "name": "doctrine/collections",
@@ -1160,16 +1160,16 @@
         },
         {
             "name": "nowo-tech/runtime-setting-contract",
-            "version": "v1.0.0",
+            "version": "dev-feat/value-providers",
             "source": {
                 "type": "git",
                 "url": "https://github.com/nowo-tech/runtime-setting-contract.git",
-                "reference": "fd2afd7fa86962ffe496073b64322b1cff2e2dfc"
+                "reference": "7c2549b279d6ed897230bfe3d2aac4d73f29ec29"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nowo-tech/runtime-setting-contract/zipball/fd2afd7fa86962ffe496073b64322b1cff2e2dfc",
-                "reference": "fd2afd7fa86962ffe496073b64322b1cff2e2dfc",
+                "url": "https://api.github.com/repos/nowo-tech/runtime-setting-contract/zipball/7c2549b279d6ed897230bfe3d2aac4d73f29ec29",
+                "reference": "7c2549b279d6ed897230bfe3d2aac4d73f29ec29",
                 "shasum": ""
             },
             "require": {
@@ -1187,7 +1187,7 @@
             },
             "require-dev": {
                 "friendsofphp/php-cs-fixer": "^3.64",
-                "igor-php/igor-php": "^0.10.0",
+                "igor-php/igor-php": "^0.10.0 || ^0.11.0",
                 "nowo-tech/phpstan-frankenphp": "^1.0",
                 "phpstan/extension-installer": "^1.4",
                 "phpstan/phpstan": "^2.0",
@@ -1216,7 +1216,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "1.0.x-dev"
+                    "dev-main": "1.1.x-dev"
                 }
             },
             "autoload": {
@@ -1224,7 +1224,58 @@
                     "Nowo\\RuntimeSettingContract\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "autoload-dev": {
+                "psr-4": {
+                    "Nowo\\RuntimeSettingContract\\Tests\\": "tests/"
+                }
+            },
+            "archive": {
+                "exclude": [
+                    "/demo",
+                    "/tests",
+                    "/.github",
+                    "/.cursor",
+                    "/.specify",
+                    "/specs"
+                ]
+            },
+            "scripts": {
+                "test": [
+                    "phpunit --colors=always"
+                ],
+                "test-unit": [
+                    "phpunit --testsuite=Unit --colors=always"
+                ],
+                "test-integration": [
+                    "phpunit --testsuite=Integration --colors=always"
+                ],
+                "test-coverage": [
+                    "phpunit --colors=always --coverage-clover coverage.xml --coverage-text"
+                ],
+                "cs-check": [
+                    "php-cs-fixer fix --dry-run --diff --config=.php-cs-fixer.dist.php"
+                ],
+                "cs-fix": [
+                    "php-cs-fixer fix --config=.php-cs-fixer.dist.php"
+                ],
+                "rector": [
+                    "rector process"
+                ],
+                "rector-dry": [
+                    "rector process --dry-run --no-progress-bar"
+                ],
+                "phpstan": [
+                    "phpstan analyse --memory-limit=512M --no-progress"
+                ],
+                "igor": [
+                    "igor-php --no-agent ."
+                ],
+                "qa": [
+                    "@cs-check",
+                    "@phpstan",
+                    "@test"
+                ]
+            },
             "license": [
                 "MIT"
             ],
@@ -1256,18 +1307,18 @@
                 "symfony"
             ],
             "support": {
-                "changelog": "https://github.com/nowo-tech/runtime-setting-contract/blob/main/docs/CHANGELOG.md",
-                "docs": "https://github.com/nowo-tech/runtime-setting-contract/tree/main/docs",
                 "issues": "https://github.com/nowo-tech/runtime-setting-contract/issues",
-                "source": "https://github.com/nowo-tech/runtime-setting-contract"
+                "source": "https://github.com/nowo-tech/runtime-setting-contract",
+                "docs": "https://github.com/nowo-tech/runtime-setting-contract/tree/main/docs",
+                "changelog": "https://github.com/nowo-tech/runtime-setting-contract/blob/main/docs/CHANGELOG.md"
             },
             "funding": [
                 {
-                    "url": "https://github.com/HecFranco",
-                    "type": "github"
+                    "type": "github",
+                    "url": "https://github.com/HecFranco"
                 }
             ],
-            "time": "2026-11-15T19:31:57+00:00"
+            "time": "2026-11-27T08:34:42+00:00"
         },
         {
             "name": "nowo-tech/transaction-contract",
@@ -10071,9 +10122,18 @@
             "time": "2026-10-05T23:14:19+00:00"
         }
     ],
-    "aliases": [],
+    "aliases": [
+        {
+            "package": "nowo-tech/runtime-setting-contract",
+            "version": "dev-feat/value-providers",
+            "alias": "1.1.0",
+            "alias_normalized": "1.1.0.0"
+        }
+    ],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "nowo-tech/runtime-setting-contract": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
@@ -10083,5 +10143,5 @@
     "platform-overrides": {
         "php": "8.2.0"
     },
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.11.0"
 }

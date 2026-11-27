@@ -35,7 +35,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **DBAL query providers** (`nowo_runtime_env.providers.<name>`, owner request 2026-11-27, spec
+  `specs/002-dbal-query-provider`): read-only runtime value providers for nowo-tech/runtime-setting-contract 1.1 that
+  run one parameterised `SELECT` on an explicit DBAL connection (`connection`, `sql`, `parameters`, `value_column`,
+  optional `previous_column` / `previous_expires_column` / `expires_timezone`, `max_length`, `cache_ttl`). The SQL is
+  validated when the container is built (`ReadOnlyQuery`: single SELECT, no `;` / comments / string literals / `?` /
+  `::` / `%`, no write, lock, sleep or file keyword, named parameters `:id` / `:namespace` / `:key` plus the
+  configured constants, all used) and is never read from the environment. At most one row; values bounded before
+  parsing; failures are `RuntimeSettingSourceFailure` without SQL, parameters, values or the driver exception. Services
+  `nowo_runtime_env.provider.<name>` tagged `nowo_runtime_setting.provider`; `DbalQueryProvidersPass` fails the build
+  when the connection is not declared.
+
 ### Changed
+
+- Requires nowo-tech/runtime-setting-contract ^1.1 (provider support).
+- `RuntimeEnvAdminSettings::create()` / `update()` refuse a setting read from a read-only provider with
+  `RuntimeSettingNotWritable` before anything is written (description included); `manages()` keeps routing those
+  settings to that refusal instead of the free-form path.
 
 - Rector (`make rector-dry` passes again): `RuntimeEnvSettingStore::utc()` (private) is a regular method. `rector.php` skips `EventSubscriberToAttributeRector` for `src/EventSubscriber/RuntimeEnvAccessSubscriber.php`: its public `getSubscribedEvents()` and `EventSubscriberInterface` stay. No behaviour change.
 - CI: new `release-gates` job runs the four release gates (`make rector-dry`, `validate-phpdoc`, `validate-translations`, `check-twig-extra`) in full mode, so a gate failure shows on the PR instead of at release time (CI only, no change to shipped code).

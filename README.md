@@ -37,6 +37,9 @@ This bundle is **FrankenPHP worker mode friendly**.
 - Configurable `table_prefix` (default `runtime_env` → table `runtime_env_variables`)
 - UiKit page contract (list / form scaffolds, one host theme for every Nowo bundle; no CDN, no inline JS)
 - 1.6 (opt-in): database backend of [nowo-tech/runtime-setting-contract](https://github.com/nowo-tech/runtime-setting-contract) — a bundle setting from `.env` can come from this table, change live (`nowo:runtime-setting:*` or the admin UI, same validator) and rotate without downtime; see [USAGE](docs/USAGE.md#runtime-settings-16)
+- 1.10: **DBAL query providers** — read-only runtime value providers (runtime-setting-contract 1.1) configured in YAML:
+  one parameterised `SELECT`, validated when the container is built, with a per-provider cache TTL; see
+  [USAGE](docs/USAGE.md#dbal-query-providers-110)
 
 ## Installation
 

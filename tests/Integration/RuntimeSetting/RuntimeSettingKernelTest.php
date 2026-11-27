@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nowo\RuntimeEnvBundle\Tests\Integration\RuntimeSetting;
 
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\SchemaTool;
 use Doctrine\Persistence\ManagerRegistry;
@@ -145,6 +146,56 @@ final class RuntimeSettingKernelTest extends TestCase
         self::assertSame($id, spl_object_id($worker->getContainer()), 'same container: no restart');
     }
 
+    public function testADbalQueryProviderServesAHostTableThroughTheSharedPool(): void
+    {
+        $this->providerFlow('sqlite:///' . $this->directory . '/db.sqlite');
+    }
+
+    /**
+     * 1.10: the DBAL query provider in a kept-alive kernel on MySQL, MariaDB and PostgreSQL.
+     */
+    #[Group('database')]
+    #[DataProvider('realDatabases')]
+    public function testTheProviderOnARealDatabase(?string $url): void
+    {
+        if ($url === null) {
+            self::markTestSkipped('Set RE_MYSQL_URL / RE_MARIADB_URL / RE_POSTGRES_URL to run against real servers.');
+        }
+
+        $this->providerFlow($url);
+    }
+
+    private function providerFlow(string $url): void
+    {
+        $worker = $this->kernel(true, $url);
+        /** @var MockClock $clock */
+        $clock      = $worker->getContainer()->get('nowo_runtime_setting.clock');
+        $connection = $this->service($worker, 'doctrine.dbal.default_connection');
+        self::assertInstanceOf(Connection::class, $connection);
+        $connection->executeStatement('DROP TABLE IF EXISTS host_tenant_setting');
+        $connection->executeStatement('CREATE TABLE host_tenant_setting (tenant VARCHAR(16) NOT NULL, name VARCHAR(128) NOT NULL, url VARCHAR(255) NULL, old_url VARCHAR(255) NULL, old_until VARCHAR(32) NULL)');
+        $connection->insert('host_tenant_setting', ['tenant' => 'acme', 'name' => 'TENANT_URL', 'url' => 'https://acme-1.example']);
+        $connection->insert('host_tenant_setting', ['tenant' => 'other', 'name' => 'TENANT_URL', 'url' => 'https://other.example']);
+
+        self::assertSame('https://acme-1.example', $this->request($worker, '/t/tenant'));
+
+        // A rotation at the provider: within the cache TTL the pool still serves the first value, to every worker.
+        $connection->update('host_tenant_setting', ['url' => 'https://acme-2.example', 'old_url' => 'https://acme-1.example', 'old_until' => '2026-11-16 13:00:00'], ['tenant' => 'acme']);
+        self::assertSame('https://acme-1.example', $this->request($worker, '/t/tenant'));
+        $other = $this->kernel(false, $url);
+        self::assertSame('https://acme-1.example', $this->request($other, '/t/tenant'), 'another worker reads the shared pool');
+
+        $clock->modify('+60 seconds');
+        self::assertSame('https://acme-2.example|https://acme-1.example', $this->request($worker, '/t/tenant'), 'next bucket: current and previous');
+
+        // Read-only: the updater and the command refuse it.
+        $tester = new CommandTester((new Application($other))->find('nowo:runtime-setting:set'));
+        self::assertSame(1, $tester->execute(['id' => 'TENANT_URL', 'value' => 'https://evil.example']));
+        self::assertStringContainsString('read-only provider', $tester->getDisplay());
+        self::assertSame(0, (int) $connection->fetchOne("SELECT COUNT(*) FROM runtime_env_variables WHERE name = 'TENANT_URL'"));
+        $connection->executeStatement('DROP TABLE host_tenant_setting');
+    }
+
     public function testTheBundleValidatorRefusesTheValueOnEveryWritePath(): void
     {
         $admin   = $this->kernel(true, 'sqlite:///' . $this->directory . '/db.sqlite');
@@ -182,9 +233,9 @@ final class RuntimeSettingKernelTest extends TestCase
         return $container->get($id);
     }
 
-    private function request(RuntimeSettingTestKernel $kernel): string
+    private function request(RuntimeSettingTestKernel $kernel, string $path = '/t/token'): string
     {
-        $request  = Request::create('/t/token');
+        $request  = Request::create($path);
         $response = $kernel->handle($request);
         $kernel->terminate($request, $response);
         self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());

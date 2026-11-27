@@ -6,6 +6,7 @@ namespace Nowo\RuntimeEnvBundle;
 
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\AfterCommitMiddlewarePass;
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\CsrfProtectionPass;
+use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\DbalQueryProvidersPass;
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\RuntimeEnvEntityManagerPass;
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\RuntimeSettingPortsPass;
 use Nowo\RuntimeEnvBundle\DependencyInjection\Compiler\TwigPathsPass;
@@ -36,6 +37,8 @@ final class NowoRuntimeEnvBundle extends Bundle
         $container->addCompilerPass(new RuntimeEnvEntityManagerPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, -10);
         // 1.6: runtime-setting-contract ports bound to the store only when nothing else is (before the contract's default).
         $container->addCompilerPass(new RuntimeSettingPortsPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, RuntimeSettingPortsPass::PRIORITY);
+        // 1.10: the DBAL query providers' connections exist.
+        $container->addCompilerPass(new DbalQueryProvidersPass());
     }
 
     public function getContainerExtension(): ?ExtensionInterface
